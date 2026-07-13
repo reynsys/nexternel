@@ -20,7 +20,7 @@ read_env() {
 MQTT_USERNAME=$(read_env MQTT_USERNAME)
 MQTT_PASSWORD=$(read_env MQTT_PASSWORD)
 MQTT_TOPIC_PREFIX=$(read_env MQTT_TOPIC_PREFIX)
-MQTT_TOPIC_PREFIX="${MQTT_TOPIC_PREFIX:-damnhome}"
+MQTT_TOPIC_PREFIX="${MQTT_TOPIC_PREFIX:-nexternel}"
 
 if [ -z "$MQTT_USERNAME" ] || [ -z "$MQTT_PASSWORD" ]; then
   echo "Error: MQTT_USERNAME and MQTT_PASSWORD must be set in .env"

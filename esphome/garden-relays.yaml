@@ -25,9 +25,9 @@ wifi:
 mqtt:
   broker: !secret mqtt_broker
   port: 1883
-  username: damnhome
+  username: nexternel
   password: !secret mqtt_password
-  topic_prefix: damnhome/garden-relays
+  topic_prefix: nexternel/garden-relays
   discovery: false
 
 # 4-relay boards are usually active-LOW: inverted: true + RESTORE_DEFAULT_OFF

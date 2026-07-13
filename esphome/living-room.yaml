@@ -29,9 +29,9 @@ captive_portal:
 mqtt:
   broker: YOUR_SERVER_IP
   port: 1883
-  username: damnhome
+  username: nexternel
   password: "YOUR_MQTT_PASSWORD"
-  topic_prefix: damnhome/living-room
+  topic_prefix: nexternel/living-room
   discovery: false
 
 sensor:

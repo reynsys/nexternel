@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: damnhome-postgres
+    container_name: nexternel-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,7 +21,7 @@ services:
 
   influxdb:
     image: influxdb:2.7-alpine
-    container_name: damnhome-influxdb
+    container_name: nexternel-influxdb
     restart: unless-stopped
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
@@ -44,7 +44,7 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
-    container_name: damnhome-mosquitto
+    container_name: nexternel-mosquitto
     restart: unless-stopped
     volumes:
       - ./mosquitto/config:/mosquitto/config:ro
@@ -56,7 +56,7 @@ services:
 
   nodered:
     image: nodered/node-red:3.1
-    container_name: damnhome-nodered
+    container_name: nexternel-nodered
     restart: unless-stopped
     environment:
       TZ: ${TZ}
@@ -74,7 +74,7 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-    container_name: damnhome-web
+    container_name: nexternel-web
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -109,7 +109,7 @@ services:
 
   esphome:
     image: ghcr.io/esphome/esphome
-    container_name: damnhome-esphome
+    container_name: nexternel-esphome
     restart: unless-stopped
     network_mode: host
     volumes:

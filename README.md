@@ -73,13 +73,6 @@ Most users develop on **Windows** and manage a **Linux server** on the network:
 
 You can use SSH/SFTP clients on macOS or Linux instead; the steps are the same.
 
-### Optional hardware
-
-- **ESP32** board, sensors (e.g. DHT11), relay module — needed only when you add physical devices
-- USB cable to flash ESP32 from your PC via [web.esphome.io](https://web.esphome.io/)
-
-You can bring up the full server stack and open the dashboard **before** any ESP32 is connected.
-
 ---
 
 ## Tools: PuTTY vs FileZilla
@@ -93,20 +86,6 @@ You can bring up the full server stack and open the dashboard **before** any ESP
 
 **PuTTY** = command line on the server.  
 **FileZilla** = drag-and-drop files between your PC and the server.
-
----
-
-## Secret files (create on the server — never commit to Git)
-
-GitHub ships **templates only**. Each install needs its own passwords and Wi‑Fi credentials. These files stay **on your server** and are listed in `.gitignore`:
-
-| File | When needed | Template / how to create | Contains |
-|------|-------------|---------------------------|----------|
-| **`.env`** | **Before Step 6** | Copy from `.env.example` | Passwords for PostgreSQL, InfluxDB, MQTT, dashboard login, `SERVER_IP` |
-| **`mosquitto/config/passwd`** | **Before Step 6** | Run `./scripts/generate-mqtt-passwd.sh` | MQTT login for Mosquitto (Step 5) |
-| **`esphome/secrets.yaml`** | **Only when you add ESP32** (Step 10) | Copy from `esphome/secrets.yaml.example` | Wi‑Fi and MQTT credentials for device firmware — not needed for the server stack alone |
-
-If you commit real `.env` or `secrets.yaml` to a public repo, anyone can see your passwords. Create them only on the server after upload.
 
 ---
 
@@ -210,9 +189,11 @@ Generate random strings on the server: `openssl rand -hex 16`
 
 Save in nano: `Ctrl+O`, Enter, `Ctrl+X`.
 
+This file stays on your server only — do not upload it to GitHub or commit it to Git.
+
 ### Step 5 — Create Mosquitto password file (PuTTY)
 
-The Mosquitto **container** starts in Step 6, but it needs a password file on disk first. This script reads `.env` and creates `mosquitto/config/passwd`:
+The Mosquitto container starts in Step 6, but it needs a password file on disk first. This script reads `.env` and creates `mosquitto/config/passwd`:
 
 ```bash
 cd ~/nexternel
@@ -237,13 +218,13 @@ docker compose ps
 You should see something like:
 
 ```
-NAME                  STATUS
-damnhome-postgres     Up (healthy)
-damnhome-influxdb     Up (healthy)
-damnhome-mosquitto    Up
-damnhome-nodered      Up
-damnhome-web          Up
-damnhome-esphome      Up
+NAME                    STATUS
+nexternel-postgres      Up (healthy)
+nexternel-influxdb      Up (healthy)
+nexternel-mosquitto     Up
+nexternel-nodered       Up
+nexternel-web           Up
+nexternel-esphome       Up
 ```
 
 If a service is missing or **Exited**, run `docker compose logs SERVICE_NAME` (e.g. `mosquitto`). Mosquitto usually fails if Step 5 was skipped.
@@ -268,7 +249,7 @@ You should see: `Admin user 'admin' created successfully.`
 
 2. Open `http://YOUR_SERVER_IP:1880` in your browser.
 3. Menu → **Import** → select `nodered/flows.json` from the project.
-4. Double-click any **MQTT** node → edit broker → set username/password from `.env` (default user `damnhome`).
+4. Double-click any **MQTT** node → edit broker → set username/password from `.env` (default user `nexternel`).
 5. Click **Deploy** (top right).
 
 Sensor data will flow into InfluxDB once ESP32 devices publish to MQTT.
