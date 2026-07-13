@@ -4,6 +4,8 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 
 **Author:** [Rey Osman](https://github.com/reynsys)
 
+> **Work in progress** — Nexternel is an active, ongoing project. I am continually improving it: new features, widgets, device types, dashboard customizations, and more. The stack is usable today, but expect regular updates as development continues.
+
 <p align="center">
   <a href="docs/images/dashboard-home.png"><img src="docs/images/dashboard-home.png" width="280" alt="Home dashboard" /></a>
   <a href="docs/images/edit-dashboard.png"><img src="docs/images/edit-dashboard.png" width="280" alt="Edit dashboard" /></a>
@@ -87,13 +89,26 @@ After installation, open `http://YOUR_SERVER_IP:3000` and log in. The web UI has
 - **Live data** — readings refresh automatically from MQTT; relay widgets toggle devices in real time
 - **Full-screen layout** — the grid fills the browser window (no page scroll on the main view)
 
+### How the dashboard grid works
+
+Think of the dashboard like a **spreadsheet**: it is divided into a grid of **cells** with **columns** and **rows**. You decide how big that grid is — for example 4 columns by 3 rows, or 6 by 4 — and every widget sits on that grid.
+
+- **One cell, one widget (or more)** — A small sensor card might take a single **1×1** cell. A larger gauge or a panel of four relays can **span several cells** (e.g. **2×2** or **3×1**), the same way you would merge cells in Excel to make more room.
+- **Resize any time** — In **Settings → Edit dashboard**, select a widget and change its width and height in **grid cells** (not pixels). Bigger widgets get more space; compact ones stay small.
+- **Move by clicking** — Select a widget, then click an empty cell where you want it. The editor shows column letters and row numbers so you can see where things land.
+- **Change the whole grid** — Set the number of columns and rows (up to 12 each), then **Apply grid size**. Add or remove space as your layout grows.
+- **Several dashboards** — Create extra tabs (e.g. “Kitchen”, “Garden”) — each tab has its **own** grid and widgets, so one screen does not have to show everything.
+- **What you edit is what you see** — The editor shows a live preview of each widget (scaled down) so the home screen matches your layout when you save.
+
+You do not need to line things up in code or CSS — place widgets where you want them, size them to fit, and the grid keeps everything neat on **Home**.
+
 ### Settings (sidebar menu)
 
 **Settings** is a submenu in the sidebar — not a single page. Each item opens its own admin screen:
 
 | Menu item | What it does |
 |-----------|----------------|
-| **Edit dashboard** | Drag-and-drop grid editor: add, move, and resize widgets; set columns/rows; create new dashboard tabs; customize tab name and icon; edit widget bindings and appearance; open **Gauge Studio** for gauge design |
+| **Edit dashboard** | Spreadsheet-style grid editor: set columns and rows, add widgets, resize them across multiple cells, move them by clicking empty cells, create dashboard tabs, customize appearance, open **Gauge Studio** |
 | **Widget library** | Reference catalogue of every widget type with live previews (switches, gauges, stat cards, charts, clock, weather, activity log, network status, speed test, etc.) |
 | **Devices** | Register ESP32 devices, import from ESPHome YAML, manage sensors and relays, sync from ESPHome, view MQTT topics and activity |
 | **Areas** | Group devices by location (rooms, garden, etc.) |
