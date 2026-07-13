@@ -35,6 +35,7 @@ Typical workflow: flash an ESP32 with ESPHome → it publishes to **MQTT** → t
 All server components are **free and open source**. You only need an Ubuntu machine (or similar) with Docker and, optionally, ESP32 boards for physical I/O.
 
 ---
+
 ## What you get
 
 | Component | Purpose |
@@ -63,6 +64,73 @@ ESP32 (ESPHome) ──MQTT──► Mosquitto ──► Node-RED ──► Influ
 | Node-RED | 1880 | `http://YOUR_SERVER_IP:1880` |
 | InfluxDB | 8086 | `http://YOUR_SERVER_IP:8086` |
 | MQTT (Mosquitto) | 1883 | ESP32 devices connect here |
+
+---
+
+## Using the dashboard
+
+After installation, open `http://YOUR_SERVER_IP:3000` and log in. The web UI has two main areas: **Home** (live view) and **Settings** (configuration). Use the **left sidebar** to switch between them.
+
+### Home
+
+**Home** (`/`) is your live smart-home dashboard:
+
+- **Widget grid** — sensors, relays, gauges, charts, clock, weather, system info, and more
+- **Multiple dashboards** — tabs in the top bar let you create separate layouts (e.g. “Ground floor”, “Garden”)
+- **Live data** — readings refresh automatically from MQTT; relay widgets toggle devices in real time
+- **Full-screen layout** — the grid fills the browser window (no page scroll on the main view)
+
+### Settings (sidebar menu)
+
+**Settings** is a submenu in the sidebar — not a single page. Each item opens its own admin screen:
+
+| Menu item | What it does |
+|-----------|----------------|
+| **Edit dashboard** | Drag-and-drop grid editor: add, move, and resize widgets; set columns/rows; create new dashboard tabs; customize tab name and icon; edit widget bindings and appearance; open **Gauge Studio** for gauge design |
+| **Widget library** | Reference catalogue of every widget type with live previews (switches, gauges, stat cards, charts, clock, weather, activity log, network status, speed test, etc.) |
+| **Devices** | Register ESP32 devices, import from ESPHome YAML, manage sensors and relays, sync from ESPHome, view MQTT topics and activity |
+| **Areas** | Group devices by location (rooms, garden, etc.) |
+| **Automations** | Rules: triggers (time, sensor threshold, device online/offline, area reading) → relay actions (on / off / toggle) |
+| **Themes** | Light or dark mode, animated particle backgrounds (snow, stars, bubbles, network), and Gaussian colour themes (blue, black, amethyst, emerald, bronze, gold) |
+
+**Sidebar footer:** your username and software version. **Log out** is in the user menu at the bottom.
+
+### Widget types (summary)
+
+When you **add a widget** in Edit dashboard, you can choose from:
+
+| Group | Examples |
+|-------|----------|
+| **Switches & relays** | Device relay panel (list, grid, round buttons), single-relay toggles, status cards |
+| **Gauges** | Semicircle needle, ring, solid arc — editable in **Gauge Studio** |
+| **Statistics cards** | Gaussian stat, progress bar, radial stat, icon colour |
+| **Charts** | 24-hour area chart, sparkline (from InfluxDB history) |
+| **Classic** | Single sensor, relay, all readings on one device, area summary, online status |
+| **Utility** | Clock, calendar, weather (Open-Meteo), system information (CPU, RAM, uptime), activity log, network status, internet speed test |
+
+Bindings connect each widget to a **sensor**, **relay**, **device**, or **history** source from your registered devices.
+
+### Screenshots
+
+Add PNG files to [`docs/images/`](docs/images/) — see [`docs/images/CAPTURE.md`](docs/images/CAPTURE.md) for filenames and capture steps on Windows.
+
+| Screen | File |
+|--------|------|
+| Live dashboard (Home) | `docs/images/dashboard-home.png` |
+| Settings sidebar expanded | `docs/images/sidebar-settings.png` |
+| Edit dashboard grid | `docs/images/edit-dashboard.png` |
+| Widget library | `docs/images/widget-library.png` |
+| Themes panel | `docs/images/themes.png` |
+
+Example (after you add `dashboard-home.png`):
+
+![Home dashboard](docs/images/dashboard-home.png)
+
+### Demo video
+
+> Record a short walkthrough from your install and add a YouTube link here, or upload `docs/images/demo.mp4` and link it. Steps: [`docs/images/CAPTURE.md`](docs/images/CAPTURE.md).
+
+**Demo video:** _Coming soon — [add your YouTube URL here after recording]_
 
 ---
 
