@@ -4,6 +4,19 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 
 **Author:** [Rey Osman](https://github.com/reynsys)
 
+<p align="center">
+  <a href="docs/images/dashboard-home.png"><img src="docs/images/dashboard-home.png" width="220" alt="Home dashboard" /></a>
+  <a href="docs/images/sidebar-settings.png"><img src="docs/images/sidebar-settings.png" width="220" alt="Settings menu" /></a>
+  <a href="docs/images/edit-dashboard.png"><img src="docs/images/edit-dashboard.png" width="220" alt="Edit dashboard" /></a>
+  <a href="docs/images/widget-library.png"><img src="docs/images/widget-library.png" width="220" alt="Widget library" /></a>
+</p>
+<p align="center">
+  <a href="docs/images/devices.png"><img src="docs/images/devices.png" width="220" alt="Devices" /></a>
+  <a href="docs/images/themes.png"><img src="docs/images/themes.png" width="220" alt="Themes" /></a>
+  <a href="docs/images/gauge-studio.png"><img src="docs/images/gauge-studio.png" width="220" alt="Gauge Studio" /></a>
+</p>
+<p align="center"><sub>Click any image for full size. Demo video coming soon.</sub></p>
+
 ---
 
 ## About this project
@@ -109,10 +122,6 @@ When you **add a widget** in Edit dashboard, you can choose from:
 | **Utility** | Clock, calendar, weather (Open-Meteo), system information (CPU, RAM, uptime), activity log, network status, internet speed test |
 
 Bindings connect each widget to a **sensor**, **relay**, **device**, or **history** source from your registered devices.
-
-### Screenshots and demo video
-
-Screenshots of the dashboard are in [`docs/images/`](docs/images/). A demo video will be available later.
 
 ---
 
