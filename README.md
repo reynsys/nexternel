@@ -6,6 +6,35 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 
 ---
 
+## About this project
+
+**Nexternel** is a complete home-automation stack you run on **your own hardware** (typically an Ubuntu server on your LAN). Nothing depends on a cloud account for core operation — sensor readings, relay control, dashboard layouts, and history stay on your network.
+
+The repo ships:
+
+- A **Docker Compose** file that installs and runs every server component in one step
+- A **Next.js dashboard** with a drag-and-drop widget grid, device admin, and charts
+- **Example ESP32 configurations** (see below) based on real setups — copy and adapt them for your wiring
+
+Typical workflow: flash an ESP32 with ESPHome → it publishes to **MQTT** → the dashboard shows live values → **Node-RED** writes history to **InfluxDB** for charts.
+
+---
+
+## Why these technologies
+
+| Technology | Role | Why we use it |
+|------------|------|----------------|
+| **[ESPHome](https://esphome.io/)** | Firmware for ESP32 boards | Open source, YAML-based, large library of sensors and relays, over-the-air updates, no custom C++ required. One config file per device. |
+| **[MQTT](https://mqtt.org/)** + **[Mosquitto](https://mosquitto.org/)** | Message bus between devices and server | Lightweight publish/subscribe protocol — ideal for many small devices sending occasional readings. Mosquitto is a proven open-source broker. |
+| **[Node-RED](https://nodered.org/)** | Automation and data pipeline | Visual flow editor; subscribes to MQTT and forwards readings to InfluxDB without writing backend code. Easy to extend later (alerts, schedules). |
+| **[InfluxDB](https://www.influxdata.com/)** | Time-series database | Built for sensor history — efficient storage and queries for charts (temperature over time, etc.). |
+| **[PostgreSQL](https://www.postgresql.org/)** | Relational database | Stores users, devices, rooms, and dashboard layouts — structured config that fits SQL. |
+| **[Next.js](https://nextjs.org/)** | Web dashboard and API | Modern React framework; single app for live UI, admin pages, and REST APIs. |
+| **[Docker](https://www.docker.com/)** | Packaging and deployment | One command installs Mosquitto, databases, Node-RED, ESPHome, and the web app — no separate `apt install` per service. |
+
+All server components are **free and open source**. You only need an Ubuntu machine (or similar) with Docker and, optionally, ESP32 boards for physical I/O.
+
+---
 ## What you get
 
 | Component | Purpose |
@@ -37,6 +66,25 @@ ESP32 (ESPHome) ──MQTT──► Mosquitto ──► Node-RED ──► Influ
 
 ---
 
+## Included ESP32 examples (`esphome/`)
+
+The repo includes **two ready-to-edit device configs** from real installations. They are starting points — change GPIO pins, names, and credentials to match your hardware.
+
+| File | Device | Hardware | What it does |
+|------|--------|----------|--------------|
+| **`living-room.yaml`** | Living Room ESP32 | **DHT11** on GPIO4 + **one relay** on GPIO26 | Publishes temperature and humidity every 30s; one switch (“Fan Relay”) for a fan or light. Wi‑Fi and MQTT are set directly in the YAML (`YOUR_WIFI_SSID`, `YOUR_SERVER_IP`, etc.). |
+| **`garden-relays.yaml`** | Garden Relays ESP32 | **4-relay module** on GPIO32, GPIO33, GPIO25, GPIO26 | Four independent switches (Relay 1–4) — no sensors. Uses `!secret` in `esphome/secrets.yaml` for Wi‑Fi and MQTT (create that file in Step 10a). Relays are configured **active-low** (`inverted: true`), typical for common relay boards. |
+
+**MQTT topic prefixes** (must match when you add the device in the dashboard):
+
+- `nexternel/living-room` — temperature, humidity, fan relay
+- `nexternel/garden-relays` — relay_1 … relay_4
+
+Edit YAML in the ESPHome web UI at `http://YOUR_SERVER_IP:6052`, compile, and flash via USB ([web.esphome.io](https://web.esphome.io/)) or over-the-air after the first flash. See **Step 10** in Installation.
+
+`esphome/secrets.yaml.example` is a template for Wi‑Fi and MQTT passwords — copy to `secrets.yaml` on your server only; it is not committed to Git.
+
+---
 ## Requirements
 
 ### Linux server
@@ -276,9 +324,9 @@ Set Wi‑Fi SSID/password, MQTT broker IP (`YOUR_SERVER_IP`), and the same `MQTT
 **10b — Configure and flash a device**
 
 1. Open `http://YOUR_SERVER_IP:6052` (ESPHome dashboard in the browser).
-2. Edit `living-room.yaml` (or add a device) — MQTT must match `.env`.
+2. Pick an example from **`esphome/`** (see [Included ESP32 examples](#included-esp32-examples-esphome)) — `living-room.yaml` (DHT11 + relay) or `garden-relays.yaml` (4 relays). Edit Wi‑Fi, MQTT, and GPIO pins for your wiring.
 3. Flash ESP32 via **INSTALL** in ESPHome or [web.esphome.io](https://web.esphome.io/).
-4. In the Nexternel dashboard: **Admin → Devices → Add device** — use the same MQTT topic prefix as in the YAML.
+4. In the Nexternel dashboard: **Admin → Devices → Add device** — use the same MQTT topic prefix as in the YAML (`nexternel/living-room` or `nexternel/garden-relays`).
 
 ---
 

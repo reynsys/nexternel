@@ -1,6 +1,6 @@
-# DAMN Home — Garden 4-relay ESP32
-# After editing: compile & OTA in ESPHome Builder (:6052)
-# MQTT password must match MQTT_PASSWORD in .env (see secrets.yaml)
+# Nexternel — Garden 4-relay ESP32 (no sensors)
+# Example: four relays on a relay module. Uses esphome/secrets.yaml for Wi-Fi and MQTT.
+# After editing: compile & OTA in ESPHome (:6052). MQTT password must match .env
 
 esphome:
   name: garden-relays
@@ -31,7 +31,7 @@ mqtt:
   discovery: false
 
 # 4-relay boards are usually active-LOW: inverted: true + RESTORE_DEFAULT_OFF
-# id: must match DAMN Home entity IDs (relay_1 … relay_4)
+# id: must match dashboard entity IDs (relay_1 … relay_4)
 switch:
   - platform: gpio
     pin: GPIO32

@@ -1,5 +1,5 @@
-# DAMN Home — Living Room ESP32 (edit in ESPHome dashboard at :6052)
-# MQTT password must match MQTT_PASSWORD in .env
+# Nexternel — Living Room ESP32 (edit in ESPHome dashboard at :6052)
+# Example: DHT11 temperature/humidity + one relay. MQTT password must match MQTT_PASSWORD in .env
 
 esphome:
   name: living-room
