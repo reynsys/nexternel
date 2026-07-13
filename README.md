@@ -85,7 +85,26 @@ Edit YAML in the ESPHome web UI at `http://YOUR_SERVER_IP:6052`, compile, and fl
 `esphome/secrets.yaml.example` is a template for Wi‑Fi and MQTT passwords — copy to `secrets.yaml` on your server only; it is not committed to Git.
 
 ---
-## Requirements
+
+## Helper scripts (`scripts/`)
+
+The **`scripts/`** folder at the project root contains **shell scripts you run on the Ubuntu server in PuTTY** during setup and maintenance. **Yes, this folder should stay in the repo** — the installation steps call these scripts directly.
+
+| Script | Required? | What it does |
+|--------|-----------|--------------|
+| **`generate-mqtt-passwd.sh`** | **Yes** (Step 5) | Reads `.env` and creates `mosquitto/config/passwd` so the MQTT broker can start |
+| **`configure-nodered-token.sh`** | **Yes** (Step 8) | Writes your InfluxDB token from `.env` into `nodered/flows.json` |
+| **`setup-server.sh`** | Optional | Runs several setup steps in one go (Docker check, `.env`, MQTT passwd, `docker compose up`, seed admin) — alternative to Steps 4–7 if you prefer a single script |
+| **`rebuild-web.sh`** | Optional | Rebuilds only the dashboard container after you upload `apps/web/` changes |
+| **`mqtt-subscribe.sh`** | Optional | Debugging — listen to MQTT messages on the server to verify ESP32 traffic |
+| **`setup-vsftpd.sh`** | Optional | Installs FTP on Ubuntu if you use FileZilla over FTP (port 21) instead of SFTP |
+| **`load-env.sh`** | Internal | Loaded by other scripts to read `.env`; you rarely run this yourself |
+
+All `*.sh` files are run from the project folder on the server, e.g. `./scripts/generate-mqtt-passwd.sh`. After uploading from Windows, run Step 3 (`chmod +x scripts/*.sh`) so they are executable.
+
+**Not the same as `apps/web/scripts/`** — that subfolder holds Node.js files used **inside** the web Docker container (e.g. `seed-admin.js` in Step 7). You do not run those directly on the host.
+
+---
 
 ### Linux server
 

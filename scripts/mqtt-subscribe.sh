@@ -1,5 +1,5 @@
 #!/bin/bash
-# Subscribe to DAMN Home MQTT topics (reads credentials from .env).
+# Subscribe to Nexternel MQTT topics (reads credentials from .env).
 # Usage: ./scripts/mqtt-subscribe.sh
 #
 # Fix CRLF after FTP upload:
