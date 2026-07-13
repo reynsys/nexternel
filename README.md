@@ -17,7 +17,7 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 | **Node-RED** | Subscribes to MQTT, writes readings to InfluxDB |
 | **ESPHome** | Edit device YAML, compile and flash ESP32 firmware |
 
-You do **not** install each of these with `apt` on Ubuntu. **Docker Compose** downloads and runs them as containers from `docker-compose.yml`.
+You do **not** install Mosquitto, InfluxDB, Node-RED, PostgreSQL, or ESPHome with `apt` on Ubuntu. The repo contains a **`docker-compose.yml`** recipe. When you run **`docker compose up`** (Step 6), Docker **downloads** the official images and **starts** every service as a container. Cloning or uploading the repo alone does **not** start anything — you need Docker plus that one command.
 
 ```
 ESP32 (ESPHome) ──MQTT──► Mosquitto ──► Node-RED ──► InfluxDB
@@ -47,16 +47,20 @@ ESP32 (ESPHome) ──MQTT──► Mosquitto ──► Node-RED ──► Influ
 - Server on your LAN with a fixed or stable IP (`YOUR_SERVER_IP`)
 - **SSH** enabled (default on Ubuntu Server)
 
-### Software stack (via Docker — included in this repo)
+### Software stack (installed by Docker in Step 6 — not by `apt`)
 
-These are defined in `docker-compose.yml` and start together; you do not install them separately:
+The repo includes `docker-compose.yml`. You do **not** run `apt install mosquitto` (or similar) for these. **Step 6** (`docker compose up -d --build`) pulls images from the internet and starts:
 
-- **Mosquitto** — MQTT broker
-- **InfluxDB 2.x** — sensor history
-- **PostgreSQL 16** — configuration database
-- **Node-RED** — MQTT → InfluxDB pipeline
-- **Next.js web app** — dashboard and API
-- **ESPHome** — device configuration and firmware builds
+| Service | Docker image (automatic) | What it does |
+|---------|--------------------------|--------------|
+| **Mosquitto** | `eclipse-mosquitto` | MQTT broker for ESP32 and the server |
+| **InfluxDB** | `influxdb` | Stores sensor history for charts |
+| **PostgreSQL** | `postgres` | Users, devices, rooms, dashboard layouts |
+| **Node-RED** | `nodered/node-red` | MQTT → InfluxDB automation |
+| **Next.js** (`web`) | Built from `apps/web/Dockerfile` | Dashboard and admin UI |
+| **ESPHome** | `ghcr.io/esphome/esphome` | Web UI to edit device YAML and build firmware |
+
+After Step 6, verify with `docker compose ps` — you should see all containers **Up**. Only **Docker** itself is installed manually (Step 1).
 
 ### Windows PC (typical workflow)
 
@@ -96,11 +100,11 @@ You can bring up the full server stack and open the dashboard **before** any ESP
 
 GitHub ships **templates only**. Each install needs its own passwords and Wi‑Fi credentials. These files stay **on your server** and are listed in `.gitignore`:
 
-| File | Template / how to create | Contains |
-|------|---------------------------|----------|
-| **`.env`** | Copy from `.env.example` | Database passwords, MQTT password, admin login, `SERVER_IP`, InfluxDB token |
-| **`esphome/secrets.yaml`** | Copy from `esphome/secrets.yaml.example` | Wi‑Fi SSID/password, MQTT broker IP and password |
-| **`mosquitto/config/passwd`** | Run `./scripts/generate-mqtt-passwd.sh` | MQTT username/password hash for the broker |
+| File | When needed | Template / how to create | Contains |
+|------|-------------|---------------------------|----------|
+| **`.env`** | **Before Step 6** | Copy from `.env.example` | Passwords for PostgreSQL, InfluxDB, MQTT, dashboard login, `SERVER_IP` |
+| **`mosquitto/config/passwd`** | **Before Step 6** | Run `./scripts/generate-mqtt-passwd.sh` | MQTT login for Mosquitto (Step 5) |
+| **`esphome/secrets.yaml`** | **Only when you add ESP32** (Step 10) | Copy from `esphome/secrets.yaml.example` | Wi‑Fi and MQTT credentials for device firmware — not needed for the server stack alone |
 
 If you commit real `.env` or `secrets.yaml` to a public repo, anyone can see your passwords. Create them only on the server after upload.
 
@@ -110,6 +114,19 @@ If you commit real `.env` or `secrets.yaml` to a public repo, anyone can see you
 
 Replace `YOUR_SERVER_IP` with your server’s LAN address (e.g. `192.168.1.100`).  
 Replace `~/nexternel` with wherever you put the project on the server.
+
+### Overview
+
+| Step | What happens |
+|------|----------------|
+| 1 | Install **Docker** on Ubuntu (the only manual package install) |
+| 2 | Copy project files to the server (FileZilla or `git clone`) |
+| 3 | Fix Windows line endings (after FileZilla upload) |
+| 4 | Create **`.env`** (passwords for all containers) |
+| 5 | Create **Mosquitto password file** (required before broker starts) |
+| 6 | **`docker compose up`** — downloads images and starts Mosquitto, InfluxDB, PostgreSQL, Node-RED, dashboard, ESPHome |
+| 7–9 | Admin user, Node-RED flow, open dashboard |
+| 10 | ESP32 + `secrets.yaml` (optional — skip if you have no devices yet) |
 
 ### Step 1 — Install Docker on Ubuntu (PuTTY)
 
@@ -193,37 +210,47 @@ Generate random strings on the server: `openssl rand -hex 16`
 
 Save in nano: `Ctrl+O`, Enter, `Ctrl+X`.
 
-### Step 5 — Create ESPHome secrets (Wi‑Fi and MQTT)
+### Step 5 — Create Mosquitto password file (PuTTY)
 
-```bash
-cp esphome/secrets.yaml.example esphome/secrets.yaml
-nano esphome/secrets.yaml
-```
-
-Set your Wi‑Fi SSID/password and MQTT broker IP (`YOUR_SERVER_IP`) and the same `MQTT_PASSWORD` as in `.env`.
-
-### Step 6 — Create Mosquitto password file
-
-Mosquitto will not start until this file exists:
+The Mosquitto **container** starts in Step 6, but it needs a password file on disk first. This script reads `.env` and creates `mosquitto/config/passwd`:
 
 ```bash
 cd ~/nexternel
 ./scripts/generate-mqtt-passwd.sh
 ```
 
-### Step 7 — Start all containers
+### Step 6 — Install and start the full stack (PuTTY)
 
-First run downloads images and builds the dashboard (5–20 minutes):
+This is the step that **installs and runs** Mosquitto, InfluxDB, PostgreSQL, Node-RED, the Next.js dashboard, and ESPHome. Docker downloads images (first time only) and builds the web app. Expect **5–20 minutes** on first run:
 
 ```bash
 cd ~/nexternel
 docker compose up -d --build
+```
+
+Watch progress:
+
+```bash
 docker compose ps
 ```
 
-Wait until services show **Up** (postgres and influxdb may show **healthy**).
+You should see something like:
 
-### Step 8 — Create dashboard admin user
+```
+NAME                  STATUS
+damnhome-postgres     Up (healthy)
+damnhome-influxdb     Up (healthy)
+damnhome-mosquitto    Up
+damnhome-nodered      Up
+damnhome-web          Up
+damnhome-esphome      Up
+```
+
+If a service is missing or **Exited**, run `docker compose logs SERVICE_NAME` (e.g. `mosquitto`). Mosquitto usually fails if Step 5 was skipped.
+
+**You do not need to install ESPHome, Node-RED, or Mosquitto separately** — they are running inside Docker after this step. Open `http://YOUR_SERVER_IP:6052` to confirm ESPHome; `http://YOUR_SERVER_IP:1880` for Node-RED.
+
+### Step 7 — Create dashboard admin user (PuTTY)
 
 ```bash
 docker compose exec web node scripts/seed-admin.js
@@ -231,7 +258,7 @@ docker compose exec web node scripts/seed-admin.js
 
 You should see: `Admin user 'admin' created successfully.`
 
-### Step 9 — Configure Node-RED (MQTT → InfluxDB)
+### Step 8 — Configure Node-RED (MQTT → InfluxDB)
 
 1. On the server:
 
@@ -246,17 +273,31 @@ You should see: `Admin user 'admin' created successfully.`
 
 Sensor data will flow into InfluxDB once ESP32 devices publish to MQTT.
 
-### Step 10 — Open the dashboard
+### Step 9 — Open the dashboard
 
 1. Go to `http://YOUR_SERVER_IP:3000`
 2. Log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env` (default user: `admin`).
 
-### Step 11 — ESP32 devices (optional)
+### Step 10 — ESP32 devices (optional — skip if you have no hardware)
 
-1. Open `http://YOUR_SERVER_IP:6052` (ESPHome).
-2. Edit `living-room.yaml` (or add devices) — Wi‑Fi and MQTT must match `.env` / `secrets.yaml`.
+ESPHome is **already running** in Docker after Step 6 (`http://YOUR_SERVER_IP:6052`). You only need the steps below when you connect a physical ESP32.
+
+**10a — Create ESPHome secrets** (Wi‑Fi and MQTT for device firmware — not required for the server alone):
+
+```bash
+cd ~/nexternel
+cp esphome/secrets.yaml.example esphome/secrets.yaml
+nano esphome/secrets.yaml
+```
+
+Set Wi‑Fi SSID/password, MQTT broker IP (`YOUR_SERVER_IP`), and the same `MQTT_PASSWORD` as in `.env`. Some device YAML files reference `!secret` values in this file; without it, compiling firmware for those devices will fail.
+
+**10b — Configure and flash a device**
+
+1. Open `http://YOUR_SERVER_IP:6052` (ESPHome dashboard in the browser).
+2. Edit `living-room.yaml` (or add a device) — MQTT must match `.env`.
 3. Flash ESP32 via **INSTALL** in ESPHome or [web.esphome.io](https://web.esphome.io/).
-4. In the dashboard: **Admin → Devices → Add device** — use the same MQTT topic prefix as in the YAML.
+4. In the Nexternel dashboard: **Admin → Devices → Add device** — use the same MQTT topic prefix as in the YAML.
 
 ---
 
