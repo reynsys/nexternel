@@ -110,27 +110,9 @@ When you **add a widget** in Edit dashboard, you can choose from:
 
 Bindings connect each widget to a **sensor**, **relay**, **device**, or **history** source from your registered devices.
 
-### Screenshots
+### Screenshots and demo video
 
-Add PNG files to [`docs/images/`](docs/images/) — see [`docs/images/CAPTURE.md`](docs/images/CAPTURE.md) for filenames and capture steps on Windows.
-
-| Screen | File |
-|--------|------|
-| Live dashboard (Home) | `docs/images/dashboard-home.png` |
-| Settings sidebar expanded | `docs/images/sidebar-settings.png` |
-| Edit dashboard grid | `docs/images/edit-dashboard.png` |
-| Widget library | `docs/images/widget-library.png` |
-| Themes panel | `docs/images/themes.png` |
-
-Example (after you add `dashboard-home.png`):
-
-![Home dashboard](docs/images/dashboard-home.png)
-
-### Demo video
-
-> Record a short walkthrough from your install and add a YouTube link here, or upload `docs/images/demo.mp4` and link it. Steps: [`docs/images/CAPTURE.md`](docs/images/CAPTURE.md).
-
-**Demo video:** _Coming soon — [add your YouTube URL here after recording]_
+Screenshots of the dashboard are in [`docs/images/`](docs/images/). A demo video will be available later.
 
 ---
 
