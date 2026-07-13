@@ -1,0 +1,59 @@
+# DAMN Home — Garden 4-relay ESP32
+# After editing: compile & OTA in ESPHome Builder (:6052)
+# MQTT password must match MQTT_PASSWORD in .env (see secrets.yaml)
+
+esphome:
+  name: garden-relays
+  friendly_name: Garden Relays
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+mqtt:
+  broker: !secret mqtt_broker
+  port: 1883
+  username: damnhome
+  password: !secret mqtt_password
+  topic_prefix: damnhome/garden-relays
+  discovery: false
+
+# 4-relay boards are usually active-LOW: inverted: true + RESTORE_DEFAULT_OFF
+# id: must match DAMN Home entity IDs (relay_1 … relay_4)
+switch:
+  - platform: gpio
+    pin: GPIO32
+    name: "Relay 1"
+    id: relay_1
+    inverted: true
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: gpio
+    pin: GPIO33
+    name: "Relay 2"
+    id: relay_2
+    inverted: true
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: gpio
+    pin: GPIO25
+    name: "Relay 3"
+    id: relay_3
+    inverted: true
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: gpio
+    pin: GPIO26
+    name: "Relay 4"
+    id: relay_4
+    inverted: true
+    restore_mode: RESTORE_DEFAULT_OFF

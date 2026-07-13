@@ -1,0 +1,58 @@
+# DAMN Home — Living Room ESP32 (edit in ESPHome dashboard at :6052)
+# MQTT password must match MQTT_PASSWORD in .env
+
+esphome:
+  name: living-room
+  friendly_name: Living Room ESP32
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+  ap:
+    ssid: "Living-Room-Fallback"
+    password: "fallback123"
+
+captive_portal:
+
+mqtt:
+  broker: YOUR_SERVER_IP
+  port: 1883
+  username: damnhome
+  password: "YOUR_MQTT_PASSWORD"
+  topic_prefix: damnhome/living-room
+  discovery: false
+
+sensor:
+  - platform: dht
+    pin: GPIO4
+    model: DHT11
+    temperature:
+      name: "Living Room Temperature"
+      id: living_room_temperature
+      unit_of_measurement: "°C"
+      accuracy_decimals: 1
+    humidity:
+      name: "Living Room Humidity"
+      id: living_room_humidity
+      unit_of_measurement: "%"
+      accuracy_decimals: 0
+    update_interval: 30s
+
+switch:
+  - platform: gpio
+    pin: GPIO26
+    name: "Fan Relay"
+    id: fan_relay
+    restore_mode: RESTORE_DEFAULT_OFF

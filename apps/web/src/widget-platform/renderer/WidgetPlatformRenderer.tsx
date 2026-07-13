@@ -1,0 +1,48 @@
+"use client";
+
+import type { WidgetPlatformInstance } from "@/widget-platform/types";
+import { isGaugePlatformInstance } from "@/widget-platform/types";
+import { GaugeDefinitionView } from "@/widget-platform/renderer/GaugeDefinitionView";
+
+interface SensorMeta {
+  id: string;
+  name: string;
+  unit: string | null;
+  sensorType: string;
+  deviceName: string;
+  roomName: string | null;
+}
+
+export function WidgetPlatformRenderer({
+  instance,
+  title,
+  sensors,
+  editPreview = false,
+  showHeader = true,
+  previewValue = null,
+  className,
+}: {
+  instance: WidgetPlatformInstance;
+  title?: string | null;
+  sensors: SensorMeta[];
+  editPreview?: boolean;
+  showHeader?: boolean;
+  previewValue?: number | null;
+  className?: string;
+}) {
+  if (isGaugePlatformInstance(instance)) {
+    return (
+      <GaugeDefinitionView
+        instance={instance}
+        title={title}
+        sensors={sensors}
+        editPreview={editPreview}
+        showHeader={showHeader}
+        previewValue={previewValue}
+        className={className}
+      />
+    );
+  }
+
+  return <p className="text-sm text-muted-foreground">Unknown widget definition</p>;
+}

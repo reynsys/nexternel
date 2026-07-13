@@ -1,0 +1,131 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: damnhome-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: damnhome-influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+      TZ: ${TZ}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: damnhome-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+
+  nodered:
+    image: nodered/node-red:3.1
+    container_name: damnhome-nodered
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - nodered_data:/data
+    ports:
+      - "1880:1880"
+    depends_on:
+      mosquitto:
+        condition: service_started
+      influxdb:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: damnhome-web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      INFLUXDB_URL: ${INFLUXDB_URL}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      MQTT_BROKER: ${MQTT_BROKER}
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      TZ: ${TZ}
+      SERVER_IP: ${SERVER_IP}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      # Host CPU thermal zones for System Information widget (read-only)
+      - /sys/class/thermal:/sys/class/thermal:ro
+      # ESPHome YAML for import suggestions on Devices page
+      - ./esphome:/esphome:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  esphome:
+    image: ghcr.io/esphome/esphome
+    container_name: damnhome-esphome
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./esphome:/config
+    environment:
+      TZ: ${TZ}
+      # Use ping instead of mDNS for online/offline (mDNS often fails in Docker)
+      ESPHOME_DASHBOARD_USE_PING: "true"
+    # Optional: plug ESP32 into the Ubuntu server USB and uncomment for direct flash:
+    # privileged: true
+    # devices:
+    #   - /dev/ttyUSB0:/dev/ttyUSB0
+
+volumes:
+  postgres_data:
+  influxdb_data:
+  mosquitto_data:
+  mosquitto_log:
+  nodered_data:

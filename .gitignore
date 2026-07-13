@@ -1,0 +1,18 @@
+# Nexternel — GitHub publish copy (generated; do not edit here)
+node_modules/
+.next/
+out/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+esphome/secrets.yaml
+esphome/.esphome/
+mosquitto/config/passwd
+*.code-workspace
+*.log
+data/
+apps/web/prisma/*.db
+.DS_Store
+Thumbs.db
