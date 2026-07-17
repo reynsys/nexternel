@@ -4,6 +4,8 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 
 **Author:** [Rey Osman](https://github.com/reynsys)
 
+**Current version:** see the sidebar footer in the running app, and **[CHANGELOG.md](CHANGELOG.md)** (newest release first).
+
 > **Work in progress** — Nexternel is an active, ongoing project. I am continually improving it: new features, widgets, device types, dashboard customizations, and more. The stack is usable today, but expect regular updates as development continues.
 
 <p align="center">
@@ -131,6 +133,8 @@ When you **add a widget** in Edit dashboard, you can choose from:
 | **Utility** | Clock, calendar, weather (Open-Meteo), system information (CPU, RAM, uptime), activity log, network status, internet speed test |
 
 Bindings connect each widget to a **sensor**, **relay**, **device**, or **history** source from your registered devices.
+
+**Full catalogue:** [docs/DASHBOARD-WIDGETS.md](docs/DASHBOARD-WIDGETS.md) — temperature, humidity, CO₂, switches, calendar, clock, internet speed, and more.
 
 ---
 
