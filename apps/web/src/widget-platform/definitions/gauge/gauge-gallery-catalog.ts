@@ -516,7 +516,7 @@ export const DASHBOARD_SPEED_PRESET: GaugeGalleryPresetMeta = {
     },
     pointer: { type: "arrow", elastic: false, animationDuration: 400 },
     labels: {
-      valueLabel: { fontSize: "1.25rem", offsetY: -12 },
+      valueLabel: { fontSize: "clamp(0.8rem, 7cqmin, 1.35rem)" },
       tickLabels: { type: "outer", tickValues: [0, 100, 200, 300, 400, 500] },
     },
   },

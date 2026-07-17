@@ -2,16 +2,11 @@
 
 import dynamic from "next/dynamic";
 import type { GaugeComponentProps } from "react-gauge-component";
-import type { GaugeTypeId } from "@/widget-platform/types";
 import {
-  GAUGE_ASPECT_FRAME_CLASS,
-  GAUGE_ASPECT_SLOT_CLASS,
   GAUGE_DIAL_HOST_CLASS,
   GAUGE_DIAL_WRAP_CLASS,
   GAUGE_STUDIO_DIAL_HOST_CLASS,
-  gaugeAspectRatio,
 } from "@/widget-platform/gauge-cell-layout";
-import { useGaugeAspectFit } from "@/hooks/use-gauge-aspect-fit";
 import { cn } from "@/lib/utils";
 
 const GaugeComponent = dynamic(() => import("react-gauge-component"), { ssr: false });
@@ -23,8 +18,12 @@ type GaugeCallbacks = {
 
 export type GaugePrimitiveLayoutMode = "cell" | "studio";
 
-/** Dashboard grid cells — aspect frame + ResizeObserver fit. */
-function GaugeCellAspectHost({
+/**
+ * Dashboard cells — fill the dial region in normal (wide) cells.
+ * A stage wrapper lets CSS center a natural semicircle only when the dial
+ * region is tall (e.g. browser F11), without shrinking normal-mode dials.
+ */
+function GaugeCellFillHost({
   props,
   className,
   onValueChange,
@@ -42,37 +41,22 @@ function GaugeCellAspectHost({
       } as GaugeComponentProps)
     : props;
 
-  const gaugeType = (merged.type ?? "semicircle") as GaugeTypeId;
-  const aspectRatio = gaugeAspectRatio(gaugeType);
-  const { containerRef, frame } = useGaugeAspectFit(aspectRatio);
-
   return (
     <div
-      ref={containerRef}
       className={cn(
         GAUGE_DIAL_WRAP_CLASS,
         GAUGE_DIAL_HOST_CLASS,
-        GAUGE_ASPECT_SLOT_CLASS,
         "min-h-0 w-full flex-1",
         className
       )}
     >
-      {frame.width > 0 && frame.height > 0 ? (
-        <div
-          className={GAUGE_ASPECT_FRAME_CLASS}
-          style={{ width: frame.width, height: frame.height }}
-        >
-          <GaugeComponent {...merged} />
-        </div>
-      ) : null}
+      <div className="gauge-dial-stage">
+        <GaugeComponent {...merged} />
+      </div>
     </div>
   );
 }
 
-/**
- * Gauge Studio Live Preview — matches react-gauge-component SandboxEditor:
- * GaugeComponent fills the preview box (no aspect frame); library handles layout.
- */
 function GaugeStudioSandboxHost({
   props,
   className,
@@ -119,7 +103,6 @@ export function GaugePrimitive({
   props: GaugeComponentProps;
   className?: string;
   layoutMode?: GaugePrimitiveLayoutMode;
-  /** Full remount on type/preset change (SandboxEditor uses key on GaugeComponent). */
   studioRemountKey?: string;
 } & GaugeCallbacks) {
   if (layoutMode === "studio") {
@@ -135,7 +118,7 @@ export function GaugePrimitive({
   }
 
   return (
-    <GaugeCellAspectHost
+    <GaugeCellFillHost
       props={props}
       className={className}
       onValueChange={onValueChange}

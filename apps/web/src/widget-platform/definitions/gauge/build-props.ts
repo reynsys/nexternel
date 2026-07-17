@@ -5,6 +5,7 @@ import { getGaugePreset } from "./presets";
 import {
   type GaugeLayoutContext,
   resolveGaugeMargins,
+  resolveValueLabelOffsetY,
   shouldHideGaugeValueLabel,
 } from "@/widget-platform/gauge-cell-layout";
 import { sanitizeArcForRange } from "./gauge-arc-sanitize";
@@ -146,7 +147,7 @@ export function buildGaugeComponentProps(
         matchColorWithArc: design.labels?.valueLabel?.matchColorWithArc,
         animateValue: design.labels?.valueLabel?.animateValue,
         offsetX: design.labels?.valueLabel?.offsetX,
-        offsetY: design.labels?.valueLabel?.offsetY,
+        offsetY: resolveValueLabelOffsetY(design, gaugeType),
         style: valueLabelStyle,
       });
 

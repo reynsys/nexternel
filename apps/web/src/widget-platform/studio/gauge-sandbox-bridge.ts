@@ -1,4 +1,9 @@
-import type { GaugeDesignConfig, GaugePlatformInstance, GaugeTypeId } from "@/widget-platform/types";
+import type {
+  GaugeDesignConfig,
+  GaugeMarginInPercent,
+  GaugePlatformInstance,
+  GaugeTypeId,
+} from "@/widget-platform/types";
 import { mergeGaugeDesign } from "@/widget-platform/definitions/gauge/build-props";
 import {
   sanitizeArcForRange,
@@ -14,7 +19,7 @@ export type GaugeSandboxConfig = {
   maxValue: number;
   startAngle?: number;
   endAngle?: number;
-  marginInPercent?: number;
+  marginInPercent?: GaugeMarginInPercent;
   arc?: GaugeDesignConfig["arc"];
   pointer?: GaugeDesignConfig["pointer"];
   pointers?: NonNullable<GaugeDesignConfig["pointers"]>;

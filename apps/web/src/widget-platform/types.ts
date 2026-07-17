@@ -21,13 +21,17 @@ export type SerializableSubArc = {
   showTick?: boolean;
 };
 
+export type GaugeMarginInPercent =
+  | number
+  | { top: number; bottom: number; left: number; right: number };
+
 export type GaugeDesignConfig = {
   gaugeType?: GaugeTypeId;
   minValue?: number;
   maxValue?: number;
   startAngle?: number;
   endAngle?: number;
-  marginInPercent?: number;
+  marginInPercent?: GaugeMarginInPercent;
   arc?: {
     width?: number;
     padding?: number;

@@ -12,7 +12,17 @@ const gaugeDesignSchema = z
     maxValue: z.number().optional(),
     startAngle: z.number().optional(),
     endAngle: z.number().optional(),
-    marginInPercent: z.number().min(0).max(0.5).optional(),
+    marginInPercent: z
+      .union([
+        z.number().min(0).max(0.5),
+        z.object({
+          top: z.number().min(0).max(0.5),
+          bottom: z.number().min(0).max(0.5),
+          left: z.number().min(0).max(0.5),
+          right: z.number().min(0).max(0.5),
+        }),
+      ])
+      .optional(),
     arc: z
       .object({
         width: z.number().min(0.05).max(0.95).optional(),

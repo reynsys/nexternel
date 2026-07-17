@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { WidgetAppearanceConfig } from "@/types/dashboard";
 import type { GaugePlatformInstance } from "@/widget-platform/types";
 import { sensorIdFromBinding } from "@/widget-platform/types";
 import { buildGaugeComponentProps } from "@/widget-platform/definitions/gauge/build-props";
@@ -8,8 +9,8 @@ import { GaugePrimitive } from "@/widget-platform/renderer/GaugePrimitive";
 import { gaugeRangeForSensor } from "@/library/widgets/gauges/gauge-utils";
 import { liveStatusText, type LiveReading } from "@/lib/library-bindings";
 import { iconForSensorType } from "@/lib/library-icons";
-import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 import { WIDGET_FIT_GAUGE } from "@/lib/dashboard-grid";
+import { getWidgetShellClasses } from "@/lib/widget-appearance";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -26,6 +27,7 @@ export function GaugeDefinitionView({
   instance,
   title,
   sensors,
+  appearance,
   editPreview = false,
   showHeader = true,
   className,
@@ -34,6 +36,7 @@ export function GaugeDefinitionView({
   instance: GaugePlatformInstance;
   title?: string | null;
   sensors: SensorMeta[];
+  appearance?: WidgetAppearanceConfig;
   editPreview?: boolean;
   showHeader?: boolean;
   className?: string;
@@ -85,30 +88,44 @@ export function GaugeDefinitionView({
     value = (range.min + range.max) / 2;
   }
 
+  // Value stays in the dial SVG (fill dial host — same path as Studio).
   const gaugeProps = buildGaugeComponentProps(instance, value, unit);
 
   return (
-    <div className={cn(WIDGET_FIT_GAUGE, "h-full min-h-0", className)}>
+    <div
+      className={cn(
+        getWidgetShellClasses(appearance, editPreview),
+        !appearance?.padding && "p-1.5",
+        "flex h-full min-h-0 w-full flex-col gap-0.5",
+        className
+      )}
+    >
       {showHeader ? (
-        <div className="flex shrink-0 items-start justify-between gap-2 px-0.5 pt-0.5">
-          <div className="min-w-0">
-            <WidgetTitleBar title={displayTitle} className="px-0" titleClassName="text-xs font-semibold" />
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+            <span className="truncate text-xs font-semibold leading-none text-foreground">
+              {displayTitle}
+            </span>
             {subtitle ? (
-              <p className="truncate text-[10px] text-muted-foreground">{subtitle}</p>
+              <span className="truncate text-[10px] leading-none text-muted-foreground">
+                {subtitle}
+              </span>
             ) : null}
           </div>
           {Icon ? (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
               <Icon className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
           ) : null}
         </div>
       ) : null}
 
-      <GaugePrimitive props={gaugeProps} className="min-h-0 flex-1" />
+      <div className={cn(WIDGET_FIT_GAUGE, "min-h-0 flex-1")}>
+        <GaugePrimitive props={gaugeProps} layoutMode="cell" className="min-h-0 h-full flex-1" />
+      </div>
 
       {status && showHeader ? (
-        <p className="widget-show-when-tall shrink-0 truncate px-0.5 pb-0.5 text-center text-[10px] text-muted-foreground">
+        <p className="widget-show-when-tall shrink-0 truncate text-center text-[10px] leading-none text-muted-foreground">
           {status}
         </p>
       ) : null}

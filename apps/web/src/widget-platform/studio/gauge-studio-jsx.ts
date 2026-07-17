@@ -134,7 +134,7 @@ export function parseGaugeJsx(
     maxValue: Number(parsed.maxValue ?? 100),
     startAngle: parsed.startAngle as number | undefined,
     endAngle: parsed.endAngle as number | undefined,
-    marginInPercent: parsed.marginInPercent as number | undefined,
+    marginInPercent: parsed.marginInPercent as GaugeSandboxConfig["marginInPercent"],
     arc: parsed.arc as GaugeSandboxConfig["arc"],
     pointer: parsed.pointer as GaugeSandboxConfig["pointer"],
     pointers: parsed.pointers as GaugeSandboxConfig["pointers"],

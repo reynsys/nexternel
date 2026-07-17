@@ -1671,45 +1671,67 @@ radial-gradient(
   width: 100%;
 }
 
-/* react-gauge-component dial host — aspect frame fits arc in grid cells (like legacy SVG meet) */
-.gauge-aspect-slot {
-  display: flex;
+/* Dashboard dial host — fill in normal (wide) cells; center when tall (F11) */
+.gauge-cell-dial-host {
+  display: grid;
   flex: 1 1 0;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  place-items: center;
   min-height: 0;
   min-width: 0;
   width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 0.15rem 0.4rem 0.4rem;
+  container-type: size;
+  container-name: gauge-dial;
 }
 
-.gauge-aspect-frame {
-  position: relative;
-  flex-shrink: 0;
+/* Default (normal browser): stage fills the dial region — keeps current “perfect” look */
+.gauge-dial-stage {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   min-width: 0;
-  margin-inline: auto;
+  position: relative;
 }
 
-.gauge-aspect-frame > .gauge {
-  position: absolute;
-  inset: 0;
+.gauge-dial-stage > .gauge {
   box-sizing: border-box;
   display: block !important;
   width: 100% !important;
   height: 100% !important;
-}
-
-.gauge-cell-dial-host:not(.gauge-aspect-slot) {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
   min-height: 0;
   min-width: 0;
-  width: 100%;
 }
 
-.gauge-cell-dial-host:not(.gauge-aspect-slot) > .gauge {
+.gauge-dial-stage > .gauge svg {
+  overflow: visible !important;
+}
+
+/*
+ * Tall dial regions (fullscreen F11): width/height becomes ~square or taller.
+ * Use a natural semicircle box and center it so empty space is split above/below
+ * instead of all pooling under the arc. Wide cells (normal mode) keep fill above.
+ */
+@container gauge-dial (max-aspect-ratio: 1.55 / 1) {
+  .gauge-dial-stage {
+    width: min(100%, calc(100cqh * 1.7));
+    height: auto;
+    aspect-ratio: 1.7 / 1;
+    max-height: 100%;
+  }
+}
+
+.gauge-studio-dial-host {
+  display: flex;
+  flex-direction: column;
+  place-items: unset;
+  padding: 0;
+}
+
+.gauge-studio-dial-host > .gauge {
   box-sizing: border-box;
   display: block !important;
   flex: 1 1 0;
@@ -1723,13 +1745,9 @@ radial-gradient(
   min-height: 3.5rem;
 }
 
-.dashboard-widget-cell .speed-test-gauge .gauge-cell-dial-host {
-  min-height: 2.75rem;
-}
-
 .dashboard-widget-cell .gauge-dial-wrap {
   flex: 1 1 0;
-  min-height: 4rem;
+  min-height: 0;
 }
 
 .gauge-studio-preview-column {
@@ -1824,25 +1842,16 @@ radial-gradient(
   max-height: 100%;
 }
 
-/* Internet speed test — dial + readout fit inside grid cells */
-.speed-test-widget {
-  gap: 0.125rem;
-}
-
-/* Platform speed test — dial row absorbs height; Mbps readout is HTML below each arc */
-.speed-test-widget--platform {
-  flex: 1 1 0 !important;
-  gap: 0.125rem;
-}
-
+/* Internet speed — flex chain must pass height into the dial host */
 .speed-test-platform-body {
   min-height: 0;
   flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .speed-test-gauges--platform {
   align-items: stretch;
-  min-height: 2.5rem;
 }
 
 .speed-test-ip-row {
@@ -1850,44 +1859,42 @@ radial-gradient(
 }
 
 .speed-test-gauges {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   min-height: 0;
+  width: 100%;
   align-items: stretch;
 }
 
 .speed-test-gauge {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   min-height: 0;
+  width: 100%;
+  height: auto;
 }
 
-.speed-test-gauge-dial {
-  min-height: 2.5rem;
+.speed-test-gauge-dial-area {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
-.speed-test-gauge-value {
-  font-size: clamp(0.75rem, 6cqmin, 1.125rem);
-}
-
-.speed-test-gauge-unit {
-  font-size: clamp(0.5rem, 3cqmin, 0.625rem);
+.speed-test-gauge .gauge-cell-dial-host {
+  min-height: 0;
+  flex: 1 1 0;
 }
 
 .speed-test-footer {
-  display: none;
+  display: block;
 }
 
-@container widget (min-height: 9.5rem) {
-  .speed-test-footer {
-    display: block;
-  }
-
-  .speed-test-gauge-dial {
-    min-height: 3.25rem;
-  }
-}
-
-@container widget (min-height: 11rem) {
-  .speed-test-gauge-dial {
-    min-height: 4rem;
-  }
+.dashboard-widget-cell .speed-test-gauge .gauge-cell-dial-host {
+  min-height: 0;
 }
 
 @container widget (min-width: 10rem) {

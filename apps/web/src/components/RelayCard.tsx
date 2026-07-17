@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { publishRelayState, subscribeRelayStates } from "@/lib/relay-state-sync";
 
 interface RelayCardProps {
   relayId: string;
@@ -21,6 +22,18 @@ export function RelayCard({
   const [state, setState] = useState<string | null>(initialState ?? null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setState(initialState ?? null);
+  }, [initialState, relayId]);
+
+  useEffect(() => {
+    return subscribeRelayStates((map) => {
+      if (!map.has(relayId)) return;
+      const next = map.get(relayId) ?? null;
+      setState((prev) => (prev === next ? prev : next));
+    });
+  }, [relayId]);
+
   async function toggle() {
     setLoading(true);
     const newState = state === "ON" ? "OFF" : "ON";
@@ -30,7 +43,10 @@ export function RelayCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state: newState }),
       });
-      if (res.ok) setState(newState);
+      if (res.ok) {
+        setState(newState);
+        publishRelayState(relayId, newState);
+      }
     } finally {
       setLoading(false);
     }

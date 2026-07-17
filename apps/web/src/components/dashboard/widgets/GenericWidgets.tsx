@@ -16,6 +16,7 @@ import {
 import {
   WIDGET_FIT_BODY,
   WIDGET_FIT_BODY_REGION,
+  WIDGET_FIT_GAUGE,
   WIDGET_FIT_INNER,
   WIDGET_FIT_INNER_CENTERED,
   WIDGET_FIT_TITLE,
@@ -946,7 +947,7 @@ export function SpeedTestWidget({
   }
 
   const ipRow = (
-    <p className="speed-test-ip-row shrink-0 truncate font-mono text-[7px] leading-tight text-foreground sm:text-[8px]">
+    <p className="speed-test-ip-row shrink-0 truncate text-center font-mono text-[8px] leading-tight text-foreground sm:text-[9px]">
       <span className="text-muted-foreground">LAN </span>
       {internalIp}
       <span className="mx-0.5 text-muted-foreground" aria-hidden>
@@ -972,68 +973,60 @@ export function SpeedTestWidget({
     </p>
   );
 
-  if (editPreview) {
-    return (
-      <Shell appearance={appearance} editPreview>
-        {title ? <p className="text-xs font-semibold">{title}</p> : null}
-        {ipRow}
+  const metaParts: string[] = [];
+  if (!editPreview) {
+    if (data?.latencyMs != null) metaParts.push(`${data.latencyMs} ms`);
+    const age = formatTestAge(data?.testedAt ?? null);
+    if (age) metaParts.push(age);
+    metaParts.push(`every ${data?.intervalMinutes ?? interval} min`);
+  }
+
+  const footer = (
+    <div className="speed-test-footer-block flex shrink-0 flex-col gap-0.5">
+      {ipRow}
+      {!editPreview && !gaugePlatform && metaParts.length > 0 ? (
+        <p className="speed-test-footer shrink-0 truncate text-center text-[7px] leading-tight text-muted-foreground">
+          {metaParts.join(" · ")}
+        </p>
+      ) : null}
+      {!editPreview && data?.error ? (
+        <p className="shrink-0 truncate text-center text-[7px] leading-tight text-destructive">
+          {data.error}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <Shell
+      appearance={appearance}
+      editPreview={editPreview}
+      fit={false}
+      className={cn(
+        "flex h-full min-h-0 flex-col overflow-hidden gap-0.5",
+        !appearance?.padding && "p-1.5"
+      )}
+    >
+      {title ? (
+        <div className="flex min-w-0 shrink-0 items-center">
+          <span className="truncate text-xs font-semibold leading-none text-foreground">
+            {title}
+          </span>
+        </div>
+      ) : null}
+
+      <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1")}>
         <div
           className={cn(
-            "speed-test-platform-body mt-0.5 flex min-h-0 flex-1 flex-col",
+            "speed-test-gauges min-h-0",
             gaugePlatform && "speed-test-gauges--platform"
           )}
         >
-          <div className="speed-test-gauges min-h-0 flex-1">{renderDownloadGauge()}</div>
+          {renderDownloadGauge()}
         </div>
-      </Shell>
-    );
-  }
-
-  const metaParts: string[] = [];
-  if (data?.latencyMs != null) metaParts.push(`${data.latencyMs} ms`);
-  const age = formatTestAge(data?.testedAt ?? null);
-  if (age) metaParts.push(age);
-  metaParts.push(`every ${data?.intervalMinutes ?? interval} min`);
-
-  return (
-    <Shell appearance={appearance} className="flex h-full min-h-0 flex-col overflow-hidden">
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          className="shrink-0 px-0"
-          titleClassName="widget-fit-title text-xs leading-tight"
-        />
-      ) : null}
-      <div
-        className={cn(
-          WIDGET_FIT_BODY_REGION,
-          "speed-test-widget",
-          gaugePlatform && "speed-test-widget--platform"
-        )}
-      >
-        {ipRow}
-        <div className="speed-test-platform-body flex min-h-0 flex-1 flex-col">
-          <div
-            className={cn(
-              "speed-test-gauges min-h-0 flex-1",
-              gaugePlatform && "speed-test-gauges--platform"
-            )}
-          >
-            {renderDownloadGauge()}
-          </div>
-        </div>
-
-        {!gaugePlatform ? (
-          <p className="speed-test-footer shrink-0 truncate text-center text-[7px] leading-tight text-muted-foreground">
-            {metaParts.join(" · ")}
-          </p>
-        ) : null}
-        {data?.error ? (
-          <p className="shrink-0 truncate text-center text-[7px] leading-tight text-destructive">
-            {data.error}
-          </p>
-        ) : null}
       </div>
+
+      {footer}
     </Shell>
   );
 }

@@ -510,6 +510,7 @@ export function WidgetContent({
             instance={platformInstance}
             title={widget.title}
             sensors={sensors}
+            appearance={appearance}
             editPreview={editPreview}
           />
         );

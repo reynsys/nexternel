@@ -1,5 +1,6 @@
 "use client";
 
+import type { WidgetAppearanceConfig } from "@/types/dashboard";
 import type { WidgetPlatformInstance } from "@/widget-platform/types";
 import { isGaugePlatformInstance } from "@/widget-platform/types";
 import { GaugeDefinitionView } from "@/widget-platform/renderer/GaugeDefinitionView";
@@ -17,6 +18,7 @@ export function WidgetPlatformRenderer({
   instance,
   title,
   sensors,
+  appearance,
   editPreview = false,
   showHeader = true,
   previewValue = null,
@@ -25,6 +27,7 @@ export function WidgetPlatformRenderer({
   instance: WidgetPlatformInstance;
   title?: string | null;
   sensors: SensorMeta[];
+  appearance?: WidgetAppearanceConfig;
   editPreview?: boolean;
   showHeader?: boolean;
   previewValue?: number | null;
@@ -36,6 +39,7 @@ export function WidgetPlatformRenderer({
         instance={instance}
         title={title}
         sensors={sensors}
+        appearance={appearance}
         editPreview={editPreview}
         showHeader={showHeader}
         previewValue={previewValue}
