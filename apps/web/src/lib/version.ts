@@ -1,7 +1,7 @@
 /** VX.Y.Z — X: project generation, Y: hardware revision, Z: software (000+) */
 export const VERSION_GENERATION = 2;
 export const VERSION_HARDWARE = 1;
-export const VERSION_SOFTWARE = 152;
+export const VERSION_SOFTWARE = 154;
 
 export function formatVersion(
   gen = VERSION_GENERATION,

@@ -1517,6 +1517,16 @@ radial-gradient(
     font-size: clamp(1rem, 12cqmin, 2.25rem);
   }
 
+  .widget-fit-clock-value {
+    font-size: clamp(1.15rem, 14cqmin, 2.5rem);
+    line-height: 1.05;
+  }
+
+  .widget-fit-clock-date {
+    font-size: clamp(0.75rem, 4.5cqmin, 1rem);
+    line-height: 1.2;
+  }
+
   .widget-fit-body {
     font-size: clamp(0.75rem, 4.2cqmin, 0.9375rem);
   }

@@ -16,6 +16,23 @@ Newest releases are listed first.
 
 ---
 
+## V2.1.154 — 17/07/2026
+
+### Fix — Digital clock type fits the widget
+
+- Reduced digital clock time/date clamp so the readout stays readable without overflowing the cell (Calendar sizes unchanged)
+
+---
+
+## V2.1.153 — 17/07/2026
+
+### UI — Larger Calendar and Digital Clock type
+
+- **Calendar:** larger month title, weekday headers, and day numbers; day grid fills the widget height so type scales with cell size
+- **Digital clock:** larger time (and date) via dedicated `widget-fit-clock-*` sizes
+
+---
+
 ## V2.1.152 — 17/07/2026
 
 ### Docs — Changelog and dashboard widgets guide on GitHub

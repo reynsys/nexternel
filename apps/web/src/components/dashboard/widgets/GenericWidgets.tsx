@@ -228,16 +228,16 @@ function DigitalClockFace({
           "font-bold tabular-nums text-foreground",
           style === "mono" && "font-mono tracking-widest",
           style === "bold" && "font-black uppercase tracking-tight",
-          appearance?.fontSize ? getValueFontClass(appearance.fontSize) : WIDGET_FIT_VALUE
+          appearance?.fontSize ? getValueFontClass(appearance.fontSize) : "widget-fit-clock-value"
         )}
       >
         {timeStr}
       </p>
       <p
         className={cn(
-          "mt-0.5 text-muted-foreground",
-          style === "bold" && "text-xs font-semibold uppercase tracking-wide",
-          appearance?.fontSize ? getBodyFontClass(appearance.fontSize) : WIDGET_FIT_BODY
+          "mt-1 text-muted-foreground",
+          style === "bold" && "font-semibold uppercase tracking-wide",
+          appearance?.fontSize ? getBodyFontClass(appearance.fontSize) : "widget-fit-clock-date"
         )}
       >
         {dateStr}
@@ -329,40 +329,26 @@ export function CalendarWidget({
           titleClassName={appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE}
         />
       ) : null}
-      <div
-        className={cn(
-          "flex w-full min-h-0 flex-1 flex-col overflow-hidden",
-          rowSpan > 1 && !compact && "justify-center"
-        )}
-      >
+      <div className="flex w-full min-h-0 flex-1 flex-col justify-center overflow-hidden">
         <p
           className={cn(
-            "shrink-0 font-medium text-foreground",
-            compact ? "mb-0.5 text-[10px] leading-tight" : "mb-2",
-            !compact && getBodyFontClass(appearance?.fontSize)
+            "shrink-0 font-semibold text-foreground",
+            compact ? "mb-1 text-xs leading-tight sm:text-sm" : "mb-2 text-sm sm:text-base",
+            !compact && appearance?.fontSize && getBodyFontClass(appearance.fontSize)
           )}
         >
           {monthName}
         </p>
         <div
-          className={cn(
-            "grid min-h-0 w-full flex-1 grid-cols-7 gap-0 text-center",
-            compact && "leading-none"
-          )}
-          style={
-            compact
-              ? { gridTemplateRows: `auto repeat(${dayRows}, minmax(0, 1fr))` }
-              : undefined
-          }
+          className="grid min-h-0 w-full flex-1 grid-cols-7 gap-0.5 text-center leading-none"
+          style={{ gridTemplateRows: `auto repeat(${dayRows}, minmax(0, 1fr))` }}
         >
           {weekDays.map((d, i) => (
             <span
               key={`${d}-${i}`}
               className={cn(
-                "flex items-center justify-center font-medium text-muted-foreground",
-                compact
-                  ? "text-[8px]"
-                  : cn("h-7", appearance?.fontSize ? getBodyFontClass(appearance.fontSize) : WIDGET_FIT_BODY)
+                "flex items-center justify-center font-semibold text-muted-foreground",
+                compact ? "text-[10px] sm:text-xs" : "text-xs sm:text-sm"
               )}
             >
               {d}
@@ -372,10 +358,10 @@ export function CalendarWidget({
             <span
               key={i}
               className={cn(
-                "flex items-center justify-center rounded-sm",
+                "flex min-h-0 items-center justify-center rounded-sm font-medium",
                 compact
-                  ? "min-h-0 text-[clamp(7px,2.2cqi,10px)]"
-                  : cn("h-7", appearance?.fontSize ? "text-xs" : "widget-fit-body"),
+                  ? "text-[clamp(10px,3.8cqi,14px)]"
+                  : "text-[clamp(12px,4.8cqi,18px)]",
                 day === today && "bg-primary font-bold text-primary-foreground",
                 day && day !== today && "text-foreground"
               )}
