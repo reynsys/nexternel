@@ -14,6 +14,53 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V2.1.173 — 19/07/2026
+
+- Internet Speed: remove extra dial wrapper divs so the gauge uses the same `GaugePrimitive` layout path as Temperature and Humidity (fixes dial sitting high with empty space below)
+
+## V2.1.172 — 19/07/2026
+
+- Gauges: full-width dial, bottom-aligned in cell (no more floating at top); extra bottom padding + margin so arc baseline is not clipped
+- Widget titles: left-aligned everywhere — relay cards no longer inherit `text-center` on the title row
+
+## V2.1.171 — 19/07/2026
+
+- Gauges: remove translateY shift (stopped bottom clip); natural 1.7:1 stage bottom-aligned in cell so dials are not overstretched
+- Gauges: dashboard value readout uses shared hollow offset (Speed Mbps lines up with Temp/Humidity)
+
+## V2.1.170 — 19/07/2026
+
+- Gauges: soften down-shift (no heavy scale) so arc bottoms are not clipped by `overflow: hidden`
+- Speed Test: wider LAN/WAN rails so “WAN” is fully visible; dial padded clear of the side labels
+
+## V2.1.169 — 19/07/2026
+
+- Gauges: real fix for empty space under arcs — scale/shift dial down and clip dead SVG (previous `place-items` change had no visible effect when the stage already filled the cell); bottom margin set to 0 like the library default
+
+## V2.1.168 — 19/07/2026
+
+- Gauges: pin dial stage to the bottom of the cell (Temp / Humidity / Speed) so leftover empty space sits under the title, not under the arc
+
+## V2.1.167 — 19/07/2026
+
+- Gauges: shared margins + side padding so Temp/Humidity arc baselines and Speed tick “500” are visible; Speed Mbps uses the same value size clamp as Temp/Humidity
+- Internet Speed Test: LAN/WAN labels horizontal, IPs vertical (same top→bottom on both sides); dial stays full-width (rails overlay); removed status mark after WAN
+
+## V2.1.166 — 19/07/2026
+
+- Gauges (global): dial fills the cell with ~2px bottom clearance — restore full size (no empty band under Temp/Humidity/Speed)
+- Internet Speed Test: LAN and WAN move to vertical side rails so the dial + Mbps can use the full height down to the widget bottom
+
+## V2.1.165 — 19/07/2026
+
+- Internet Speed Test: small top margin on LAN/WAN footer so the gauge baseline is not covered
+
+## V2.1.164 — 19/07/2026
+
+- Title bar: smaller fixed chrome (~20px row + tight divider) on every widget — frees dial height without overshooting
+- Gauges: slight top reclaim + a little more bottom inset so arcs are not clipped
+- Relay / switch widgets (incl. Living Room Air Con): use the same `WidgetTitleBar` as gauges (room/subtitle as trailing)
+
 ## V2.1.163 — 19/07/2026
 
 - Reset: one shared widget title bar (fixed height + divider) on every widget — no compact/per-type title spacing

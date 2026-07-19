@@ -147,7 +147,7 @@ export function buildGaugeComponentProps(
         matchColorWithArc: design.labels?.valueLabel?.matchColorWithArc,
         animateValue: design.labels?.valueLabel?.animateValue,
         offsetX: design.labels?.valueLabel?.offsetX,
-        offsetY: resolveValueLabelOffsetY(design, gaugeType),
+        offsetY: resolveValueLabelOffsetY(design, gaugeType, layoutContext),
         style: valueLabelStyle,
       });
 

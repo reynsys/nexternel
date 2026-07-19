@@ -49,6 +49,7 @@ function GaugeCellFillHost({
         "min-h-0 w-full flex-1",
         className
       )}
+      data-gauge-type={props.type ?? "semicircle"}
     >
       <div className="gauge-dial-stage">
         <GaugeComponent {...merged} />

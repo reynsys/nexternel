@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { WIDGET_FIT_TITLE } from "@/lib/dashboard-grid";
 import { resolveWidgetIcon } from "@/lib/widget-icons";
 import type { WidgetTitleMode } from "@/types/dashboard";
 
@@ -40,7 +39,7 @@ export function WidgetTitleBar({
           </span>
         ) : null}
         {showTitle ? (
-          <p className={cn("widget-title-text", WIDGET_FIT_TITLE, titleClassName)}>{title}</p>
+          <p className={cn("widget-title-text", titleClassName)}>{title}</p>
         ) : (
           <div className="min-w-0 flex-1" />
         )}

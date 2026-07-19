@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RELAY_ICON } from "@/lib/library-icons";
+import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 import { useRelayToggle } from "./useRelayToggle";
 
 export type SwitchWidgetProps = {
@@ -272,13 +273,16 @@ export function SwitchPill(props: SwitchWidgetProps) {
     return <SwitchPreview label="Pill toggle" name={props.name} layout="compact" />;
   }
   return (
-    <SwitchShell className="justify-center p-2">
-      <RelaySwitchRow {...props} />
+    <SwitchShell>
+      <WidgetTitleBar title={props.name} trailing={props.subtitle ? (
+        <span className="truncate text-[10px] leading-none text-muted-foreground">{props.subtitle}</span>
+      ) : null} />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+        <RelaySwitchRow {...props} showIcon={false} />
+      </div>
     </SwitchShell>
   );
 }
-
-/** Stacked ON / OFF buttons — suits tall widgets. */
 export function SwitchVertical({
   relayId,
   name,
@@ -291,15 +295,18 @@ export function SwitchVertical({
   const { isOn, loading, setRelayState, state } = useRelayToggle(relayId, initialState);
 
   return (
-    <SwitchShell className="p-2">
-      <div className="mb-2 min-w-0 shrink-0 text-center">
-        <p className="truncate text-sm font-semibold leading-tight">{name}</p>
-        {subtitle ? (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-        ) : null}
-        <p className="mt-0.5 text-xs text-muted-foreground">Status: {state || "—"}</p>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+    <SwitchShell>
+      <WidgetTitleBar
+        title={name}
+        trailing={
+          subtitle ? (
+            <span className="truncate text-[10px] leading-none text-muted-foreground">
+              {subtitle}
+            </span>
+          ) : null
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-2">
         <div className="switch-vertical-btns flex w-full max-w-[7.5rem] flex-col gap-1.5">
           <button
             type="button"
@@ -346,14 +353,18 @@ export function SwitchHorizontal({
   const { isOn, loading, setRelayState } = useRelayToggle(relayId, initialState);
 
   return (
-    <SwitchShell className="p-2">
-      <div className="mb-2 min-w-0 shrink-0 text-center">
-        <p className="truncate text-sm font-semibold leading-tight">{name}</p>
-        {subtitle ? (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-        ) : null}
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center">
+    <SwitchShell>
+      <WidgetTitleBar
+        title={name}
+        trailing={
+          subtitle ? (
+            <span className="truncate text-[10px] leading-none text-muted-foreground">
+              {subtitle}
+            </span>
+          ) : null
+        }
+      />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
         <div className="switch-horizontal-btns grid w-full max-w-[10rem] grid-cols-2 gap-1.5">
           <button
             type="button"
@@ -401,27 +412,35 @@ export function SwitchRound({
   const Icon = RELAY_ICON;
 
   return (
-    <SwitchShell className="items-center justify-center gap-1.5 p-2 text-center">
-      <p className="w-full break-words text-sm font-semibold leading-tight">{name}</p>
-      {subtitle ? (
-        <p className="w-full truncate text-xs text-muted-foreground">{subtitle}</p>
-      ) : null}
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => void toggle()}
-        className={cn(
-          "switch-round-btn flex shrink-0 items-center justify-center rounded-full border-4 transition-all",
-          isOn
-            ? "border-emerald-500 bg-emerald-500/20 text-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
-            : "border-border bg-muted/40 text-muted-foreground",
-          loading && "opacity-50"
-        )}
-        aria-label={`Toggle ${name}`}
-      >
-        <Icon className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={2.5} />
-      </button>
-      <span className={cn("text-xs", isOn ? "badge-online" : "badge-offline")}>{state || "—"}</span>
+    <SwitchShell>
+      <WidgetTitleBar
+        title={name}
+        trailing={
+          subtitle ? (
+            <span className="truncate text-[10px] leading-none text-muted-foreground">
+              {subtitle}
+            </span>
+          ) : null
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 p-2 text-center">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void toggle()}
+          className={cn(
+            "switch-round-btn flex shrink-0 items-center justify-center rounded-full border-4 transition-all",
+            isOn
+              ? "border-emerald-500 bg-emerald-500/20 text-emerald-600 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
+              : "border-border bg-muted/40 text-muted-foreground",
+            loading && "opacity-50"
+          )}
+          aria-label={`Toggle ${name}`}
+        >
+          <Icon className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={2.5} />
+        </button>
+        <span className={cn("text-xs", isOn ? "badge-online" : "badge-offline")}>{state || "—"}</span>
+      </div>
     </SwitchShell>
   );
 }
@@ -432,8 +451,20 @@ export function SwitchCompact(props: SwitchWidgetProps) {
     return <SwitchPreview label="Compact switch" name={props.name} layout="compact" />;
   }
   return (
-    <SwitchShell className="justify-center p-2">
-      <RelaySwitchRow {...props} />
+    <SwitchShell>
+      <WidgetTitleBar
+        title={props.name}
+        trailing={
+          props.subtitle ? (
+            <span className="truncate text-[10px] leading-none text-muted-foreground">
+              {props.subtitle}
+            </span>
+          ) : null
+        }
+      />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+        <RelaySwitchRow {...props} showIcon={false} />
+      </div>
     </SwitchShell>
   );
 }
@@ -452,47 +483,52 @@ export function SwitchStatCard({
   const Icon = RELAY_ICON;
 
   return (
-    <SwitchShell className="p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="break-words text-sm font-medium leading-tight">{name}</p>
-          {subtitle ? (
-            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-          ) : null}
-        </div>
-        <div
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-            isOn ? "bg-emerald-500/15 text-emerald-600" : "bg-muted text-muted-foreground"
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums">{state || "—"}</p>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">Tap toggle to control relay</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className={isOn ? "badge-online" : "badge-offline"}>
-          {isOn ? "Active" : "Inactive"}
-        </span>
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          disabled={loading}
-          className={cn(
-            "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-            isOn ? "bg-[var(--success)]" : "bg-muted",
-            loading && "opacity-50"
-          )}
-          aria-label={`Toggle ${name}`}
-        >
-          <span
+    <SwitchShell>
+      <WidgetTitleBar
+        title={name}
+        trailing={
+          <div className="flex min-w-0 items-center gap-1.5">
+            {subtitle ? (
+              <span className="truncate text-[10px] leading-none text-muted-foreground">
+                {subtitle}
+              </span>
+            ) : null}
+            <div
+              className={cn(
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+                isOn ? "bg-emerald-500/15 text-emerald-600" : "bg-muted text-muted-foreground"
+              )}
+            >
+              <Icon className="h-3 w-3" />
+            </div>
+          </div>
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-2 p-2">
+        <p className="text-xl font-semibold tabular-nums">{state || "—"}</p>
+        <div className="flex items-center justify-between gap-2">
+          <span className={isOn ? "badge-online" : "badge-offline"}>
+            {isOn ? "Active" : "Inactive"}
+          </span>
+          <button
+            type="button"
+            onClick={() => void toggle()}
+            disabled={loading}
             className={cn(
-              "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
-              isOn ? "left-[1.35rem]" : "left-0.5"
+              "relative h-7 w-12 shrink-0 rounded-full transition-colors",
+              isOn ? "bg-[var(--success)]" : "bg-muted",
+              loading && "opacity-50"
             )}
-          />
-        </button>
+            aria-label={`Toggle ${name}`}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                isOn ? "left-[1.35rem]" : "left-0.5"
+              )}
+            />
+          </button>
+        </div>
       </div>
     </SwitchShell>
   );

@@ -10,16 +10,17 @@ import type { GaugeDesignConfig, GaugeTypeId } from "@/widget-platform/types";
 export type GaugeLayoutContext = "standard" | "compact" | "studio";
 
 /**
- * Dashboard fill-host margins (Studio dial fills its box; we do the same in cells).
- * Modest bottom inset keeps the arc/value off the overflow edge.
+ * Dashboard fill-host margins — SAME for Temp / Humidity / Speed.
+ * Match library defaults with a small bottom inset so the arc baseline
+ * is not clipped by the dial host overflow crop.
  */
 export const GAUGE_MARGINS_BY_TYPE: Record<
   GaugeTypeId,
   { top: number; bottom: number; left: number; right: number }
 > = {
-  semicircle: { top: 0.05, bottom: 0.05, left: 0.08, right: 0.08 },
-  grafana: { top: 0.07, bottom: 0.05, left: 0.08, right: 0.08 },
-  radial: { top: 0.06, bottom: 0.06, left: 0.06, right: 0.06 },
+  semicircle: { top: 0.05, bottom: 0.04, left: 0.08, right: 0.08 },
+  grafana: { top: 0.08, bottom: 0.04, left: 0.08, right: 0.08 },
+  radial: { top: 0.05, bottom: 0.05, left: 0.06, right: 0.06 },
 };
 
 /** Pull valueLabel into the semicircle hollow (SVG px). */
@@ -35,15 +36,20 @@ export const GAUGE_VALUE_OFFSET_Y: Record<GaugeTypeId, number> = {
  */
 export function resolveValueLabelOffsetY(
   design: GaugeDesignConfig,
-  gaugeType: GaugeTypeId
+  gaugeType: GaugeTypeId,
+  layoutContext: GaugeLayoutContext = "standard"
 ): number | undefined {
   if (gaugeType === "radial") {
     return design.labels?.valueLabel?.offsetY;
   }
-  const saved = design.labels?.valueLabel?.offsetY;
   const fallback = GAUGE_VALUE_OFFSET_Y[gaugeType];
+  // Dashboard cells: one hollow position for Temp / Humidity / Speed.
+  if (layoutContext === "standard") {
+    return fallback;
+  }
+  const saved = design.labels?.valueLabel?.offsetY;
   if (saved === undefined) return fallback;
-  // Large positive offsets (Studio) sit on the arc in dashboard fill cells.
+  // Large positive offsets (Studio) sit on the arc in fill hosts.
   if (saved > 4) return fallback;
   return saved;
 }
@@ -90,7 +96,7 @@ function clampSide(value: number | undefined, fallback: number): number {
 }
 
 function clampBottom(value: number | undefined, fallback: number): number {
-  return Math.min(Math.max(value ?? fallback, 0.03), 0.08);
+  return Math.min(Math.max(value ?? fallback, 0.02), 0.08);
 }
 
 export function resolveGaugeMargins(

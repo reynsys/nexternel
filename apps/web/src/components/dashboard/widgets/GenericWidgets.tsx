@@ -835,15 +835,6 @@ export function NetworkStatusWidget({
   );
 }
 
-function formatTestAge(iso: string | null): string {
-  if (!iso) return "Never";
-  const ageMs = Date.now() - new Date(iso).getTime();
-  if (ageMs < 60_000) return "just now";
-  const mins = Math.floor(ageMs / 60_000);
-  if (mins < 60) return `${mins} min ago`;
-  return `${Math.floor(mins / 60)}h ago`;
-}
-
 export function SpeedTestWidget({
   config,
   appearance,
@@ -884,9 +875,6 @@ export function SpeedTestWidget({
     return () => clearInterval(id);
   }, [editPreview, interval]);
 
-  const isRunning = data?.status === "running";
-  const statusLabel = isRunning ? "…" : data?.status === "error" ? "!" : "●";
-
   const internalIp = editPreview ? "192.168.1.10" : data?.internalIp || "—";
   const externalIp = editPreview ? "203.0.113.42" : data?.externalIp || "—";
   const downloadMbps = editPreview ? 94.2 : (data?.downloadMbps ?? null);
@@ -895,66 +883,13 @@ export function SpeedTestWidget({
     if (gaugePlatform) {
       return (
         <SpeedTestDial
-          label="Download"
           valueMbps={downloadMbps}
           platform={gaugePlatform}
-          showLabel={false}
         />
       );
     }
     return <NetworkSpeedGauge label="Download" valueMbps={downloadMbps} />;
   }
-
-  const ipRow = (
-    <p className="speed-test-ip-row shrink-0 truncate text-center font-mono text-[8px] leading-tight text-foreground sm:text-[9px]">
-      <span className="text-muted-foreground">LAN </span>
-      {internalIp}
-      <span className="mx-0.5 text-muted-foreground" aria-hidden>
-        ·
-      </span>
-      <span className="text-muted-foreground">WAN </span>
-      {externalIp}
-      {!editPreview ? (
-        <span
-          className={cn(
-            "speed-test-status ml-0.5 inline text-[8px] leading-none",
-            isRunning
-              ? "text-amber-600"
-              : data?.status === "error"
-                ? "text-destructive"
-                : "text-emerald-600"
-          )}
-          title={isRunning ? "Testing" : data?.status === "error" ? "Error" : "OK"}
-        >
-          {statusLabel}
-        </span>
-      ) : null}
-    </p>
-  );
-
-  const metaParts: string[] = [];
-  if (!editPreview) {
-    if (data?.latencyMs != null) metaParts.push(`${data.latencyMs} ms`);
-    const age = formatTestAge(data?.testedAt ?? null);
-    if (age) metaParts.push(age);
-    metaParts.push(`every ${data?.intervalMinutes ?? interval} min`);
-  }
-
-  const footer = (
-    <div className="speed-test-footer-block flex shrink-0 flex-col gap-0.5">
-      {ipRow}
-      {!editPreview && !gaugePlatform && metaParts.length > 0 ? (
-        <p className="speed-test-footer shrink-0 truncate text-center text-[7px] leading-tight text-muted-foreground">
-          {metaParts.join(" · ")}
-        </p>
-      ) : null}
-      {!editPreview && data?.error ? (
-        <p className="shrink-0 truncate text-center text-[7px] leading-tight text-destructive">
-          {data.error}
-        </p>
-      ) : null}
-    </div>
-  );
 
   return (
     <div
@@ -968,17 +903,25 @@ export function SpeedTestWidget({
       {title ? <WidgetTitleBar title={title} /> : null}
 
       <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1")}>
-        <div
-          className={cn(
-            "speed-test-gauges min-h-0",
-            gaugePlatform && "speed-test-gauges--platform"
-          )}
-        >
-          {renderDownloadGauge()}
-        </div>
-      </div>
+        <aside className="speed-test-side speed-test-side--lan" aria-label={`LAN ${internalIp}`}>
+          <span className="speed-test-side-tag">LAN</span>
+          <span className="speed-test-side-ip">{internalIp}</span>
+        </aside>
 
-      {footer}
+        <div className="speed-test-gauge-slot min-h-0 flex-1">
+          {renderDownloadGauge()}
+          {!editPreview && data?.error ? (
+            <p className="speed-test-meta shrink-0 truncate text-center text-[7px] leading-tight text-destructive">
+              {data.error}
+            </p>
+          ) : null}
+        </div>
+
+        <aside className="speed-test-side speed-test-side--wan" aria-label={`WAN ${externalIp}`}>
+          <span className="speed-test-side-tag">WAN</span>
+          <span className="speed-test-side-ip">{externalIp}</span>
+        </aside>
+      </div>
     </div>
   );
 }

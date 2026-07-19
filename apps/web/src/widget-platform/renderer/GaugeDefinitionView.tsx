@@ -114,8 +114,8 @@ export function GaugeDefinitionView({
                 </span>
               ) : null}
               {Icon ? (
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                  <Icon className="h-3 w-3 text-muted-foreground" />
+                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted/60">
+                  <Icon className="h-2.5 w-2.5 text-muted-foreground" />
                 </div>
               ) : null}
             </div>
