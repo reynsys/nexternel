@@ -1,6 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# DAMN Home - Install and configure vsftpd for FileZilla (FTP)
+# Nexternel - Install and configure vsftpd for FileZilla (FTP/SFTP)
+# Package version: see VERSION at repo root.
 #
 # Run on Ubuntu server via PuTTY (sudo required). Does not need project files.
 #

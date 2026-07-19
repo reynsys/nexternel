@@ -1,5 +1,6 @@
 #!/bin/bash
 # Subscribe to Nexternel MQTT topics (reads credentials from .env).
+# Package version: see VERSION at repo root.
 # Usage: ./scripts/mqtt-subscribe.sh
 #
 # Fix CRLF after FTP upload:

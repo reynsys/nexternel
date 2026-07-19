@@ -2,7 +2,7 @@
   {
     "id": "flow_main",
     "type": "tab",
-    "label": "DAMN Home - MQTT to InfluxDB",
+    "label": "Nexternel - MQTT to InfluxDB",
     "disabled": false,
     "info": "Import this flow, then configure the Mosquitto broker node with your MQTT username/password.\nSet your InfluxDB token in the 'Build Influx HTTP request' function (first line)."
   },

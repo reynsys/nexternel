@@ -1,9 +1,10 @@
 #!/bin/bash
 # Generate Mosquitto password file from .env
+# Package version: see VERSION at repo root.
 # Usage: ./scripts/generate-mqtt-passwd.sh
 #
 # If scripts fail with \r errors, run once:
-#   cd ~/damn-home && find . -type f \( -name '*.sh' -o -name '.env' \) -exec sed -i 's/\r$//' {} +
+#   find . -type f \( -name '*.sh' -o -name '.env' \) -exec sed -i 's/\r$//' {} +
 
 set -e
 cd "$(dirname "$0")/.."

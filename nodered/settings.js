@@ -1,3 +1,4 @@
+// Nexternel Node-RED settings — package version: see VERSION at repo root
 module.exports = {
   flowFile: "flows.json",
   flowFilePretty: true,

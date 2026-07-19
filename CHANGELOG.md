@@ -14,6 +14,11 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V2.1.159 — 19/07/2026
+
+- GitHub publish: stamped remaining top-level paths (`db`, `esphome`, `mosquitto`, `nodered`, `scripts`, license/meta) so one commit can show `Updated (V2.1.159).` on every file
+- Dropped optional `.gitattributes` / `docs/images/CAPTURE.md` from the public export
+
 ---
 
 ## V2.1.158 — 19/07/2026

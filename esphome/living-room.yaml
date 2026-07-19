@@ -1,4 +1,4 @@
-# Nexternel — Living Room ESP32 (edit in ESPHome dashboard at :6052)
+# Nexternel — Living Room ESP32 (edit in ESPHome dashboard at :6052; package version: see VERSION at repo root)
 # Example: DHT11 temperature/humidity + one relay. MQTT password must match MQTT_PASSWORD in .env
 
 esphome:

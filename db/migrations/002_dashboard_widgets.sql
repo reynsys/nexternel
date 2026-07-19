@@ -1,5 +1,6 @@
 -- Dashboard grid layouts and widgets (run on existing servers after upgrade)
--- PuTTY: docker compose exec -T postgres psql -U damnhome -d damnhome < db/migrations/002_dashboard_widgets.sql
+-- Package version: see VERSION at repo root.
+-- Example: docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < db/migrations/002_dashboard_widgets.sql
 
 CREATE TABLE IF NOT EXISTS dashboard_layouts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

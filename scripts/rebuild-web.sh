@@ -1,5 +1,6 @@
 #!/bin/bash
 # Rebuild the web dashboard container from source on disk.
+# Package version: see VERSION at repo root.
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

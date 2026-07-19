@@ -1,4 +1,4 @@
-# Nexternel — Garden 4-relay ESP32 (no sensors)
+# Nexternel — Garden 4-relay ESP32 (no sensors; package version: see VERSION at repo root)
 # Example: four relays on a relay module. Uses esphome/secrets.yaml for Wi-Fi and MQTT.
 # After editing: compile & OTA in ESPHome (:6052). MQTT password must match .env
 

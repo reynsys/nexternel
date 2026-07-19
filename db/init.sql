@@ -1,4 +1,4 @@
--- Nexternel - PostgreSQL Schema
+-- Nexternel - PostgreSQL Schema (package version: see VERSION at repo root)
 -- Admin metadata: rooms, devices, sensors, relays, automations, users
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Load .env into the current shell (strips CRLF from .env).
+# Package version: see VERSION at repo root.
 #
 # Run from project root:
 #   source scripts/load-env.sh

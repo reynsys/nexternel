@@ -1,5 +1,6 @@
 #!/bin/bash
 # Updates nodered/flows.json with your InfluxDB token from .env
+# Package version: see VERSION at repo root.
 # Run after editing .env: ./scripts/configure-nodered-token.sh
 
 set -e

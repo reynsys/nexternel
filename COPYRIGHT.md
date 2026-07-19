@@ -1,5 +1,7 @@
 # Nexternel — Copyright and license
 
+**Package version:** see [VERSION](VERSION) at the repository root.
+
 **Copyright © 2026 Rey Osman** ([reynsys](https://github.com/reynsys))
 
 Nexternel is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See [LICENSE](LICENSE).

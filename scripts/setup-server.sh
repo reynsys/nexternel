@@ -1,7 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# DAMN Home - Ubuntu Server Setup Script
-# Run on your Ubuntu server after copying project files via FileZilla (FTP)
+# Nexternel - Ubuntu Server Setup Script
+# Package version: see VERSION at repo root.
+# Run on your Ubuntu server after copying project files via FileZilla (SFTP)
 #
 # Usage:
 #   chmod +x scripts/setup-server.sh

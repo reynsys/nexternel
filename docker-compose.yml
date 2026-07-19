@@ -1,3 +1,4 @@
+# Nexternel stack — package version: see VERSION at repo root
 services:
   postgres:
     image: postgres:16-alpine
