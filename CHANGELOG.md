@@ -16,6 +16,16 @@ Newest releases are listed first.
 
 ---
 
+## V2.1.158 — 19/07/2026
+
+### Docs — README trimmed and reordered
+
+- Removed long “why technology / PuTTY vs FileZilla / spreadsheet grid” filler
+- Moved **Installation** up; kept setup steps shorter and clearer
+- Single short dashboard section; widgets detail stays in `docs/DASHBOARD-WIDGETS.md`
+
+---
+
 ## V2.1.157 — 19/07/2026
 
 ### Docs — README: Mosquitto is the MQTT broker
