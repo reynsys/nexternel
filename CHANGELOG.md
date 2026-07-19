@@ -16,6 +16,14 @@ Newest releases are listed first.
 
 ---
 
+## V2.1.157 — 19/07/2026
+
+### Docs — README: Mosquitto is the MQTT broker
+
+- Clarified that **MQTT** is the protocol and **Mosquitto** is the broker (not two separate products)
+
+---
+
 ## V2.1.156 — 19/07/2026
 
 ### Docs — README cleanup

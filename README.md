@@ -40,7 +40,7 @@ Typical workflow: flash an ESP32 with ESPHome → it publishes to **MQTT** → t
 | Technology | Role | Why we use it |
 |------------|------|----------------|
 | **[ESPHome](https://esphome.io/)** | Firmware for ESP32 boards | Open source, YAML-based, large library of sensors and relays, over-the-air updates, no custom C++ required. One config file per device. |
-| **[MQTT](https://mqtt.org/)** + **[Mosquitto](https://mosquitto.org/)** | Message bus between devices and server | Lightweight publish/subscribe protocol — ideal for many small devices sending occasional readings. Mosquitto is a proven open-source broker. |
+| **[Mosquitto](https://mosquitto.org/)** | MQTT broker | Open-source broker for the **MQTT** protocol (publish/subscribe). Devices and the server exchange messages through Mosquitto — MQTT is the protocol; Mosquitto is the software that runs it. |
 | **[Node-RED](https://nodered.org/)** | Automation and data pipeline | Visual flow editor; subscribes to MQTT and forwards readings to InfluxDB without writing backend code. Easy to extend later (alerts, schedules). |
 | **[InfluxDB](https://www.influxdata.com/)** | Time-series database | Built for sensor history — efficient storage and queries for charts (temperature over time, etc.). |
 | **[PostgreSQL](https://www.postgresql.org/)** | Relational database | Stores users, devices, rooms, and dashboard layouts — structured config that fits SQL. |
