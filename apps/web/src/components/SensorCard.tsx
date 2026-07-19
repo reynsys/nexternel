@@ -11,6 +11,7 @@ import {
 import { WIDGET_FIT_BODY, WIDGET_FIT_VALUE } from "@/lib/dashboard-grid";
 import { cn } from "@/lib/utils";
 import { SensorChart } from "./SensorChart";
+import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 
 interface SensorCardProps {
   sensorId: string;
@@ -120,9 +121,11 @@ export function SensorCard({
         );
       case "title":
         return (
-          <h3 key={id} className={cn("truncate text-foreground", titleClass)}>
-            {icon} {name}
-          </h3>
+          <WidgetTitleBar
+            key={id}
+            title={`${icon} ${name}`}
+            titleClassName={cn("truncate text-foreground", titleClass)}
+          />
         );
       case "value":
         return (

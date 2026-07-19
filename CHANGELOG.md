@@ -14,6 +14,15 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V2.1.161 — 19/07/2026
+
+- Widget title divider: extra clearance below the line so content no longer overlaps (gauges, relay panels)
+- Garden Relays grid: slightly shorter switch cells and smaller toggles
+
+## V2.1.160 — 19/07/2026
+
+- Widget titles: solid inset divider under every title (replaces dashed line); applied via `WidgetTitleBar` on gauges, sensors, relays, speed test, activity log, and device status
+
 ## V2.1.159 — 19/07/2026
 
 - GitHub publish: stamped remaining top-level paths (`db`, `esphome`, `mosquitto`, `nodered`, `scripts`, license/meta) so one commit can show `Updated (V2.1.159).` on every file

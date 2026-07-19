@@ -215,14 +215,17 @@ export function DeviceStatusWidget({
 
   return (
     <div className="card flex h-full min-h-0 flex-col overflow-hidden text-left">
-      <div className="flex shrink-0 items-start justify-between gap-2">
-        {title ? <WidgetTitleBar title={title} className="mb-1 min-w-0 flex-1 px-0" /> : null}
-        {liveDevices.length > 0 ? (
-          <p className="mt-0.5 shrink-0 pt-0.5 text-[10px] tabular-nums text-muted-foreground">
-            {onlineCount}/{liveDevices.length} online
-          </p>
-        ) : null}
-      </div>
+      <WidgetTitleBar
+        title={title || "Devices"}
+        className="px-0"
+        trailing={
+          liveDevices.length > 0 ? (
+            <p className="text-[10px] tabular-nums text-muted-foreground">
+              {onlineCount}/{liveDevices.length} online
+            </p>
+          ) : null
+        }
+      />
 
       <ul className="min-h-0 w-full flex-1 space-y-1 overflow-y-auto overscroll-contain">
         {liveDevices.map((d) => (

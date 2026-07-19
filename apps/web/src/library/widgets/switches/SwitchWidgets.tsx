@@ -42,7 +42,7 @@ export function RelaySwitchRow({
     <div
       className={cn(
         "relay-switch-row flex min-w-0 items-center gap-2 rounded-lg border border-border/60 bg-muted/10 px-2 py-1.5",
-        compactGrid && "relay-switch-row--grid-compact flex-col items-center gap-0.5 px-1 py-1",
+        compactGrid && "relay-switch-row--grid-compact flex-col items-center gap-0.5 px-1 py-0.5",
         className
       )}
     >

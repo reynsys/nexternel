@@ -11,6 +11,7 @@ import {
 } from "@/lib/widget-appearance";
 import { cn } from "@/lib/utils";
 import { MultiSensorChart } from "@/components/MultiSensorChart";
+import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 import { seriesColorForSensor, type HistoryPoint } from "@/lib/multi-sensor-chart";
 
 export interface DeviceSensorMeta {
@@ -192,9 +193,14 @@ export function DeviceSensorsWidget({
         );
       case "title":
         return (
-          <h3 key={id} className="truncate text-base font-semibold text-foreground">
-            {displayTitle}
-          </h3>
+          <WidgetTitleBar
+            key={id}
+            title={displayTitle}
+            titleClassName={cn(
+              "truncate text-foreground",
+              getTitleFontClass(appearance?.fontSize) || "text-base font-semibold"
+            )}
+          />
         );
       case "value":
         return (

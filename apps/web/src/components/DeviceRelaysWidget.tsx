@@ -124,7 +124,7 @@ export function DeviceRelaysWidget({
           title={heading}
           iconKey={titleIcon}
           titleMode={titleMode}
-          className="mb-0 px-0"
+          className="px-0"
           titleClassName="text-sm leading-tight"
         />
       </div>
@@ -136,7 +136,7 @@ export function DeviceRelaysWidget({
         />
       )}
       <div
-        className={cn("relay-panel-body min-h-0 flex-1", bodyOverflow, bodyClass)}
+        className={cn("relay-panel-body min-h-0 flex-1 pt-0.5", bodyOverflow, bodyClass)}
       >
         {items.map((relay) => renderRelayRow(relay))}
         {items.length === 0 && (

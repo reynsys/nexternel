@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { publishRelayState, subscribeRelayStates } from "@/lib/relay-state-sync";
+import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 
 interface RelayCardProps {
   relayId: string;
@@ -64,7 +65,11 @@ export function RelayCard({
       <p className="widget-fit-body text-muted-foreground">
         {roomName || "Unassigned"}
       </p>
-      <h3 className="widget-fit-title font-semibold">⚡ {name}</h3>
+      <WidgetTitleBar
+        title={`⚡ ${name}`}
+        className="mb-0"
+        titleClassName="widget-fit-title font-semibold text-center"
+      />
       <span className={isOn ? "badge-online" : "badge-offline"}>{state || "Unknown"}</span>
       <button
         onClick={toggle}

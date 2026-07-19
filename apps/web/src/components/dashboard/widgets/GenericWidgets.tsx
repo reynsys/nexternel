@@ -676,11 +676,14 @@ export function ActivityLogWidget({
       fit={false}
       className={cn("h-full min-h-0 items-stretch justify-start text-left", className)}
     >
-      {title && (
-        <p className={cn("mb-2 shrink-0 font-semibold", getTitleFontClass(appearance?.fontSize))}>
-          {title}
-        </p>
-      )}
+      {title ? (
+        <WidgetTitleBar
+          title={title}
+          titleClassName={
+            appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE
+          }
+        />
+      ) : null}
       <div
         className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border/70 bg-muted/40 font-mono shadow-inner"
         style={{ height: consoleHeight, maxHeight: consoleHeight }}
@@ -989,19 +992,19 @@ export function SpeedTestWidget({
       editPreview={editPreview}
       fit={false}
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden gap-0.5",
+        "flex h-full min-h-0 flex-col overflow-hidden gap-1",
         !appearance?.padding && "p-1.5"
       )}
     >
       {title ? (
-        <div className="flex min-w-0 shrink-0 items-center">
-          <span className="truncate text-xs font-semibold leading-none text-foreground">
-            {title}
-          </span>
-        </div>
+        <WidgetTitleBar
+          title={title}
+          className="px-0"
+          titleClassName="text-xs font-semibold leading-none"
+        />
       ) : null}
 
-      <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1")}>
+      <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1 pt-0.5")}>
         <div
           className={cn(
             "speed-test-gauges min-h-0",

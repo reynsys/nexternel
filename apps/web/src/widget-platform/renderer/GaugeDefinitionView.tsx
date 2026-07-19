@@ -6,6 +6,7 @@ import type { GaugePlatformInstance } from "@/widget-platform/types";
 import { sensorIdFromBinding } from "@/widget-platform/types";
 import { buildGaugeComponentProps } from "@/widget-platform/definitions/gauge/build-props";
 import { GaugePrimitive } from "@/widget-platform/renderer/GaugePrimitive";
+import { WidgetTitleBar } from "@/components/dashboard/WidgetTitleBar";
 import { gaugeRangeForSensor } from "@/library/widgets/gauges/gauge-utils";
 import { liveStatusText, type LiveReading } from "@/lib/library-bindings";
 import { iconForSensorType } from "@/lib/library-icons";
@@ -96,31 +97,33 @@ export function GaugeDefinitionView({
       className={cn(
         getWidgetShellClasses(appearance, editPreview),
         !appearance?.padding && "p-1.5",
-        "flex h-full min-h-0 w-full flex-col gap-0.5",
+        "flex h-full min-h-0 w-full flex-col gap-1",
         className
       )}
     >
       {showHeader ? (
-        <div className="flex min-w-0 shrink-0 items-center gap-1.5">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-            <span className="truncate text-xs font-semibold leading-none text-foreground">
-              {displayTitle}
-            </span>
-            {subtitle ? (
-              <span className="truncate text-[10px] leading-none text-muted-foreground">
-                {subtitle}
-              </span>
-            ) : null}
-          </div>
-          {Icon ? (
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        <WidgetTitleBar
+          title={displayTitle}
+          className="px-0"
+          titleClassName="text-xs font-semibold leading-none"
+          trailing={
+            <div className="flex min-w-0 items-center gap-1.5">
+              {subtitle ? (
+                <span className="truncate text-[10px] leading-none text-muted-foreground">
+                  {subtitle}
+                </span>
+              ) : null}
+              {Icon ? (
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+          }
+        />
       ) : null}
 
-      <div className={cn(WIDGET_FIT_GAUGE, "min-h-0 flex-1")}>
+      <div className={cn(WIDGET_FIT_GAUGE, "min-h-0 flex-1 pt-0.5")}>
         <GaugePrimitive props={gaugeProps} layoutMode="cell" className="min-h-0 h-full flex-1" />
       </div>
 
