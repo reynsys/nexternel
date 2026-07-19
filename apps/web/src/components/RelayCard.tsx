@@ -65,11 +65,7 @@ export function RelayCard({
       <p className="widget-fit-body text-muted-foreground">
         {roomName || "Unassigned"}
       </p>
-      <WidgetTitleBar
-        title={`⚡ ${name}`}
-        className="mb-0"
-        titleClassName="widget-fit-title font-semibold text-center"
-      />
+      <WidgetTitleBar title={`⚡ ${name}`} />
       <span className={isOn ? "badge-online" : "badge-offline"}>{state || "Unknown"}</span>
       <button
         onClick={toggle}

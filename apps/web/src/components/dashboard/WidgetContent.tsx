@@ -119,7 +119,7 @@ export function RoomSensorsWidget({
   return (
     <div className="card flex h-full min-h-0 flex-col overflow-hidden text-left">
       {title ? (
-        <WidgetTitleBar title={title} className="px-0" />
+        <WidgetTitleBar title={title} />
       ) : null}
       <div className="min-h-0 w-full flex-1 overflow-hidden">
         <div className="grid h-full gap-1 sm:grid-cols-2">
@@ -217,7 +217,6 @@ export function DeviceStatusWidget({
     <div className="card flex h-full min-h-0 flex-col overflow-hidden text-left">
       <WidgetTitleBar
         title={title || "Devices"}
-        className="px-0"
         trailing={
           liveDevices.length > 0 ? (
             <p className="text-[10px] tabular-nums text-muted-foreground">

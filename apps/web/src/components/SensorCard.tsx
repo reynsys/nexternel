@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { WidgetElementId, WidgetAppearanceConfig } from "@/types/dashboard";
 import { DEFAULT_SENSOR_ELEMENTS } from "@/types/dashboard";
 import {
-  getTitleFontClass,
   getValueFontClass,
   getWidgetShellClasses,
 } from "@/lib/widget-appearance";
@@ -121,11 +120,7 @@ export function SensorCard({
         );
       case "title":
         return (
-          <WidgetTitleBar
-            key={id}
-            title={`${icon} ${name}`}
-            titleClassName={cn("truncate text-foreground", titleClass)}
-          />
+          <WidgetTitleBar key={id} title={`${icon} ${name}`} />
         );
       case "value":
         return (
@@ -171,9 +166,6 @@ export function SensorCard({
   const valueClass = appearance?.fontSize
     ? getValueFontClass(appearance.fontSize)
     : WIDGET_FIT_VALUE;
-  const titleClass = appearance?.fontSize
-    ? getTitleFontClass(appearance.fontSize)
-    : "widget-fit-title";
 
   return (
     <div className={cn(shellClass, "flex min-h-0 flex-col")}>

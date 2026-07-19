@@ -124,8 +124,6 @@ export function DeviceRelaysWidget({
           title={heading}
           iconKey={titleIcon}
           titleMode={titleMode}
-          className="px-0"
-          titleClassName="text-sm leading-tight"
         />
       </div>
       {previewSensorIds.length > 0 && (
@@ -136,7 +134,7 @@ export function DeviceRelaysWidget({
         />
       )}
       <div
-        className={cn("relay-panel-body min-h-0 flex-1 pt-0.5", bodyOverflow, bodyClass)}
+        className={cn("relay-panel-body min-h-0 flex-1", bodyOverflow, bodyClass)}
       >
         {items.map((relay) => renderRelayRow(relay))}
         {items.length === 0 && (

@@ -95,17 +95,17 @@ export function GaugeDefinitionView({
   return (
     <div
       className={cn(
-        getWidgetShellClasses(appearance, editPreview),
-        !appearance?.padding && "p-1.5",
-        "flex h-full min-h-0 w-full flex-col gap-1",
+        // Match Garden Relays / Living Room: dashboard `.card` padding (not p-1 hacks)
+        appearance
+          ? getWidgetShellClasses(appearance, editPreview)
+          : "card flex h-full min-h-0 w-full flex-col overflow-hidden text-left",
+        "gap-0",
         className
       )}
     >
       {showHeader ? (
         <WidgetTitleBar
           title={displayTitle}
-          className="px-0"
-          titleClassName="text-xs font-semibold leading-none"
           trailing={
             <div className="flex min-w-0 items-center gap-1.5">
               {subtitle ? (
@@ -114,8 +114,8 @@ export function GaugeDefinitionView({
                 </span>
               ) : null}
               {Icon ? (
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                  <Icon className="h-3 w-3 text-muted-foreground" />
                 </div>
               ) : null}
             </div>
@@ -123,7 +123,7 @@ export function GaugeDefinitionView({
         />
       ) : null}
 
-      <div className={cn(WIDGET_FIT_GAUGE, "min-h-0 flex-1 pt-0.5")}>
+      <div className={cn(WIDGET_FIT_GAUGE, "min-h-0 flex-1")}>
         <GaugePrimitive props={gaugeProps} layoutMode="cell" className="min-h-0 h-full flex-1" />
       </div>
 

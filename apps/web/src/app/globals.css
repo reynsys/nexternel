@@ -1536,18 +1536,62 @@ radial-gradient(
   }
 }
 
-/* Title rule under widget headings — solid, same width as the title row
-   (inset from the widget edge by the card/shell padding on both sides). */
+/* Shared widget title chrome — identical on every dashboard widget */
+.widget-title-bar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 100%;
+  margin: 0;
+}
+
+.widget-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  max-height: 1.75rem;
+  min-width: 0;
+}
+
+.widget-title-icon {
+  display: flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  color: var(--primary);
+}
+
+.widget-title-text {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.widget-title-trailing {
+  display: flex;
+  max-width: 45%;
+  min-width: 0;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .widget-title-divider {
-  margin-top: 0.375rem;
-  margin-bottom: 0.375rem; /* clear space before widget content */
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
   height: 1px;
   width: 100%;
   background-color: color-mix(in oklch, var(--border) 75%, transparent);
-}
-
-.widget-title-bar {
-  margin-bottom: 0;
 }
 
 @container widget (min-height: 10rem) {

@@ -5,7 +5,6 @@ import type { WidgetElementId, WidgetAppearanceConfig } from "@/types/dashboard"
 import { DEFAULT_DEVICE_SENSORS_ELEMENTS } from "@/types/dashboard";
 import {
   getReadingsLayoutClass,
-  getTitleFontClass,
   getValueFontClass,
   getWidgetShellClasses,
 } from "@/lib/widget-appearance";
@@ -193,14 +192,7 @@ export function DeviceSensorsWidget({
         );
       case "title":
         return (
-          <WidgetTitleBar
-            key={id}
-            title={displayTitle}
-            titleClassName={cn(
-              "truncate text-foreground",
-              getTitleFontClass(appearance?.fontSize) || "text-base font-semibold"
-            )}
-          />
+          <WidgetTitleBar key={id} title={displayTitle} />
         );
       case "value":
         return (
@@ -261,8 +253,9 @@ export function DeviceSensorsWidget({
   return (
     <div
       className={cn(
-        getWidgetShellClasses(appearance),
-        !appearance?.variant && "card w-full",
+        appearance
+          ? getWidgetShellClasses(appearance)
+          : "card flex h-full min-h-0 w-full flex-col overflow-hidden text-left",
         "flex h-full min-h-0 flex-col",
         rowSpan > 1 && !expanded && "justify-center"
       )}

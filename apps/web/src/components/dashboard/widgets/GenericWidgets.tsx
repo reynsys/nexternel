@@ -263,13 +263,10 @@ export function TimeWidget({
   const digital = config.timeMode !== "analog";
   const analogStyle = config.analogClockStyle || "classic";
   const digitalStyle = config.digitalClockStyle || "standard";
-  const titleClass = appearance?.fontSize
-    ? getTitleFontClass(appearance.fontSize)
-    : WIDGET_FIT_TITLE;
 
   return (
     <Shell appearance={appearance} fit={false} className="flex h-full flex-col">
-      {title ? <WidgetTitleBar title={title} titleClassName={titleClass} /> : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
       <div className="flex flex-1 flex-col items-center justify-center">
         {digital ? (
           <DigitalClockFace
@@ -323,12 +320,7 @@ export function CalendarWidget({
 
   return (
     <Shell appearance={appearance} editPreview={editPreview} fit={false} className="flex h-full min-h-0 flex-col overflow-hidden">
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          titleClassName={appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE}
-        />
-      ) : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
       <div className="flex w-full min-h-0 flex-1 flex-col justify-center overflow-hidden">
         <p
           className={cn(
@@ -447,12 +439,7 @@ export function WeatherWidget({
 
   return (
     <Shell appearance={appearance} fit={false} className="flex h-full min-h-0 flex-col overflow-hidden">
-      <WidgetTitleBar
-        title={location}
-        titleClassName={
-          appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE
-        }
-      />
+      <WidgetTitleBar title={location} />
       <div className="flex shrink-0 items-center justify-center gap-2 px-1 pb-2 pt-0.5">
         {(todayMax || todayMin) && (
           <div className={cn("flex shrink-0 flex-col gap-0.5 text-left leading-tight", bodyClass)}>
@@ -569,12 +556,7 @@ export function SystemInfoWidget({
 
   return (
     <Shell appearance={appearance} fit={false} className="flex h-full flex-col">
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          titleClassName={appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE}
-        />
-      ) : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
       <div className={cn("flex w-full flex-1 flex-col", rowSpan > 1 && "justify-center")}>
       <dl
         className={cn(
@@ -676,14 +658,7 @@ export function ActivityLogWidget({
       fit={false}
       className={cn("h-full min-h-0 items-stretch justify-start text-left", className)}
     >
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          titleClassName={
-            appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE
-          }
-        />
-      ) : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
       <div
         className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border/70 bg-muted/40 font-mono shadow-inner"
         style={{ height: consoleHeight, maxHeight: consoleHeight }}
@@ -812,12 +787,7 @@ export function NetworkStatusWidget({
 
   return (
     <Shell appearance={appearance} fit={false} className="flex h-full flex-col">
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          titleClassName={appearance?.fontSize ? getTitleFontClass(appearance.fontSize) : WIDGET_FIT_TITLE}
-        />
-      ) : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
       <div className={cn("flex w-full min-h-0 flex-1 flex-col", rowSpan > 1 && "justify-center")}>
       <section
         className={cn(
@@ -987,24 +957,17 @@ export function SpeedTestWidget({
   );
 
   return (
-    <Shell
-      appearance={appearance}
-      editPreview={editPreview}
-      fit={false}
+    <div
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden gap-1",
-        !appearance?.padding && "p-1.5"
+        appearance
+          ? getWidgetShellClasses(appearance, editPreview)
+          : "card flex h-full min-h-0 w-full flex-col overflow-hidden text-left",
+        "gap-0"
       )}
     >
-      {title ? (
-        <WidgetTitleBar
-          title={title}
-          className="px-0"
-          titleClassName="text-xs font-semibold leading-none"
-        />
-      ) : null}
+      {title ? <WidgetTitleBar title={title} /> : null}
 
-      <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1 pt-0.5")}>
+      <div className={cn(WIDGET_FIT_GAUGE, "speed-test-platform-body min-h-0 flex-1")}>
         <div
           className={cn(
             "speed-test-gauges min-h-0",
@@ -1016,6 +979,6 @@ export function SpeedTestWidget({
       </div>
 
       {footer}
-    </Shell>
+    </div>
   );
 }

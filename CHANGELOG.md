@@ -14,6 +14,15 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V2.1.163 — 19/07/2026
+
+- Reset: one shared widget title bar (fixed height + divider) on every widget — no compact/per-type title spacing
+- Gauges: restore known-good dial margins/padding so Temp/Humidity/Speed match again; values back in the hollow; same `.card` shell as other widgets
+
+## V2.1.162 — 19/07/2026
+
+- Gauges: reclaim dial height after title divider — compact title chrome, less top padding/margin so the arc sits higher and the bottom is not clipped
+
 ## V2.1.161 — 19/07/2026
 
 - Widget title divider: extra clearance below the line so content no longer overlaps (gauges, relay panels)
