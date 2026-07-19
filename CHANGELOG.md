@@ -16,6 +16,16 @@ Newest releases are listed first.
 
 ---
 
+## V2.1.155 — 19/07/2026
+
+### Docs — README repository layout and database clarification
+
+- Rewrote the README opening: About, How it works, and **What’s in the repository** (directories named clearly)
+- Clarified **PostgreSQL (`db/`)** vs **InfluxDB** (Docker service + volume — no source directory)
+- Rebranded leftover “DAMN Home” comments in `db/init.sql` and `mosquitto/config/mosquitto.conf`
+
+---
+
 ## V2.1.154 — 17/07/2026
 
 ### Fix — Digital clock type fits the widget

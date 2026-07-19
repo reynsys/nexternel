@@ -1,7 +1,5 @@
 # Nexternel
 
-Self-hosted smart home stack: ESP32 devices publish sensor and relay data over **MQTT**; a **Next.js** dashboard shows live readings, charts, and a customizable widget grid; **Node-RED** stores history in **InfluxDB** and runs automations.
-
 **Author:** [Rey Osman](https://github.com/reynsys)
 
 **Current version:** see the sidebar footer in the running app, and **[CHANGELOG.md](CHANGELOG.md)** (newest release first).
@@ -19,13 +17,30 @@ Self-hosted smart home stack: ESP32 devices publish sensor and relay data over *
 
 ## About this project
 
-**Nexternel** is a complete home-automation stack you run on **your own hardware** (typically an Ubuntu server on your LAN). Nothing depends on a cloud account for core operation — sensor readings, relay control, dashboard layouts, and history stay on your network.
+**Nexternel** is a complete home-automation system that runs on a local Linux server.
 
-The repo ships:
+### How it works
 
-- A **Docker Compose** file that installs and runs every server component in one step
-- A **Next.js dashboard** with a drag-and-drop widget grid, device admin, and charts
-- **Example ESP32 configurations** (see below) based on real setups — copy and adapt them for your wiring
+ESP32 devices publish sensor and relay data over **MQTT**; a **Next.js** dashboard shows live readings, charts, and a customizable widget grid; **Node-RED** stores history in **InfluxDB** for charts and runs automations.
+
+### What’s in the repository
+
+| Path | What it is |
+|------|------------|
+| **`apps/web/`** | Next.js web app — the dashboard, admin UI, and APIs (not the whole stack by itself) |
+| **`db/`** | **PostgreSQL** schema — `init.sql` and SQL migrations (users, devices, rooms, dashboard layouts). This is **not** InfluxDB. |
+| **`docker-compose.yml`** | Starts every server component in one step (Mosquitto, PostgreSQL, InfluxDB, Node-RED, ESPHome, web) |
+| **`esphome/`** | Example ESP32 device `.yaml` configs |
+| **`mosquitto/config/`** | MQTT broker configuration (`mosquitto.conf`) |
+| **`nodered/`** | Node-RED settings and example flows |
+| **`scripts/`** | Helper scripts for server setup and maintenance |
+
+### Databases (easy to mix up)
+
+| Name | Role | Where it lives in this repo |
+|------|------|-----------------------------|
+| **PostgreSQL** | Users, devices, rooms, dashboard layouts, automations | Directory **`db/`** (SQL files mounted into the Postgres container) |
+| **InfluxDB** | Time-series sensor history for charts | **No source directory** — Docker runs the InfluxDB image; data is stored in a Docker volume |
 
 Typical workflow: flash an ESP32 with ESPHome → it publishes to **MQTT** → the dashboard shows live values → **Node-RED** writes history to **InfluxDB** for charts.
 

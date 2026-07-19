@@ -1,4 +1,4 @@
--- DAMN Home - PostgreSQL Schema
+-- Nexternel - PostgreSQL Schema
 -- Admin metadata: rooms, devices, sensors, relays, automations, users
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
