@@ -16,6 +16,15 @@ Newest releases are listed first.
 
 ---
 
+## V2.1.156 — 19/07/2026
+
+### Docs — README cleanup
+
+- Removed version/WIP blurb and the extra “databases mix-up” section
+- Softened repository table wording; renamed **What you get** → **System components**
+
+---
+
 ## V2.1.155 — 19/07/2026
 
 ### Docs — README repository layout and database clarification

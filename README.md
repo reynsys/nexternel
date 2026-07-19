@@ -2,10 +2,6 @@
 
 **Author:** [Rey Osman](https://github.com/reynsys)
 
-**Current version:** see the sidebar footer in the running app, and **[CHANGELOG.md](CHANGELOG.md)** (newest release first).
-
-> **Work in progress** — Nexternel is an active, ongoing project. I am continually improving it: new features, widgets, device types, dashboard customizations, and more. The stack is usable today, but expect regular updates as development continues.
-
 <p align="center">
   <a href="docs/images/dashboard-home.png"><img src="docs/images/dashboard-home.png" width="280" alt="Home dashboard" /></a>
   <a href="docs/images/edit-dashboard.png"><img src="docs/images/edit-dashboard.png" width="280" alt="Edit dashboard" /></a>
@@ -27,20 +23,13 @@ ESP32 devices publish sensor and relay data over **MQTT**; a **Next.js** dashboa
 
 | Path | What it is |
 |------|------------|
-| **`apps/web/`** | Next.js web app — the dashboard, admin UI, and APIs (not the whole stack by itself) |
-| **`db/`** | **PostgreSQL** schema — `init.sql` and SQL migrations (users, devices, rooms, dashboard layouts). This is **not** InfluxDB. |
+| **`apps/web/`** | Next.js web app — dashboard, admin UI, and APIs |
+| **`db/`** | PostgreSQL schema — `init.sql` and SQL migrations (users, devices, rooms, dashboard layouts) |
 | **`docker-compose.yml`** | Starts every server component in one step (Mosquitto, PostgreSQL, InfluxDB, Node-RED, ESPHome, web) |
 | **`esphome/`** | Example ESP32 device `.yaml` configs |
 | **`mosquitto/config/`** | MQTT broker configuration (`mosquitto.conf`) |
 | **`nodered/`** | Node-RED settings and example flows |
 | **`scripts/`** | Helper scripts for server setup and maintenance |
-
-### Databases (easy to mix up)
-
-| Name | Role | Where it lives in this repo |
-|------|------|-----------------------------|
-| **PostgreSQL** | Users, devices, rooms, dashboard layouts, automations | Directory **`db/`** (SQL files mounted into the Postgres container) |
-| **InfluxDB** | Time-series sensor history for charts | **No source directory** — Docker runs the InfluxDB image; data is stored in a Docker volume |
 
 Typical workflow: flash an ESP32 with ESPHome → it publishes to **MQTT** → the dashboard shows live values → **Node-RED** writes history to **InfluxDB** for charts.
 
@@ -62,15 +51,17 @@ All server components are **free and open source**. You only need an Ubuntu mach
 
 ---
 
-## What you get
+## System components
 
-| Component | Purpose |
-|-----------|---------|
+When you run Docker Compose, these services start together:
+
+| Component | Role |
+|-----------|------|
 | **Dashboard** (`apps/web`) | Live sensors, relays, rooms, admin UI, widget editor |
-| **Mosquitto** | MQTT broker — ESP32 and server talk through this |
-| **PostgreSQL** | Users, devices, rooms, dashboard layouts |
-| **InfluxDB** | Time-series history for charts |
-| **Node-RED** | Subscribes to MQTT, writes readings to InfluxDB |
+| **Mosquitto** | MQTT broker — ESP32 devices and the server talk through this |
+| **PostgreSQL** | Users, devices, rooms, dashboard layouts (schema in `db/`) |
+| **InfluxDB** | Time-series history for charts (Docker volume; no source directory in the repo) |
+| **Node-RED** | Subscribes to MQTT, writes readings to InfluxDB, runs automations |
 | **ESPHome** | Edit device YAML, compile and flash ESP32 firmware |
 
 You do **not** install Mosquitto, InfluxDB, Node-RED, PostgreSQL, or ESPHome with `apt` on Ubuntu. The repo contains a **`docker-compose.yml`** recipe. When you run **`docker compose up`** (Step 6), Docker **downloads** the official images and **starts** every service as a container. Cloning or uploading the repo alone does **not** start anything — you need Docker plus that one command.
