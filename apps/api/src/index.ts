@@ -1,0 +1,90 @@
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
+import { config } from "./config.js";
+import { attachUser } from "./auth/plugin.js";
+import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
+import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
+import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
+import { ensureAdminFromEnv } from "./auth/ensure-admin.js";
+import { syncCapabilitiesFromLegacy } from "./capabilities/sync.js";
+import { startTelemetry } from "./telemetry/mqtt.js";
+import { healthRoutes } from "./routes/health.js";
+import { diagnosticsRoutes } from "./routes/diagnostics.js";
+import { authRoutes } from "./routes/auth.js";
+import { roomsRoutes } from "./routes/rooms.js";
+import { devicesRoutes } from "./routes/devices.js";
+import { capabilitiesRoutes } from "./routes/capabilities.js";
+import { dashboardsRoutes } from "./dashboards/routes.js";
+import { historyRoutes } from "./routes/history.js";
+import { usersRoutes } from "./routes/users.js";
+import { systemRoutes } from "./routes/system.js";
+import { wsRoutes } from "./telemetry/ws.js";
+import { APP_VERSION } from "./version.js";
+
+const app = Fastify({ logger: true });
+
+await app.register(cors, {
+  origin: true,
+  credentials: true,
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Nexternel-Token",
+  ],
+});
+
+await app.register(cookie);
+
+await app.register(rateLimit, {
+  global: false,
+});
+
+/**
+ * Register routes in one context with the auth hook.
+ * (Sibling `register(authPlugin)` hooks do NOT apply to sibling route plugins
+ * because of Fastify encapsulation — that caused empty verifyFailures.)
+ */
+await app.register(async (api) => {
+  api.addHook("onRequest", async (request) => {
+    await attachUser(request);
+  });
+  await api.register(healthRoutes);
+  await api.register(diagnosticsRoutes);
+  await api.register(authRoutes);
+  await api.register(roomsRoutes);
+  await api.register(devicesRoutes);
+  await api.register(capabilitiesRoutes);
+  await api.register(dashboardsRoutes);
+  await api.register(historyRoutes);
+  await api.register(usersRoutes);
+  await api.register(systemRoutes);
+  await api.register(wsRoutes);
+});
+
+app.get("/", async (_request, reply) => {
+  return reply.redirect("/api/v1/health");
+});
+
+try {
+  await ensureUsersRoleSchema();
+  await ensureCapabilitySchema();
+  await ensureDashboardSchema();
+  const adminSeed = await ensureAdminFromEnv();
+  app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
+  const synced = await syncCapabilitiesFromLegacy();
+  app.log.info(synced, "capabilities synced from sensors/relays");
+  await startTelemetry();
+  app.log.info(getMqttLogSafe(), "telemetry started");
+
+  await app.listen({ port: config.port, host: config.host });
+  app.log.info(`Nexternel API ${APP_VERSION} listening on ${config.host}:${config.port}`);
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}
+
+function getMqttLogSafe() {
+  return { broker: config.mqttBroker() };
+}

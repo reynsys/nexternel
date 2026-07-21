@@ -71,43 +71,6 @@ services:
       influxdb:
         condition: service_healthy
 
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    container_name: nexternel-web
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      INFLUXDB_URL: ${INFLUXDB_URL}
-      INFLUXDB_ORG: ${INFLUXDB_ORG}
-      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
-      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
-      MQTT_BROKER: ${MQTT_BROKER}
-      MQTT_USERNAME: ${MQTT_USERNAME}
-      MQTT_PASSWORD: ${MQTT_PASSWORD}
-      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      TZ: ${TZ}
-      SERVER_IP: ${SERVER_IP}
-    ports:
-      - "${WEB_PORT:-3000}:3000"
-    volumes:
-      # Host CPU thermal zones for System Information widget (read-only)
-      - /sys/class/thermal:/sys/class/thermal:ro
-      # ESPHome YAML for import suggestions on Devices page
-      - ./esphome:/esphome:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
-      mosquitto:
-        condition: service_started
-
   esphome:
     image: ghcr.io/esphome/esphome
     container_name: nexternel-esphome
@@ -123,6 +86,55 @@ services:
     # privileged: true
     # devices:
     #   - /dev/ttyUSB0:/dev/ttyUSB0
+
+  # --- Nexternel V3 (api + ui) — V2 Next.js `web` retired in Phase 10 ---
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: nexternel-api
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      HOST: 0.0.0.0
+      TZ: ${TZ}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      MQTT_BROKER: ${MQTT_BROKER}
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX}
+      INFLUXDB_URL: ${INFLUXDB_URL}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      SERVER_IP: ${SERVER_IP}
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+      influxdb:
+        condition: service_healthy
+
+  ui:
+    build:
+      context: .
+      dockerfile: apps/ui/Dockerfile
+    container_name: nexternel-ui
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "${UI_PORT:-8080}:80"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

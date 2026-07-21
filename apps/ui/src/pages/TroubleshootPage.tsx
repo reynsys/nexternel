@@ -1,0 +1,261 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import {
+  api,
+  getStoredAccessToken,
+  type ServerDiagnostics,
+} from "../api";
+import { buildClientSnapshot, type ClientSnapshot } from "../diagnostics/buildClientSnapshot";
+import { clearDiagnosticErrors } from "../diagnostics/errorRing";
+import {
+  formatDiagnosticsReport,
+  type AuthExtras,
+} from "../diagnostics/formatReport";
+import {
+  clearVisualScan,
+  loadVisualScan,
+  type VisualScanResult,
+} from "../diagnostics/visualProbe";
+
+export function TroubleshootPage() {
+  const [client, setClient] = useState<ClientSnapshot | null>(null);
+  const [server, setServer] = useState<ServerDiagnostics | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthExtras | null>(null);
+  const [visual, setVisual] = useState<VisualScanResult | null>(() => loadVisualScan());
+  const [report, setReport] = useState("");
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setCopyStatus(null);
+
+    let serverData: ServerDiagnostics | null = null;
+    let sErr: string | null = null;
+    try {
+      serverData = await api.diagnostics();
+      setServer(serverData);
+      setServerError(null);
+    } catch (err) {
+      sErr = err instanceof Error ? err.message : String(err);
+      setServer(null);
+      setServerError(sErr);
+    }
+
+    let authExtras: AuthExtras | null = null;
+    if (getStoredAccessToken()) {
+      try {
+        const [me, caps] = await Promise.all([api.me(), api.capabilities()]);
+        authExtras = {
+          meUsername: me.user.username,
+          capabilitiesCount: caps.capabilities.length,
+        };
+      } catch (err) {
+        authExtras = {
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
+    setAuth(authExtras);
+
+    const snap = buildClientSnapshot();
+    setClient(snap);
+
+    const visualScan = loadVisualScan();
+    setVisual(visualScan);
+
+    setReport(
+      formatDiagnosticsReport(
+        snap,
+        serverData ? serverData : sErr ? { error: sErr } : null,
+        authExtras,
+        visualScan
+      )
+    );
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopyStatus("Copied — paste wherever you need help (support chat, ticket, email)");
+    } catch {
+      setCopyStatus("Copy failed — select the report text manually");
+    }
+  }
+
+  function downloadReport() {
+    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nexternel-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearErrors() {
+    clearDiagnosticErrors();
+    void refresh();
+  }
+
+  function clearVisual() {
+    clearVisualScan();
+    setVisual(null);
+    void refresh();
+  }
+
+  const serverOk = server?.status === "ok";
+  const randomOk = client?.randomUuid === "ok";
+  const visualProblems =
+    visual?.elements.filter(
+      (e) => e.flags.zeroSize || e.flags.clippedOverflow || e.flags.offscreen
+    ).length ?? 0;
+
+  return (
+    <Stack spacing={2}>
+      <Typography variant="h4">Troubleshoot</Typography>
+      <Typography color="text.secondary">
+        Collect browser, API, and on-screen layout facts into one report. Copy and share it
+        when something breaks — so helpers can work from evidence, not guesses.
+      </Typography>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Chip
+          size="small"
+          label={
+            client
+              ? `secureContext: ${client.isSecureContext}`
+              : "secureContext: …"
+          }
+          color={client?.isSecureContext ? "success" : "warning"}
+        />
+        <Chip
+          size="small"
+          label={client ? `randomUUID: ${client.randomUuid}` : "randomUUID: …"}
+          color={randomOk ? "success" : "warning"}
+        />
+        <Chip
+          size="small"
+          label={
+            serverError
+              ? `API: ${serverError}`
+              : server
+                ? `API: ${server.status} · ${server.version}`
+                : "API: …"
+          }
+          color={serverError ? "error" : serverOk ? "success" : "warning"}
+        />
+        <Chip
+          size="small"
+          label={client?.accessTokenPresent ? "signed in" : "not signed in"}
+          variant="outlined"
+        />
+        <Chip
+          size="small"
+          label={`errors: ${client?.recentErrors.length ?? 0}`}
+          color={(client?.recentErrors.length ?? 0) > 0 ? "warning" : "default"}
+        />
+        <Chip
+          size="small"
+          label={
+            visual
+              ? `visual: ${visual.matchCount} els · ${visualProblems} flagged`
+              : "visual: none"
+          }
+          color={visualProblems > 0 ? "warning" : visual ? "success" : "default"}
+        />
+      </Stack>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Button variant="contained" disabled={loading} onClick={() => void refresh()}>
+          {loading ? "Refreshing…" : "Refresh"}
+        </Button>
+        <Button variant="outlined" disabled={!report} onClick={() => void copyReport()}>
+          Copy report
+        </Button>
+        <Button variant="outlined" disabled={!report} onClick={downloadReport}>
+          Download .txt
+        </Button>
+        <Button onClick={clearErrors}>Clear error log</Button>
+      </Stack>
+
+      <Box
+        sx={{
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          p: 2,
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          Visual diagnostic
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Measures the size and clipping of boxes on screen (the browser&apos;s layout tree of
+          HTML elements — often called the <strong>DOM</strong>). Use it when a widget looks
+          cut off, empty, or the wrong size.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          1. Open the page that has the problem (Dashboard, Live, or any other screen — not
+          this Troubleshoot page).
+          <br />
+          2. Use the floating <strong>Visual Diag</strong> button (bottom-right) →{" "}
+          <strong>Scan this page</strong> or <strong>Pick element</strong>.
+          <br />
+          3. Return here → <strong>Refresh</strong> → <strong>Copy report</strong>.
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button onClick={clearVisual} disabled={!visual}>
+            Clear visual scan
+          </Button>
+        </Stack>
+        {visual ? (
+          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+            Last scan: {visual.href} · {visual.matchCount} matches · mode={visual.mode}
+            {visual.warnings[0] ? ` · ${visual.warnings[0]}` : ""}
+          </Typography>
+        ) : (
+          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+            No visual scan yet — run Visual Diag on the page that has the issue, then Refresh.
+          </Typography>
+        )}
+      </Box>
+
+      {copyStatus && <Alert severity="success">{copyStatus}</Alert>}
+
+      <Box>
+        <Typography variant="subtitle2" gutterBottom>
+          Report (copy and share)
+        </Typography>
+        <TextField
+          value={report}
+          onChange={(e) => setReport(e.target.value)}
+          fullWidth
+          multiline
+          minRows={18}
+          maxRows={32}
+          InputProps={{
+            sx: {
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+              fontSize: 13,
+            },
+          }}
+        />
+      </Box>
+    </Stack>
+  );
+}

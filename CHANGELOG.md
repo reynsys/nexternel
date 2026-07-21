@@ -10,9 +10,252 @@ All notable changes to the Nexternel smart-home stack are documented here.
 | **Y** | Hardware revision — ESP32 board / sensor layout changes | `1` = initial hardware |
 | **Z** | Software release — increments on each deployable code change | `008` = Phase 3 |
 
-**Stack:** Docker on Ubuntu — Mosquitto, InfluxDB, PostgreSQL, Node-RED, Next.js web app, ESPHome.
+**Stack:** Docker on Ubuntu — Mosquitto, InfluxDB, PostgreSQL, Node-RED, V3 API + UI, ESPHome.
 
 Newest releases are listed first.
+
+## V3.1.025 — 21/07/2026
+
+- **Phase 10:** Hard-retire V2 Next.js — remove Compose `web`, delete `apps/web/`; API bootstraps admin from `ADMIN_*`; Legacy UI link removed; docs/deploy/export updated for `:8080` only
+
+## V3.1.024 — 21/07/2026
+
+- **Phase 9:** V3 is the default operator UI (`:8080`); Legacy UI link to V2 (`:3000`); cutover/rollback runbook; DEPLOY/AGENTS/README updated for V3-first deploy
+
+## V3.1.023 — 21/07/2026
+
+- Fix UI Docker build: SystemPage import path (`../../api`)
+
+## V3.1.022 — 21/07/2026
+
+- **Phase 8:** System page + Node-RED link; Users admin with real admin/viewer roles; Rooms/Devices pages; example Clock plugin via widget registry
+
+## V3.1.021 — 21/07/2026
+
+- Auth: auto-refresh expired access JWT via refresh token on 401; clearer session-expired message; Clear saved login on login page
+
+## V3.1.020 — 21/07/2026
+
+- **Phase 7:** History API over Influx (`GET /api/v1/history`, ranges 1h/6h/24h/7d); history chart widget (ECharts); Node-RED remains sole Influx writer; api compose gets `INFLUXDB_*`
+
+## V3.1.019 — 21/07/2026
+
+- Visual Diag available on all pages except Troubleshoot (scan the page with the issue; Troubleshoot only merges/copies the report)
+
+## V3.1.018 — 21/07/2026
+
+- Troubleshoot Visual: remove “scan this page”; Visual Diag only on Dashboard views (Scan widgets / Pick element); drop irrelevant V2 history wording
+
+## V3.1.017 — 21/07/2026
+
+- Troubleshoot copy: tool-agnostic “copy and share” wording (no Cursor-only prompts); plain-language explanation of DOM / on-screen layout boxes
+
+## V3.1.016 — 21/07/2026
+
+- Visual diagnostic: floating **Visual Diag** on every page — Scan page / Pick element reads DOM rects, overflow, clipping flags; merged into Troubleshoot report (`data-nx-widget` markers on widgets)
+
+## V3.1.015 — 21/07/2026
+
+- V3 Troubleshoot page (`/troubleshoot`): client secure-context / randomUUID probes, recent JS & API errors, `GET /api/v1/diagnostics` (DB/MQTT/counts); Copy report for Cursor
+
+## V3.1.014 — 21/07/2026
+
+- Fix Add Widget on LAN HTTP: avoid `crypto.randomUUID()` (blocked on non-HTTPS); place new widgets at a finite grid Y
+
+## V3.1.013 — 21/07/2026
+
+- **Master Phase 5/6:** dashboard engine — create/edit dashboards with React Grid Layout; widgets (stat, switch, gauge) bound to capabilities; layouts saved in Postgres `v3_dashboards`
+
+## V3.1.012 — 21/07/2026
+
+- **Master Phase 3/4:** capability model (synced from sensors/relays), MQTT telemetry service, WebSocket live updates, switch commands via API; UI shows live capabilities and toggles
+
+## V3.1.011 — 21/07/2026
+
+- Fix auth hook Fastify encapsulation: session check never ran (empty `verifyFailures` while headers were present). Auth hook now wraps all API routes.
+
+## V3.1.010 — 21/07/2026
+
+- Harden JWT verify (subject claim, clock tolerance, secret trim); 401 debug now includes `verifyFailures` reason; login refuses to return a token the server cannot verify itself
+
+## V3.1.009 — 21/07/2026
+
+- Fix login reliably: UI calls API directly on port **4000** (bypasses nginx auth-header issues); also sends `X-Nexternel-Token`; richer 401 debug text if it still fails
+
+## V3.1.008 — 21/07/2026
+
+- Fix login: nginx now forwards the `Authorization` header to the API (Bearer token was dropped, causing “Authentication required” with “no token”)
+
+## V3.1.007 — 21/07/2026
+
+- Add **Clear saved login** button; auto-clear bad tokens without showing a scary error before login
+
+## V3.1.006 — 21/07/2026
+
+- Clear invalid leftover login tokens on page load so “Authentication required” does not appear before signing in
+
+## V3.1.005 — 21/07/2026
+
+- Fix “Authentication required” after login: prefer Bearer token over stale cookies when validating the session
+
+## V3.1.004 — 21/07/2026
+
+- Fix login session: JWT claim renamed (`tokenType` instead of `typ`); login form on home page with visible errors; tokens in localStorage
+
+## V3.1.003 — 21/07/2026
+
+- Fix V3 login: return Bearer tokens in the login response and store them in the SPA (cookies via nginx proxy were not sticking, so sign-in looked like it did nothing)
+
+## V3.1.002 — 21/07/2026
+
+- **Master Phase 2:** Backend API auth (JWT access + refresh) against existing Postgres users; `GET /api/v1/rooms` and `GET /api/v1/devices`; UI login + room/device lists
+- V2 on port 3000 unchanged (separate session cookie)
+
+## V3.1.001 — 21/07/2026
+
+- **Master Phase 1 foundation** (no product features): `apps/api` (Fastify + `/api/v1/health`), `apps/ui` (Vite/React/MUI shell), `packages/domain`, `packages/plugin-sdk`, Compose services on ports 4000/8080
+- V2 `apps/web` **unchanged** and remains the live dashboard on port 3000
+- Docs: [docs/v3/](docs/v3/README.md), [Phase 1 notes](docs/v3/06-PHASE1-FOUNDATION.md)
+
+## V2.1.207 — 20/07/2026
+
+- Widgets: platform **useful body** for **all** dashboard widgets (`widget-shell` + `WidgetUsefulBody` / `WIDGET_USEFUL_BODY`) — title + constrained `flex-1 min-h-0 min-w-0` body under every widget, not only gauges
+- Gauges: clean constrained dial — flex-center explicit W×H px box (no absolute/`top:10%`); SVG fits inside the box
+
+## V2.1.206 — 20/07/2026
+
+- Gauges: centre dial in useful area — dial box positioned at `top: 10%` with height 80% (10% gap below as well); stops dials sticking to the widget bottom
+
+## V2.1.205 — 20/07/2026
+
+- Internet Speed: remove LAN/WAN side rails from the dial; System Information now shows **LAN** and **WAN** (WAN cached ~5 min via ipify)
+
+## V2.1.204 — 20/07/2026
+
+- Gauges: fix tiny dials — remove mistaken `width = height × aspect` (F12 `175×95` with empty sides). Platform rule restored: **full useful width** × **80% body height** (10%/10% gutters), centered; dial-box `overflow:visible` so side ticks are not clipped
+
+## V2.1.203 — 20/07/2026
+
+- Gauges: lock the dial-size API to **all gauges** — removed per-call inset override; docs/rules state new gauges must use `GaugeDefinitionView` only (no second sizing path)
+
+## V2.1.202 — 20/07/2026
+
+- Gauges: **one sizing rule for all gauges** — dial = 80% of body height (10%/10% gutters), width from shared aspect, centered; overlays (e.g. LAN/WAN) must not shrink the dial
+
+## V2.1.201 — 20/07/2026
+
+- Gauges: vertical gutters are **10% / 10%** of body height (title→bottom), not a fixed 14px — 14px was only an example on a ~140px body; dial uses the middle 80%
+
+## V2.1.200 — 20/07/2026
+
+- Gauges: new widget sizing model — stop aspect-locking dial width (F12 `185×104` inside ~`370×200` left empty space under dials). Dial now fills body width × (body − 10% top gutter); card bottom pad **14px** so dial sits ~14px from the widget edge
+
+## V2.1.199 — 20/07/2026
+
+- Gauges: stop right-side tick clip — F12 showed dial-box/`overflow:hidden` cutting “50”/`text-anchor:start` past the SVG edge; slightly wider left/right library margins (0.10) + `overflow:visible` on dial box; halve empty space under dials (use half spare body height + bottom-align dial host)
+
+## V2.1.198 — 20/07/2026
+
+- Gauges: fit oversized library SVG into dial box — `max-width/max-height: 100%` on SVG (F12: box 185×107 but svg 272×150 was clipping the bottom); dial box uses width-led 250×135 aspect again
+
+## V2.1.197 — 20/07/2026
+
+- Gauges: fix collapsed body (~98px) — `widget-fit-gauge` uses `flex: 1 1 0%` (no `h-full`); dial host `absolute inset-0`; dial box **fills** measured body; “Live” status overlays so it does not shrink the dial; outer ticks kept
+
+## V2.1.196 — 20/07/2026
+
+- Gauges: restore **outer** tick labels; restore library side margins (0.07) so the arc is not shrunk; scale dial box up with spare cell height (up to 1.45×) so gauges actually get bigger
+
+## V2.1.195 — 20/07/2026
+
+- Gauges: dial box uses full body width and enough height for library SVG (~0.72×width); wider left/right margins + **inner** tick labels to stop right-side “500” clip; bottom-align; slightly tighter gauge card padding
+
+## V2.1.194 — 20/07/2026
+
+- Gauges: larger dials — measure full `widget-fit-gauge` body (not a shrunk host); target aspect **250×135**; bottom-align; `overflow: visible` so right-side ticks are not clipped
+
+## V2.1.193 — 20/07/2026
+
+- Gauges: fix invisible arcs — `marginInPercent.bottom` must be `0` (library default). Non-zero bottom was applied against `fixedHeight = divHeight + 200`, producing negative `outerRadius` and every subArc path `d="M0,0Z"`
+
+## V2.1.192 — 20/07/2026
+
+- Gauges: **constrained dial box** — host fills cell (flex + `min-w-0`); inner box gets explicit width×height px from `computeConstrainedDialBox` (aspect 220/140 for semicircle+grafana); stripped CSS aspect-ratio/cqh/grid stage fights
+
+## V2.1.191 — 19/07/2026
+
+- Gauges: remove `cqw`/`cqh` (tiny dials); CSS grid bottom-align + width-led stage (`100%` × aspect 2:1); Speed ticks 0/250/500 to avoid overlap
+
+## V2.1.190 — 19/07/2026
+
+- Gauges: dial host fills `widget-fit-gauge` (flex fix); stage sized with `cqw`/`cqh` from gauge body + `margin-top: auto` (larger, bottom-aligned, same box for semicircle + grafana)
+
+## V2.1.189 — 19/07/2026
+
+- Gauges: CSS-only `.gauge-dial-stage` (width 100%, aspect 2:1, max-height 92%, bottom-aligned) — gauge fills stage; fixes V2.1.188 tiny collapsed dials
+
+## V2.1.188 — 19/07/2026
+
+- Gauges: remove JS stage sizing (restores arcs); fix root cause — dashboard no longer passes inline `height: 100%`; CSS bottom-align with `aspect-ratio: 2/1` for semicircle + grafana
+
+## V2.1.187 — 19/07/2026
+
+- Gauges: bottom-aligned stage sized from `widget-fit-gauge` width (94% × aspect 1.7); validation rejects collapsed sizes; fill fallback keeps arcs visible; same box for semicircle + grafana
+
+## V2.1.186 — 19/07/2026
+
+- Gauges: **revert** broken pixel-measurement/stage wrapper — dashboard uses Studio-style fill (`gauge-cell-dial-host > .gauge` at 100% height); identical margins for semicircle + grafana
+
+## V2.1.185 — 19/07/2026
+
+- Gauges: fix collapsed dials — measure `widget-fit-gauge` body (not dial host); always render gauge; CSS fallback until measured
+
+## V2.1.184 — 19/07/2026
+
+- Gauges: **measured pixel sizing** — `computeGaugeStagePx()` + ResizeObserver in `GaugePrimitive` (replaces CSS aspect-ratio/cqh); semicircle + grafana share identical margins and stage aspect; stable at all viewport sizes
+
+## V2.1.183 — 19/07/2026
+
+- Gauges: unified stage box at 90% fit for Temp / Humidity / Speed (same width — removed Speed-only dial padding); top/bottom host padding + SVG margins to stop arc/tick clip
+
+## V2.1.182 — 19/07/2026
+
+- Gauges: replace unreliable `cqh` sizing with percent + `aspect-ratio` on dial host (fills flex height, `margin-top: auto` pins dial to bottom); tighter SVG margins for larger arcs; tick labels use rem on dashboard
+
+## V2.1.181 — 19/07/2026
+
+- Fix: TypeScript build — `resolveGaugeMargins` handles undefined `marginInPercent` in Studio/compact paths
+
+## V2.1.180 — 19/07/2026
+
+- Gauges: **global layout by type** — size container moves to `widget-fit-gauge` (stable height below title); semicircle + grafana share one stage rule (`min(100cqw, 100cqh × 1.7)`), radial uses `1:1`; dashboard ignores saved Studio margins; value font uses rem clamp (not `7cqmin`); Speed stage accounts for LAN/WAN rail inset
+
+## V2.1.179 — 19/07/2026
+
+- Gauges: fit-in-cell layout — natural 1.7:1 stage sized to `min(100%, 100cqh × 1.7)` and bottom-aligned; reverts 100% height stretch that clipped values and arc bottoms
+
+## V2.1.178 — 19/07/2026
+
+- Docs: README Phase 1 — “About this project”, accurate directory map (`db` = PostgreSQL, InfluxDB = Compose service), git hygiene note
+
+## V2.1.177 — 19/07/2026
+
+- Gauges (Temp / Humidity / Speed): switch to **fill mode** — dial stage and SVG fill the cell height instead of a small aspect-ratio box floating at the top; margins tuned (minimal top, zero bottom) so arcs sit lower and use space under the title
+
+## V2.1.176 — 19/07/2026
+
+- Internet Speed: reset saved Studio margins on dashboard (large top inset was shrinking/clipping the dial); Mbps readout uses rem font size not `7cqmin` (was microscopic when dial host collapsed)
+- Gauges: dial host fills `widget-fit-gauge` via flex (`flex: 1 1 0%`) — removed `height: 100%` circular sizing; stage pinned with `margin-top: auto`
+
+## V2.1.175 — 19/07/2026
+
+- Internet Speed: now rendered through `GaugeDefinitionView` (same shell + dial path as Temperature/Humidity); LAN/WAN rails are an overlay only
+- Gauges: pin dial stage to cell bottom with CSS grid (`1fr` + `auto` rows) instead of flex-end
+
+## V2.1.174 — 19/07/2026
+
+- Internet Speed: dial is now a **direct** child of `widget-fit-gauge` (same DOM as Temperature/Humidity); removed `speed-test-gauge-slot` wrapper that blocked bottom alignment
+- Internet Speed: always uses platform gauge preset (no legacy `NetworkSpeedGauge` fallback with different layout)
 
 ## V2.1.173 — 19/07/2026
 

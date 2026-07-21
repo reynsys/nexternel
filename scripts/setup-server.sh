@@ -81,11 +81,6 @@ echo -e "${GREEN}Mosquitto password file created.${NC}"
 echo -e "${GREEN}Node-RED flow template ready at nodered/flows.json${NC}"
 echo "  Import it via Node-RED: Menu -> Import -> Clipboard / select file"
 
-# --- Update NEXTAUTH_URL with server IP if set ---
-if [ -n "$SERVER_IP" ]; then
-    sed -i "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=http://${SERVER_IP}:${WEB_PORT:-3000}|g" .env
-fi
-
 # --- Build and start stack ---
 echo -e "${YELLOW}Building and starting Docker containers (this may take several minutes)...${NC}"
 docker compose up -d --build
@@ -93,15 +88,15 @@ docker compose up -d --build
 echo -e "${YELLOW}Waiting for services to become healthy...${NC}"
 sleep 15
 
-# --- Seed admin user ---
-echo -e "${YELLOW}Seeding admin user...${NC}"
-docker compose exec -T web node scripts/seed-admin.js
+# Admin user is created by the API on startup from ADMIN_USERNAME / ADMIN_PASSWORD
+# (idempotent — skips if the username already exists).
 
 echo ""
 echo -e "${GREEN}=== Setup Complete ===${NC}"
 echo ""
 echo "Access your services:"
-echo "  Dashboard:  http://${SERVER_IP:-localhost}:${WEB_PORT:-3000}"
+echo "  Dashboard:  http://${SERVER_IP:-localhost}:${UI_PORT:-8080}"
+echo "  API:        http://${SERVER_IP:-localhost}:${API_PORT:-4000}"
 echo "  Node-RED:   http://${SERVER_IP:-localhost}:1880"
 echo "  InfluxDB:   http://${SERVER_IP:-localhost}:8086"
 echo ""
@@ -112,6 +107,6 @@ echo ""
 echo "Next steps:"
 echo "  1. Open Node-RED and configure Mosquitto broker with MQTT username/password"
 echo "  2. Deploy the flows (click Deploy button)"
-echo "  3. Open ESPHome at http://${SERVER_IP:-localhost}:6052 (or Admin → Devices → Open ESPHome)"
-echo "  4. Register your device in Admin -> Devices"
+echo "  3. Open ESPHome at http://${SERVER_IP:-localhost}:6052"
+echo "  4. Register devices in Admin → Devices (V3 UI :8080)"
 echo ""

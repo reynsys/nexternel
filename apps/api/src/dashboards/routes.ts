@@ -1,0 +1,88 @@
+import type { FastifyPluginAsync } from "fastify";
+import { requireUser } from "../auth/plugin.js";
+import {
+  createDashboard,
+  deleteDashboard,
+  getDashboard,
+  listDashboards,
+  updateDashboard,
+} from "../dashboards/store.js";
+
+function toDto(row: Awaited<ReturnType<typeof getDashboard>>) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    document: row.document,
+    isDefault: row.is_default,
+    ownerUserId: row.owner_user_id,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
+  app.get("/api/v1/dashboards", async (request, reply) => {
+    if (!requireUser(request, reply)) return;
+    const rows = await listDashboards(request.user!.id);
+    return { dashboards: rows.map((r) => toDto(r)) };
+  });
+
+  app.post<{ Body: { name?: string } }>("/api/v1/dashboards", async (request, reply) => {
+    if (!requireUser(request, reply)) return;
+    const name = request.body?.name?.trim() || "New dashboard";
+    const row = await createDashboard({
+      name,
+      ownerUserId: request.user!.id,
+      document: { schemaVersion: 1, name, widgets: [] },
+    });
+    return { dashboard: toDto(row) };
+  });
+
+  app.get<{ Params: { id: string } }>("/api/v1/dashboards/:id", async (request, reply) => {
+    if (!requireUser(request, reply)) return;
+    const row = await getDashboard(request.params.id);
+    if (!row) {
+      return reply.code(404).send({
+        error: { code: "not_found", message: "Dashboard not found" },
+      });
+    }
+    return { dashboard: toDto(row) };
+  });
+
+  app.put<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      document?: { schemaVersion: number; name: string; widgets: unknown[] };
+      isDefault?: boolean;
+    };
+  }>("/api/v1/dashboards/:id", async (request, reply) => {
+    if (!requireUser(request, reply)) return;
+    const row = await updateDashboard(request.params.id, {
+      name: request.body?.name,
+      document: request.body?.document,
+      isDefault: request.body?.isDefault,
+    });
+    if (!row) {
+      return reply.code(404).send({
+        error: { code: "not_found", message: "Dashboard not found" },
+      });
+    }
+    return { dashboard: toDto(row) };
+  });
+
+  app.delete<{ Params: { id: string } }>(
+    "/api/v1/dashboards/:id",
+    async (request, reply) => {
+      if (!requireUser(request, reply)) return;
+      const ok = await deleteDashboard(request.params.id);
+      if (!ok) {
+        return reply.code(404).send({
+          error: { code: "not_found", message: "Dashboard not found" },
+        });
+      }
+      return { ok: true };
+    }
+  );
+};

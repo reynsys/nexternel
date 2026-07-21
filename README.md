@@ -2,6 +2,8 @@
 
 **Author:** [Rey Osman](https://github.com/reynsys)
 
+**Current release:** see [CHANGELOG.md](CHANGELOG.md). **Dashboard:** port **8080** (V3). **API:** port **4000**.
+
 <p align="center">
   <a href="docs/images/dashboard-home.png"><img src="docs/images/dashboard-home.png" width="280" alt="Home dashboard" /></a>
   <a href="docs/images/edit-dashboard.png"><img src="docs/images/edit-dashboard.png" width="280" alt="Edit dashboard" /></a>
@@ -10,37 +12,49 @@
 
 ---
 
-## About
+## About this project
 
-**Nexternel** is a home-automation system that runs on your own Linux server (typically Ubuntu on your LAN).
+**Nexternel** is a self-hosted home-automation stack that runs on **your own Linux server** (typically Ubuntu on your LAN). You operate it locally on your network — the core stack does not depend on a cloud service.
 
-ESP32 devices publish sensor and relay data over **MQTT** (via **Mosquitto**). A **Next.js** dashboard shows live readings and controls. **Node-RED** writes history to **InfluxDB** for charts and runs automations. **PostgreSQL** stores users, devices, rooms, and dashboard layouts.
+### How it works
+
+ESP32 devices publish sensor and relay state over **MQTT** (via **Mosquitto**). The **V3** React dashboard (`:8080`) and **Fastify API** (`:4000`) are the operator surface. **Node-RED** writes history to **InfluxDB** and runs automations. **PostgreSQL** stores users, devices, rooms, and dashboard layouts. V2 Next.js was retired in Phase 10.
 
 ```
 ESP32 ──MQTT──► Mosquitto ──► Node-RED ──► InfluxDB
                     │                        ▲
-                    └──────► Next.js ────────┘
-                               │
-                          PostgreSQL
+                    └──────► V3 API ─────────┘
+                                 ▲
+                            V3 UI (:8080)
+                                 │
+                            PostgreSQL
 ```
 
 ### What’s in the repository
 
-| Path | What it is |
-|------|------------|
-| **`apps/web/`** | Next.js dashboard, admin UI, and APIs |
-| **`db/`** | PostgreSQL schema (`init.sql` and migrations) |
-| **`docker-compose.yml`** | Starts the full stack |
-| **`esphome/`** | Example ESP32 device YAML |
-| **`mosquitto/config/`** | Mosquitto (MQTT broker) config |
-| **`nodered/`** | Node-RED settings and example flows |
-| **`scripts/`** | Server helper scripts |
+Top-level directories and files in this repo:
+
+- **`apps/ui/`** — React SPA (dashboard/admin on port 8080).
+- **`apps/api/`** — Fastify Backend API (port 4000).
+- **`packages/`** — shared domain / plugin-sdk / example plugins.
+- **`db/`** — PostgreSQL schema (`init.sql`) and SQL migrations. Used by Compose as `./db/init.sql`. **Not InfluxDB.**
+- **`docker-compose.yml`** — Starts Mosquitto, PostgreSQL, InfluxDB, Node-RED, api, ui, and ESPHome.
+- **`esphome/`** — Example ESP32 device YAML (secrets stay local; see `esphome/secrets.yaml.example`).
+- **`mosquitto/config/`** — MQTT broker config (listener, auth). The password file is generated on the server and is gitignored.
+- **`nodered/`** — Node-RED settings and example flows (MQTT → InfluxDB style). Runtime flow data lives in a Docker volume.
+- **`docs/v3/`** — Generation 3 architecture + phase notes (retire: [13-PHASE10-RETIRE-NEXT.md](docs/v3/13-PHASE10-RETIRE-NEXT.md)).
+- **`scripts/`** — Helper scripts for server setup, MQTT password, Node-RED token, GitHub export, and more.
+
+**Compose services without a source directory:** **InfluxDB** is a Docker image plus volume (`influxdb` service in `docker-compose.yml`); sensor history is stored in that volume, not under a repo directory named `InfluxDB`.
+
+**Git hygiene (not product features):** `.gitattributes` forces LF line endings on shell and Docker files so Windows clones do not break Linux scripts. `.gitignore` keeps secrets, `node_modules`, `Template/`, and other local-only paths out of git.
 
 ### Services and ports
 
 | Service | Port | Open in browser |
 |---------|------|-----------------|
-| Dashboard | 3000 | `http://YOUR_SERVER_IP:3000` |
+| Dashboard (UI) | 8080 | `http://YOUR_SERVER_IP:8080` |
+| API | 4000 | `http://YOUR_SERVER_IP:4000/api/v1/health` |
 | ESPHome | 6052 | `http://YOUR_SERVER_IP:6052` |
 | Node-RED | 1880 | `http://YOUR_SERVER_IP:1880` |
 | InfluxDB | 8086 | `http://YOUR_SERVER_IP:8086` |
@@ -125,9 +139,8 @@ Set every `change_me_*` value. At least:
 | `DATABASE_URL` | Same password as above |
 | `INFLUXDB_PASSWORD` / `INFLUXDB_TOKEN` | InfluxDB credentials (save the token) |
 | `MQTT_PASSWORD` | MQTT password (same value in ESP32 config later) |
-| `NEXTAUTH_SECRET` | Random string |
-| `NEXTAUTH_URL` | `http://YOUR_SERVER_IP:3000` |
-| `ADMIN_PASSWORD` | Dashboard login password |
+| `NEXTAUTH_SECRET` | Random string (also used as API JWT secret) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | First admin (created by API on startup) |
 
 Generate secrets: `openssl rand -hex 16`  
 Save in nano: `Ctrl+O`, Enter, `Ctrl+X`.  
@@ -152,9 +165,7 @@ First run can take several minutes. All containers should show **Up**. If Mosqui
 
 ### Step 7 — Admin user
 
-```bash
-docker compose exec web node scripts/seed-admin.js
-```
+The API creates the first admin on startup from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env` (skipped if that username already exists). No separate seed command.
 
 ### Step 8 — Node-RED
 
@@ -169,7 +180,9 @@ docker compose exec web node scripts/seed-admin.js
 
 ### Step 9 — Dashboard
 
-Open `http://YOUR_SERVER_IP:3000` and log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env` (default user `admin`).
+Open `http://YOUR_SERVER_IP:8080` and log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env` (default user `admin`).
+
+Phase 10 notes: [docs/v3/13-PHASE10-RETIRE-NEXT.md](docs/v3/13-PHASE10-RETIRE-NEXT.md).
 
 ### Step 10 — ESP32 (optional)
 
@@ -199,14 +212,15 @@ Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Updating the dashboard after code changes
 
-Upload `apps/web/` with FileZilla, run Step 3 if needed, then in PuTTY:
+Upload `apps/ui/` and/or `apps/api/` with FileZilla, then in PuTTY:
 
 ```bash
 cd ~/nexternel
-docker compose stop web
-docker compose build --no-cache web
-docker compose up -d web
+docker compose build --no-cache api ui
+docker compose up -d api ui
 ```
+
+Full matrix: [DEPLOY.md](DEPLOY.md).
 
 ---
 
@@ -216,11 +230,11 @@ docker compose up -d web
 |---------|-----|
 | Scripts fail with `^M` / `command not found` | Step 3 (line endings) |
 | Mosquitto won’t start | `./scripts/generate-mqtt-passwd.sh` |
-| Login loops | Check `NEXTAUTH_URL` in `.env`, rebuild web |
+| Login fails / no admin | Confirm `ADMIN_*` in `.env`, then `docker compose restart api` |
 | No sensor data | `./scripts/mqtt-subscribe.sh`; confirm Node-RED is deployed |
 | ESP32 won’t connect | Broker IP = `YOUR_SERVER_IP`; MQTT password matches `.env` |
 
-Useful scripts: `generate-mqtt-passwd.sh`, `configure-nodered-token.sh`, `rebuild-web.sh`, `mqtt-subscribe.sh` (all under `scripts/`).
+Useful scripts: `generate-mqtt-passwd.sh`, `configure-nodered-token.sh`, `mqtt-subscribe.sh` (all under `scripts/`). More: [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
 
