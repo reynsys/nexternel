@@ -2,6 +2,8 @@ import type { WidgetCategoryId } from "@nexternel/plugin-sdk";
 import { listWidgetContributions } from "../plugins/registry";
 import {
   catalogTypeForPreset,
+  getEchartsPreset,
+  listEchartsFamilyMeta,
   listEchartsPresets,
 } from "../widgets/echarts";
 
@@ -31,12 +33,12 @@ export const WIDGET_CATEGORIES: {
   {
     id: "sensors",
     label: "Sensors",
-    description: "ECharts gauges, pie, radar, funnel",
+    description: "Live ECharts gauges, pie, radar, funnel",
   },
   {
     id: "history",
-    label: "History",
-    description: "ECharts line / area / bar / scatter / heatmap",
+    label: "Charts (history)",
+    description: "ECharts line, area, bar, scatter, heatmap from history",
   },
   {
     id: "controls",
@@ -98,6 +100,43 @@ function echartsCatalogEntries(): CatalogEntry[] {
       ...(p.dataMode === "history" ? { range: "24h" } : {}),
     },
   }));
+}
+
+/** Group catalog entries by ECharts family (for Add-widget Type menu). */
+export function groupCatalogByEchartsFamily(
+  entries: CatalogEntry[]
+): { familyLabel: string; familyHint: string; entries: CatalogEntry[] }[] {
+  const byFamily = new Map<string, CatalogEntry[]>();
+  const nonEcharts: CatalogEntry[] = [];
+
+  for (const e of entries) {
+    if (!e.presetId) {
+      nonEcharts.push(e);
+      continue;
+    }
+    const preset = getEchartsPreset(e.presetId);
+    const list = byFamily.get(preset.family) ?? [];
+    list.push(e);
+    byFamily.set(preset.family, list);
+  }
+
+  const groups = listEchartsFamilyMeta()
+    .filter((f) => byFamily.has(f.id))
+    .map((f) => ({
+      familyLabel: f.label,
+      familyHint: f.hint,
+      entries: byFamily.get(f.id)!,
+    }));
+
+  if (nonEcharts.length > 0) {
+    groups.unshift({
+      familyLabel: "Core",
+      familyHint: "Built-in non-ECharts widgets",
+      entries: nonEcharts,
+    });
+  }
+
+  return groups;
 }
 
 export function listCatalogEntries(): CatalogEntry[] {

@@ -16,15 +16,21 @@ import {
   scanVisual,
   type VisualScanResult,
 } from "./visualProbe";
+import {
+  isVisualDiagEnabled,
+  setVisualDiagEnabled,
+  VISUAL_DIAG_CHANGED,
+} from "./visualDiagPrefs";
 
 /**
- * Floating visual diagnostics on every page except Troubleshoot
- * (Troubleshoot only collects/merges the report — scan the page that has the issue).
+ * Floating visual diagnostics — only when enabled from Troubleshoot
+ * (session-scoped). Hidden on the Troubleshoot page itself.
  */
 export function VisualDiagOverlay() {
   const location = useLocation();
   const onTroubleshoot = location.pathname === "/troubleshoot";
 
+  const [enabled, setEnabled] = useState(() => isVisualDiagEnabled());
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [selector, setSelector] = useState(DEFAULT_VISUAL_SELECTORS);
@@ -32,11 +38,28 @@ export function VisualDiagOverlay() {
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    const sync = () => setEnabled(isVisualDiagEnabled());
+    window.addEventListener(VISUAL_DIAG_CHANGED, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(VISUAL_DIAG_CHANGED, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  useEffect(() => {
     if (onTroubleshoot) {
       setOpen(false);
       setPicking(false);
     }
   }, [onTroubleshoot]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setOpen(false);
+      setPicking(false);
+    }
+  }, [enabled]);
 
   useEffect(() => {
     if (!picking) return;
@@ -74,7 +97,7 @@ export function VisualDiagOverlay() {
     };
   }, [picking]);
 
-  if (onTroubleshoot) {
+  if (onTroubleshoot || !enabled) {
     return null;
   }
 
@@ -102,7 +125,7 @@ export function VisualDiagOverlay() {
           textTransform: "none",
         }}
       >
-        Visual Diag
+        Visual Diagnostic
       </Button>
 
       {open && (
@@ -121,7 +144,7 @@ export function VisualDiagOverlay() {
           }}
         >
           <Stack spacing={1.5}>
-            <Typography variant="subtitle2">Visual diagnostic</Typography>
+            <Typography variant="subtitle2">Visual Diagnostic</Typography>
             <Typography variant="caption" color="text.secondary">
               Measures on-screen layout boxes — HTML elements the browser draws (the DOM):
               size, overflow, clipping. Use on the page that has the problem (Dashboard, Live,
@@ -150,6 +173,16 @@ export function VisualDiagOverlay() {
                 }}
               >
                 {picking ? "Click an element…" : "Pick element"}
+              </Button>
+              <Button
+                size="small"
+                color="inherit"
+                onClick={() => {
+                  setVisualDiagEnabled(false);
+                  setStatus(null);
+                }}
+              >
+                Hide until needed
               </Button>
               <Button size="small" onClick={() => setOpen(false)}>
                 Close

@@ -2,20 +2,20 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.033+ |
+| **Version** | V3.1.043+ |
 | **Code** | [`apps/ui/src/library/widget-catalog.ts`](../../apps/ui/src/library/widget-catalog.ts) |
 
 ## Purpose
 
-Add widget picker is organized by **category** (Status, Sensors, History, Controls, Media, System, Plugins). New panel kinds should prefer config variants under an existing renderer over brand-new unrelated widgets.
+Add widget picker is organized by **category**, then by **ECharts family** inside the Type menu.
 
 ## Current mapping
 
-| Category | Types today |
-|----------|-------------|
+| Category | What you get |
+|----------|----------------|
 | Status | Auto, Stat |
-| Sensors | ECharts presets (gauges, pie, radar, funnel) — catalog keys `echarts.*` |
-| History | ECharts presets (line, area, bar, scatter, heatmap, rose) |
+| Sensors | Gauges, pie, doughnut, rose, radar, funnel (live) |
+| **Charts (history)** | Line, smooth, step, area, bar, scatter, heatmap (from Influx history) |
 | Controls | Switch |
 | System | ECharts blank + Clock (plugin) |
 | Media | — (reserved) |
@@ -23,4 +23,4 @@ Add widget picker is organized by **category** (Status, Sensors, History, Contro
 
 ECharts details: [17-ECHARTS-WIDGETS.md](17-ECHARTS-WIDGETS.md).
 
-Plugins may set `category` on `WidgetContribution` (SDK). Default is `plugins`.
+**Tip:** Line / area / bar charts are under **Charts (history)**, not Sensors.

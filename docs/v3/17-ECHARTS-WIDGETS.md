@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.033+ |
+| **Version** | V3.1.043+ |
 | **Code** | [`apps/ui/src/widgets/echarts/`](../../apps/ui/src/widgets/echarts/) |
 
 ## Purpose
@@ -27,6 +27,26 @@ bindings: { capabilityId?: string }
 
 Catalog keys are `echarts.<presetId>` (e.g. `echarts.gauge-ring`); Add widget creates `type: "echarts"`.
 
+## Classification
+
+Two layers (aligned with [Apache ECharts chart types](https://echarts.apache.org/examples/en/index.html)):
+
+| Layer | Meaning |
+|-------|---------|
+| **Catalog category** | Where you **add** the widget: Sensors / Charts (history) / System |
+| **ECharts family** | Series type: Gauge, Line, Area, Bar, Pie, Scatter, Radar, Funnel, Heatmap, Custom |
+
+**Edit drawer scope** (locked to the component you opened):
+
+| You edit… | You can change to… |
+|-----------|-------------------|
+| A gauge | Other **gauge** styles only |
+| A history chart | Other **history** chart types (line/area/bar/…) — not gauges |
+| Pie / radar / funnel | Other live diagrams in that group |
+| Blank | Custom / Advanced JSON |
+
+To switch from a gauge to a line chart (or the reverse), **Add** a new widget in the right category — Edit does not cross those groups.
+
 ## Data modes
 
 | Mode | Behaviour |
@@ -39,11 +59,11 @@ Bound `series[].data` is preserved when applying `optionOverride` unless the ove
 
 ## Presets (first ship)
 
-**Sensors (gauges):** `gauge`, `gauge-simple`, `gauge-speed`, `gauge-progress`, `gauge-stage`, `gauge-grade`, `gauge-multi-title`, `gauge-temperature`, `gauge-ring`, `gauge-barometer`, `gauge-clock`, `gauge-car` — ported from [official ECharts gauge examples](https://echarts.apache.org/examples/en/index.html#chart-type-gauge). **All** gauge series pass through `enforceAllGaugeSeries` (nice ticks, axis label formatter, radius/center clamp) plus shared `gaugeLayout` placements.
+**Sensors (gauges):** `gauge`, `gauge-simple`, `gauge-speed`, `gauge-progress`, `gauge-stage`, `gauge-grade`, `gauge-multi-title`, `gauge-temperature`, `gauge-ring`, `gauge-barometer`, `gauge-clock`, `gauge-car` — ported from [official ECharts gauge examples](https://echarts.apache.org/examples/en/index.html#chart-type-gauge).
 
-**Sensors (other):** `pie-basic`, `pie-doughnut`, `radar-basic`, `funnel-basic`
+**Sensors (diagrams):** `pie-basic`, `pie-doughnut`, `radar-basic`, `funnel-basic`
 
-**History:** `line-basic`, `line-smooth`, `area-basic`, `area-stack`, `bar-basic`, `bar-horizontal`, `scatter-basic`, `pie-rose`, `heatmap-basic`
+**Charts (history):** `line-basic`, `line-smooth`, `line-step`, `area-basic`, `area-stack`, `bar-basic`, `bar-horizontal`, `bar-stack`, `scatter-basic`, `heatmap-basic`, `pie-rose`
 
 **System:** `blank`
 
@@ -51,10 +71,11 @@ Bound `series[].data` is preserved when applying `optionOverride` unless the ove
 
 In dashboard **Edit** mode, ECharts widgets show **Edit** → drawer with:
 
-1. Preset (filter by family)
-2. Title, capability, min/max, accent, history range
-3. Advanced JSON (`optionOverride`)
-4. Live preview
+1. Component / chart type (only families in the current edit scope)
+2. Preset / gauge style
+3. Title, capability, min/max, accent, history range
+4. Advanced JSON (`optionOverride`)
+5. Live preview
 
 ## Migration
 

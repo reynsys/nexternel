@@ -38,6 +38,7 @@ import {
   catalogByCategory,
   categoriesWithEntries,
   getCatalogEntry,
+  groupCatalogByEchartsFamily,
   type WidgetCategoryId,
 } from "../library/widget-catalog";
 import {
@@ -74,6 +75,7 @@ export function DashboardPage() {
 
   const categoryOptions = categoriesWithEntries();
   const typeOptions = catalogByCategory(addCategory);
+  const typeGroups = groupCatalogByEchartsFamily(typeOptions);
   const selectedEntry = getCatalogEntry(addType);
 
   const ordered = useMemo(() => sortSections(sections), [sections]);
@@ -578,16 +580,26 @@ export function DashboardPage() {
                   }
                 }}
               >
-                <ListSubheader>
-                  {categoryOptions.find((c) => c.id === addCategory)?.label}
-                </ListSubheader>
-                {typeOptions.map((t) => (
-                  <MenuItem key={t.type} value={t.type}>
-                    {t.label}
-                  </MenuItem>
-                ))}
+                {typeGroups.flatMap((g) => [
+                  <ListSubheader key={`g-${g.familyLabel}`}>
+                    {g.familyLabel}
+                  </ListSubheader>,
+                  ...g.entries.map((t) => (
+                    <MenuItem key={t.type} value={t.type}>
+                      {t.label}
+                    </MenuItem>
+                  )),
+                ])}
               </Select>
             </FormControl>
+            {typeGroups.find((g) => g.entries.some((e) => e.type === addType))?.familyHint && (
+              <Typography variant="caption" color="text.secondary">
+                {
+                  typeGroups.find((g) => g.entries.some((e) => e.type === addType))
+                    ?.familyHint
+                }
+              </Typography>
+            )}
             {selectedEntry?.description && (
               <Typography variant="caption" color="text.secondary">
                 {selectedEntry.description}

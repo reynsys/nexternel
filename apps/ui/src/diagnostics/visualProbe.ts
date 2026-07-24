@@ -194,7 +194,7 @@ export function scanVisual(
 
   if (nodes.length === 0) {
     warnings.push(
-      "No matches — open the page that has the issue, then use Visual Diag → Scan this page or Pick element."
+      "No matches — open the page that has the issue, then use Visual Diagnostic → Scan this page or Pick element."
     );
   }
 
@@ -282,7 +282,7 @@ export function clearVisualScan() {
 export function formatVisualSection(scan: VisualScanResult | null): string[] {
   const lines: string[] = ["", "## Visual diagnostic"];
   if (!scan) {
-    lines.push("(none — open the page with the issue, use Visual Diag → Scan this page or Pick element)");
+    lines.push("(none — open the page with the issue, use Visual Diagnostic → Scan this page or Pick element)");
     lines.push("");
     return lines;
   }

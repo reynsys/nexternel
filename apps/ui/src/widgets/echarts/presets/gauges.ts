@@ -203,8 +203,7 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
         series: [
           {
             type: "gauge",
-            center: ["50%", "48%"],
-            radius: layout.radius,
+            ...layout,
             min: a.min,
             max: a.max,
             splitNumber: a.splitNumber,
@@ -313,14 +312,14 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
     buildOption: (ctx) => {
       const span = Math.max(1e-6, ctx.max - ctx.min);
       const norm = Math.min(1, Math.max(0, (ctx.value - ctx.min) / span));
+      const layout = gaugeLayout("semi");
       return {
         series: [
           {
             type: "gauge",
             startAngle: 180,
             endAngle: 0,
-            center: ["50%", "75%"],
-            radius: "88%",
+            ...layout,
             min: 0,
             max: 1,
             splitNumber: 8,
@@ -398,7 +397,6 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
             max: 100,
             splitNumber: 5,
             ...layout,
-            center: ["50%", "45%"],
             anchor: {
               show: true,
               showAbove: true,
@@ -467,7 +465,7 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
       // so it sits in the open horseshoe, not on the arc.
       const detailFont = Math.max(16, Math.min(Math.round(px * 0.2), Math.round(60 * s)));
       const detailOffset: [number, string] =
-        px < 170 ? [0, "5%"] : [0, "-15%"];
+        px < 170 ? [0, "0%"] : [0, "-12%"];
 
       return {
         series: [
@@ -746,8 +744,7 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
         series: [
           {
             type: "gauge",
-            center: ["50%", "58%"],
-            radius: layout.radius,
+            ...layout,
             min: a.min,
             max: a.max,
             splitNumber: a.splitNumber,

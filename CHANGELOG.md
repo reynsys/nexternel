@@ -14,6 +14,26 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.043 — 24/07/2026
+
+- **ECharts Edit drawer:** categorization fixed — editing a gauge only shows gauge styles; editing a chart only shows chart types (no gauges mixed in). Families use ECharts names (Gauge, Line, Area, Bar, …); drawer title is Edit gauge / Edit chart
+
+## V3.1.042 — 24/07/2026
+
+- **ECharts catalog:** clearer chart families in Add + Edit (Gauges / Line / Area / Bar / …); History category renamed **Charts (history)**; added step line + stacked bar presets
+
+## V3.1.041 — 24/07/2026
+
+- **Visual Diagnostic:** button label renamed; floating control hidden by default — enable from Troubleshoot → Show on pages (session only)
+
+## V3.1.040 — 24/07/2026
+
+- **All gauges:** shared `nudgeGaugeCenterDown` in the render pipeline — every preset (and any new one) sits low enough that top labels stay visible; removed per-preset center overrides
+
+## V3.1.039 — 24/07/2026
+
+- **All gauges:** shift dials downward (higher center Y) so top scale labels stay visible and empty space under the gauge is used
+
 ## V3.1.038 — 24/07/2026
 
 - **All ECharts gauges:** chart host fills the widget (pixel resize); larger radius (~90–95%); temperature matches official dual-arc with proportional center value (no overlap on the dial)

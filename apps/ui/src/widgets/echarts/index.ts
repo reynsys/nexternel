@@ -1,5 +1,15 @@
 export type { EchartsPreset, EchartsWidgetConfig, EchartsDataMode } from "./types";
-export { listEchartsPresets, getEchartsPreset, listEchartsFamilies } from "./registry";
+export {
+  listEchartsPresets,
+  getEchartsPreset,
+  listEchartsPresetsByCategory,
+  listEchartsFamilies,
+  listEchartsFamilyOptions,
+  listEchartsFamilyOptionsForCategory,
+  groupEchartsPresetsByFamily,
+  getEchartsFamilyMeta,
+} from "./registry";
+export { listEchartsFamilyMeta } from "./families";
 export {
   catalogTypeForPreset,
   presetIdFromCatalogType,

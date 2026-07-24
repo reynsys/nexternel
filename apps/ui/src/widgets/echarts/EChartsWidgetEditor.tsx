@@ -6,6 +6,7 @@ import {
   Drawer,
   FormControl,
   InputLabel,
+  ListSubheader,
   MenuItem,
   Select,
   Stack,
@@ -16,7 +17,14 @@ import {
 import type { Capability, HistoryRange, WidgetInstance } from "../../api";
 import { EChartsWidgetBody } from "./EChartsWidgetBody";
 import { parseEchartsConfig } from "./config";
-import { getEchartsPreset, listEchartsFamilies, listEchartsPresets } from "./registry";
+import type { EchartsPreset } from "./types";
+import {
+  getEchartsFamilyMeta,
+  getEchartsPreset,
+  groupEchartsPresetsByFamily,
+  listEchartsPresets,
+} from "./registry";
+import { listEchartsFamilyMeta } from "./families";
 
 type Props = {
   open: boolean;
@@ -25,6 +33,44 @@ type Props = {
   onClose: () => void;
   onSave: (patch: Partial<WidgetInstance>) => void;
 };
+
+/** Edit scope — what kind of component is being edited (not a free mix of all presets). */
+type EditScope = "gauge" | "history" | "liveDiagram" | "custom";
+
+function editScopeForPreset(p: EchartsPreset): EditScope {
+  if (p.family === "gauge") return "gauge";
+  if (p.dataMode === "history" || p.category === "history") return "history";
+  if (p.dataMode === "none" || p.family === "custom") return "custom";
+  return "liveDiagram";
+}
+
+function presetsInScope(scope: EditScope): EchartsPreset[] {
+  return listEchartsPresets().filter((p) => editScopeForPreset(p) === scope);
+}
+
+function familyOptionsInScope(scope: EditScope) {
+  const present = new Set(presetsInScope(scope).map((p) => p.family));
+  return listEchartsFamilyMeta().filter((f) => present.has(f.id));
+}
+
+function editorTitle(scope: EditScope): string {
+  if (scope === "gauge") return "Edit gauge";
+  if (scope === "history") return "Edit chart";
+  if (scope === "custom") return "Edit blank ECharts";
+  return "Edit sensor diagram";
+}
+
+function scopeAllLabel(scope: EditScope): string {
+  if (scope === "history") return "All chart types";
+  if (scope === "liveDiagram") return "All diagram types";
+  return "All types";
+}
+
+function componentTypeLabel(scope: EditScope): string {
+  if (scope === "history") return "Chart type";
+  if (scope === "liveDiagram") return "Diagram type";
+  return "Component type";
+}
 
 export function EChartsWidgetEditor({
   open,
@@ -42,11 +88,14 @@ export function EChartsWidgetEditor({
   const [range, setRange] = useState<HistoryRange>("24h");
   const [overrideText, setOverrideText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [editScope, setEditScope] = useState<EditScope>("gauge");
   const [familyFilter, setFamilyFilter] = useState("all");
 
   useEffect(() => {
     if (!open || !widget) return;
     const cfg = parseEchartsConfig(widget.config);
+    const current = getEchartsPreset(cfg.presetId);
+    const scope = editScopeForPreset(current);
     setPresetId(cfg.presetId);
     setTitle(widget.title ?? "");
     setCapabilityId(
@@ -58,17 +107,23 @@ export function EChartsWidgetEditor({
     setRange(cfg.range ?? "24h");
     setOverrideText(cfg.optionOverride ? JSON.stringify(cfg.optionOverride, null, 2) : "");
     setJsonError(null);
-    setFamilyFilter("all");
+    setEditScope(scope);
+    setFamilyFilter(current.family);
   }, [open, widget]);
 
   const preset = getEchartsPreset(presetId);
-  const families = listEchartsFamilies();
-  const presets = listEchartsPresets().filter(
+  const scopedPresets = presetsInScope(editScope);
+  const familyOptions = familyOptionsInScope(editScope);
+  const showFamilySelect = familyOptions.length > 1;
+  const filteredPresets = scopedPresets.filter(
     (p) =>
       familyFilter === "all" ||
       p.family === familyFilter ||
       p.id === presetId
   );
+  const groupedPresets = groupEchartsPresetsByFamily(filteredPresets);
+  const familyMeta = getEchartsFamilyMeta(preset.family);
+  const typeLabel = componentTypeLabel(editScope);
 
   const previewWidget: WidgetInstance | null = useMemo(() => {
     if (!widget) return null;
@@ -180,10 +235,15 @@ export function EChartsWidgetEditor({
       PaperProps={{ sx: { width: { xs: "100%", sm: 420 }, p: 2 } }}
     >
       <Stack spacing={2} sx={{ height: "100%" }}>
-        <Typography variant="h6">Edit ECharts widget</Typography>
+        <Typography variant="h6">{editorTitle(editScope)}</Typography>
         <Typography variant="caption" color="text.secondary">
-          Preset + common fields. Use Advanced JSON for any ECharts option (merged on top;
-          bound series data is kept unless you set data explicitly).
+          {editScope === "gauge"
+            ? "Pick a gauge style (ECharts gauge). To add a history chart, use Add widget → Charts (history)."
+            : editScope === "history"
+              ? "Pick a chart type (line, area, bar, …). Gauges are under Sensors — add a new widget to switch."
+              : editScope === "liveDiagram"
+                ? "Pie, radar, or funnel for a live value."
+                : "Blank ECharts shell — configure with Advanced JSON."}
         </Typography>
 
         <TextField
@@ -194,40 +254,63 @@ export function EChartsWidgetEditor({
           onChange={(e) => setTitle(e.target.value)}
         />
 
-        <FormControl fullWidth size="small">
-          <InputLabel id="echarts-family">Family</InputLabel>
-          <Select
-            labelId="echarts-family"
-            label="Family"
-            value={familyFilter}
-            onChange={(e) => setFamilyFilter(e.target.value)}
-          >
-            <MenuItem value="all">All families</MenuItem>
-            {families.map((f) => (
-              <MenuItem key={f} value={f}>
-                {f}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {showFamilySelect && (
+          <FormControl fullWidth size="small">
+            <InputLabel id="echarts-family">{typeLabel}</InputLabel>
+            <Select
+              labelId="echarts-family"
+              label={typeLabel}
+              value={familyFilter}
+              onChange={(e) => setFamilyFilter(e.target.value)}
+            >
+              <MenuItem value="all">{scopeAllLabel(editScope)}</MenuItem>
+              {familyOptions.map((f) => (
+                <MenuItem key={f.id} value={f.id}>
+                  <Stack spacing={0} sx={{ py: 0.25 }}>
+                    <Typography variant="body2">{f.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {f.hint}
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        {showFamilySelect && familyFilter !== "all" && (
+          <Typography variant="caption" color="text.secondary">
+            {getEchartsFamilyMeta(familyFilter).hint}
+          </Typography>
+        )}
 
         <FormControl fullWidth size="small">
-          <InputLabel id="echarts-preset">Preset</InputLabel>
+          <InputLabel id="echarts-preset">
+            {editScope === "gauge" ? "Gauge style" : "Preset"}
+          </InputLabel>
           <Select
             labelId="echarts-preset"
-            label="Preset"
+            label={editScope === "gauge" ? "Gauge style" : "Preset"}
             value={presetId}
-            onChange={(e) => setPresetId(e.target.value)}
+            onChange={(e) => {
+              const nextId = e.target.value;
+              setPresetId(nextId);
+              setFamilyFilter(getEchartsPreset(nextId).family);
+            }}
           >
-            {presets.map((p) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.label}
-              </MenuItem>
-            ))}
+            {groupedPresets.flatMap(({ family, presets: list }) => [
+              ...(showFamilySelect && familyFilter === "all"
+                ? [<ListSubheader key={`h-${family.id}`}>{family.label}</ListSubheader>]
+                : []),
+              ...list.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.label}
+                </MenuItem>
+              )),
+            ])}
           </Select>
         </FormControl>
         <Typography variant="caption" color="text.secondary">
-          {preset.description}
+          {familyMeta.label}: {preset.description}
         </Typography>
 
         {preset.needsCapability && (

@@ -110,14 +110,13 @@ export function gaugeLayout(id: GaugeLayoutId): {
 } {
   switch (id) {
     case "temp":
-      // Official center 50%/60%; use near-full radius so the dial isn't tiny in the cell
-      return { center: ["50%", "58%"], radius: "95%" };
+      return { center: ["50%", "70%"], radius: "92%" };
     case "semi":
-      return { center: ["50%", "70%"], radius: "100%" };
+      return { center: ["50%", "75%"], radius: "98%" };
     case "ring":
-      return { center: ["50%", "50%"], radius: "90%" };
+      return { center: ["50%", "56%"], radius: "88%" };
     default:
-      return { center: ["50%", "52%"], radius: "90%" };
+      return { center: ["50%", "58%"], radius: "88%" };
   }
 }
 
@@ -126,7 +125,6 @@ function clampRadius(radius: unknown, maxPct = 100): string {
   const m = radius.match(/^(\d+(?:\.\d+)?)%$/);
   if (!m) return radius;
   const n = Number(m[1]);
-  // Never shrink a preset below ~85% — empty widget space was from radius 75% + undersized host
   return `${Math.min(Math.max(n, 85), maxPct)}%`;
 }
 
@@ -134,16 +132,41 @@ function ensureCenter(center: unknown): [string, string] {
   if (Array.isArray(center) && center.length >= 2) {
     return [String(center[0]), String(center[1])];
   }
-  return ["50%", "54%"];
+  return ["50%", "58%"];
+}
+
+/**
+ * Keep every gauge dial low enough that top axis labels stay inside the widget.
+ * Applied in enforceAllGaugeSeries so no preset can sit too high.
+ */
+export function nudgeGaugeCenterDown(
+  center: unknown,
+  series: Record<string, unknown>
+): [string, string] {
+  const [x, y] = ensureCenter(center);
+  const ym = String(y).match(/^(-?\d+(?:\.\d+)?)%$/);
+  if (!ym) return [x, "58%"];
+  let yPct = Number(ym[1]);
+
+  const start = typeof series.startAngle === "number" ? series.startAngle : null;
+  const end = typeof series.endAngle === "number" ? series.endAngle : null;
+  const isSemi =
+    start !== null &&
+    ((start >= 170 && start <= 210) ||
+      (start === 180 && (end === null || end <= 0)));
+
+  const minY = isSemi ? 68 : 56;
+  if (yPct < minY) yPct = minY;
+  return [x, `${yPct}%`];
 }
 
 /**
  * Post-process any gauge option so EVERY series gets:
  * - nice min/max/splitNumber (no 16.666… ticks)
  * - fmtAxisLabel on visible axis labels
- * - radius capped so outer ticks are not clipped
+ * - radius fill + center nudged down (all presets)
  *
- * Grade gauges that intentionally use 0–1 are left on that scale.
+ * Grade gauges that intentionally use 0–1 are left on that scale for min/max.
  */
 export function enforceAllGaugeSeries(
   option: Record<string, unknown>,
@@ -168,7 +191,6 @@ export function enforceAllGaugeSeries(
           ? { ...(axisLabelRaw as Record<string, unknown>) }
           : {};
 
-      // Ring / multi-title use a fixed 0–100 percent scale with labels hidden
       const percentScale =
         s.min === 0 && s.max === 100 && axisLabel.show === false;
 
@@ -192,7 +214,7 @@ export function enforceAllGaugeSeries(
                   : nice.splitNumber,
             }),
         radius: clampRadius(s.radius, 100),
-        center: ensureCenter(s.center),
+        center: nudgeGaugeCenterDown(s.center, s),
         axisLabel,
       };
     }),

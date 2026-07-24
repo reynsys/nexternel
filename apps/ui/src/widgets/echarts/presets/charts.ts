@@ -77,6 +77,37 @@ export const CHART_PRESETS: EchartsPreset[] = [
     }),
   },
   {
+    id: "line-step",
+    label: "Step line",
+    description: "Stepped history line (holds value between points)",
+    family: "line",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => ({
+      animation: false,
+      grid: historyGrid,
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      yAxis: {
+        type: "value",
+        scale: true,
+        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+      },
+      series: [
+        {
+          name: ctx.title,
+          type: "line",
+          step: "end",
+          showSymbol: false,
+          data: timeSeries(ctx),
+          itemStyle: { color: accent(ctx) },
+        },
+      ],
+    }),
+  },
+  {
     id: "area-basic",
     label: "Area chart",
     description: "Filled area over time",
@@ -198,6 +229,51 @@ export const CHART_PRESETS: EchartsPreset[] = [
             type: "bar",
             data: sample.map((p) => p.v),
             itemStyle: { color: accent(ctx) },
+          },
+        ],
+      };
+    },
+  },
+  {
+    id: "bar-stack",
+    label: "Stacked bar",
+    description: "Stacked column look from history samples",
+    family: "bar",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => {
+      const sample = ctx.points.slice(-16);
+      return {
+        animation: false,
+        grid: historyGrid,
+        tooltip: { trigger: "axis" },
+        xAxis: {
+          type: "category",
+          data: sample.map((p) =>
+            new Date(p.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ),
+          axisLabel: { fontSize: 9, rotate: 30 },
+        },
+        yAxis: {
+          type: "value",
+          axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+        },
+        series: [
+          {
+            name: ctx.title,
+            type: "bar",
+            stack: "total",
+            data: sample.map((p) => p.v),
+            itemStyle: { color: accent(ctx) },
+          },
+          {
+            name: "Baseline",
+            type: "bar",
+            stack: "total",
+            data: sample.map(() => 0),
+            itemStyle: { color: "rgba(128,128,128,0.2)" },
           },
         ],
       };

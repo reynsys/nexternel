@@ -24,6 +24,11 @@ import {
   loadVisualScan,
   type VisualScanResult,
 } from "../diagnostics/visualProbe";
+import {
+  isVisualDiagEnabled,
+  setVisualDiagEnabled,
+  VISUAL_DIAG_CHANGED,
+} from "../diagnostics/visualDiagPrefs";
 
 export function TroubleshootPage() {
   const [client, setClient] = useState<ClientSnapshot | null>(null);
@@ -31,9 +36,16 @@ export function TroubleshootPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [auth, setAuth] = useState<AuthExtras | null>(null);
   const [visual, setVisual] = useState<VisualScanResult | null>(() => loadVisualScan());
+  const [visualFabOn, setVisualFabOn] = useState(() => isVisualDiagEnabled());
   const [report, setReport] = useState("");
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setVisualFabOn(isVisualDiagEnabled());
+    window.addEventListener(VISUAL_DIAG_CHANGED, sync);
+    return () => window.removeEventListener(VISUAL_DIAG_CHANGED, sync);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -210,19 +222,42 @@ export function TroubleshootPage() {
           cut off, empty, or the wrong size.
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          1. Open the page that has the problem (Dashboard, Live, or any other screen — not
+          1. Click <strong>Show on pages</strong> below (turns on the floating button for this
+          browser session).
+          <br />
+          2. Open the page that has the problem (Dashboard, Live, or any other screen — not
           this Troubleshoot page).
           <br />
-          2. Use the floating <strong>Visual Diag</strong> button (bottom-right) →{" "}
+          3. Use the floating <strong>Visual Diagnostic</strong> button (bottom-right) →{" "}
           <strong>Scan this page</strong> or <strong>Pick element</strong>.
           <br />
-          3. Return here → <strong>Refresh</strong> → <strong>Copy report</strong>.
+          4. Return here → <strong>Refresh</strong> → <strong>Copy report</strong>.
+          <br />
+          5. When finished, use <strong>Hide on pages</strong> (or “Hide until needed” on the
+          floating panel).
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button
+            variant={visualFabOn ? "outlined" : "contained"}
+            onClick={() => setVisualDiagEnabled(true)}
+            disabled={visualFabOn}
+          >
+            Show on pages
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setVisualDiagEnabled(false)}
+            disabled={!visualFabOn}
+          >
+            Hide on pages
+          </Button>
           <Button onClick={clearVisual} disabled={!visual}>
             Clear visual scan
           </Button>
         </Stack>
+        <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+          Floating button: {visualFabOn ? "on (this session)" : "off"}
+        </Typography>
         {visual ? (
           <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
             Last scan: {visual.href} · {visual.matchCount} matches · mode={visual.mode}
@@ -230,7 +265,8 @@ export function TroubleshootPage() {
           </Typography>
         ) : (
           <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
-            No visual scan yet — run Visual Diag on the page that has the issue, then Refresh.
+            No visual scan yet — enable Show on pages, run Visual Diagnostic on the page that
+            has the issue, then Refresh.
           </Typography>
         )}
       </Box>
