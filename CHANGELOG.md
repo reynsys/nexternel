@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.047 — 24/07/2026
+
+- **Clock widget:** digits scale to fill the cell; Edit drawer for digital/analog, font style, seconds, date, 12/24h, size; optional title
+
 ## V3.1.046 — 24/07/2026
 
 - **Dashboard switches:** widgets titled from the relay name (not generic “Switch”); show Device · Area under the title; Edit drawer to change binding/title; Add dialog lists Area · Device · Relay

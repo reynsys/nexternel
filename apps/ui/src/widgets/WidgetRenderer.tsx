@@ -58,35 +58,45 @@ export function WidgetRenderer({
     : rawTitle;
   const plugin = getWidgetContribution(rawWidget.type);
   const PluginComponent = plugin?.Component;
+  const isClock = rawWidget.type === "plugin.clock";
+  const showHeader =
+    !isClock &&
+    (chrome ||
+      Boolean(title) ||
+      widget.type === "switch" ||
+      widget.type === "stat" ||
+      Boolean(cap));
 
   const body = (
     <>
-      <Stack spacing={0} sx={{ mb: 0.5, flexShrink: 0, minWidth: 0 }}>
-        <Typography
-          variant="subtitle2"
-          noWrap
-          title={title}
-          sx={{
-            fontWeight: 600,
-            opacity: chrome ? 1 : 0.95,
-            lineHeight: 1.2,
-            fontSize: "0.85rem",
-          }}
-        >
-          {title}
-        </Typography>
-        {(widget.type === "switch" || widget.type === "stat" || cap) && (
+      {showHeader && (
+        <Stack spacing={0} sx={{ mb: 0.5, flexShrink: 0, minWidth: 0 }}>
           <Typography
-            variant="caption"
-            color="text.secondary"
+            variant="subtitle2"
             noWrap
-            title={capabilityLocationLabel(cap)}
-            sx={{ lineHeight: 1.2 }}
+            title={title}
+            sx={{
+              fontWeight: 600,
+              opacity: chrome ? 1 : 0.95,
+              lineHeight: 1.2,
+              fontSize: "0.85rem",
+            }}
           >
-            {capabilityLocationLabel(cap)}
+            {title}
           </Typography>
-        )}
-      </Stack>
+          {(widget.type === "switch" || widget.type === "stat" || cap) && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              title={capabilityLocationLabel(cap)}
+              sx={{ lineHeight: 1.2 }}
+            >
+              {capabilityLocationLabel(cap)}
+            </Typography>
+          )}
+        </Stack>
+      )}
       <Box
         sx={{
           flex: 1,

@@ -14,7 +14,9 @@ import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
 import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
+import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
 import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
+import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -30,6 +32,10 @@ type Props = {
 
 function isCoreEditable(type: string): boolean {
   return type === "switch" || type === "stat";
+}
+
+function isClockWidget(type: string): boolean {
+  return type === CLOCK_WIDGET_TYPE;
 }
 
 /**
@@ -76,6 +82,7 @@ export function SectionGrid({
     : null;
   const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
   const editingCore = editing ? isCoreEditable(editing.type) : false;
+  const editingClock = editing ? isClockWidget(editing.type) : false;
 
   return (
     <Box
@@ -124,7 +131,8 @@ export function SectionGrid({
           {widgets.map((w) => {
             const echarts = isEchartsWidgetType(w.type);
             const core = isCoreEditable(w.type);
-            const canEdit = echarts || core;
+            const clock = isClockWidget(w.type);
+            const canEdit = echarts || core || clock;
             return (
               <div key={w.id}>
                 <Paper
@@ -169,7 +177,15 @@ export function SectionGrid({
                         sx={{ flex: 1 }}
                         noWrap
                       >
-                        {echarts ? "ECharts" : w.type === "switch" ? "Switch" : w.type === "stat" ? "Stat" : "Widget"}
+                        {echarts
+                          ? "ECharts"
+                          : clock
+                            ? "Clock"
+                            : w.type === "switch"
+                              ? "Switch"
+                              : w.type === "stat"
+                                ? "Stat"
+                                : "Widget"}
                       </Typography>
                       {canEdit && (
                         <Button
@@ -248,6 +264,19 @@ export function SectionGrid({
           onUpdateWidget(sectionId, editing.id, {
             title: patch.title,
             bindings: patch.bindings ?? editing.bindings,
+          });
+        }}
+      />
+
+      <ClockWidgetEditor
+        open={Boolean(editing) && editingClock}
+        widget={editingClock ? editing : null}
+        onClose={() => setEditWidgetId(null)}
+        onSave={(patch) => {
+          if (!editing) return;
+          onUpdateWidget(sectionId, editing.id, {
+            title: patch.title,
+            config: patch.config ?? editing.config,
           });
         }}
       />

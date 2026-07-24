@@ -275,8 +275,8 @@ export function DashboardPage() {
 
     const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
     const size = preset?.defaultSize ?? {
-      w: type.startsWith("plugin.") ? 4 : 3,
-      h: 3,
+      w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
+      h: type === "plugin.clock" ? 3 : 3,
     };
     const w = size.w;
     const h = size.h;
@@ -292,11 +292,20 @@ export function DashboardPage() {
     if (preset?.dataMode === "history") {
       config.range = addRange;
     }
+    if (type === "plugin.clock") {
+      config.timeMode = "digital";
+      config.digitalStyle = "standard";
+      config.showSeconds = true;
+      config.showDate = true;
+      config.fontScale = 1;
+    }
 
     const title =
-      type === "switch" || type === "stat" || addType === "auto"
-        ? defaultWidgetTitle(cap, entry?.label || type)
-        : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
+      type === "plugin.clock"
+        ? undefined
+        : type === "switch" || type === "stat" || addType === "auto"
+          ? defaultWidgetTitle(cap, entry?.label || type)
+          : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
 
     setSections((prev) =>
       prev.map((s) => {
