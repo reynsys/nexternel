@@ -212,6 +212,7 @@ Core entities (conceptual):
 | **Capability** | Typed facet of a device (sensor, switch, binary, …) |
 | **Binding** | Maps capability ↔ protocol address (e.g. MQTT topic) |
 | **Dashboard** | Named layout owned by a user |
+| **DashboardSection** | Named region on a dashboard (e.g. Living Room); optional `roomId` |
 | **WidgetInstance** | Placed widget with type, layout, binding, appearance JSON |
 | **Driver** | Protocol adapter producing/consuming bindings |
 | **Plugin** | Package registering widgets, drivers, and/or services |
@@ -222,9 +223,26 @@ Relationships:
 
 - Device **1—N** Capability  
 - Capability **0—1** Binding (primary); extensions later  
-- Dashboard **1—N** WidgetInstance  
+- Dashboard **1—N** DashboardSection  
+- DashboardSection **1—N** WidgetInstance  
+- DashboardSection **0—1** Room (optional link; freeform sections allowed)  
 - WidgetInstance **binds to** Capability (or multi-capability config)  
 - Plugin **registers** WidgetTypes and/or Drivers  
+
+### Dashboard document hierarchy
+
+```
+Dashboard
+  └── Section[]     // one level only (e.g. Living Room, Kitchen)
+        └── Widget[]
+```
+
+**Rules:**
+
+- Do **not** nest sections inside sections in v1 of this model.
+- Section title is freeform; `roomId` is optional for future room templates.
+- `schemaVersion: 2` — migrate v1 flat `widgets[]` into a single section titled **Main**.
+- Collapsible sections are a UI concern; persist `collapsed` on the section.
 
 ---
 
@@ -582,7 +600,10 @@ MQTT → Telemetry Service → Live State Cache
 
 - CRUD dashboards  
 - Validate layout (`x,y,w,h`, widget type, bindings)  
+- Document shape: **Dashboard → Section → Widget** (`schemaVersion: 2`)  
 - Version field on document (`schemaVersion`) for forward migrations  
+  - `1` → flat `widgets[]` (legacy)  
+  - `2` → `sections[]` each with `widgets[]`  
 - Edit draft vs published (optional; MVP may be single save)  
 
 ---

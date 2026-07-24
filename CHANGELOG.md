@@ -14,6 +14,52 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.036 — 24/07/2026
+
+- **All gauges:** shared nice-axis + clip-safe layout pipeline (`enforceAllGaugeSeries`) so every preset gets clean ticks and no clipped top digits — not temperature-only
+
+## V3.1.035 — 24/07/2026
+
+- **Gauges:** nice axis ticks (0,5,10… not 16.666…); temperature dial lowered + inset labels so top digits are not clipped
+
+## V3.1.034 — 24/07/2026
+
+- **Gauges:** re-ported from official ECharts examples (temperature = dual-arc thermometer); fonts/arcs scale to widget size; labels + detail repositioned to stop overlap
+
+## V3.1.033 — 24/07/2026
+
+- **ECharts preset gallery:** ~27 presets (12 gauges + line/area/bar/pie/scatter/radar/funnel/heatmap + blank); widget type `echarts`
+- **Edit drawer:** preset family picker, min/max/accent/range, Advanced JSON `optionOverride` merge
+- **Migration:** legacy `gauge` / `history` widgets map to echarts presets on load
+
+## V3.1.032 — 24/07/2026
+
+- **Gauges:** ECharts styles — Thermometer (temp), Ring (humidity), Dial, Progress; edit-mode Style picker; sensible min/max from capability kind
+
+## V3.1.031 — 21/07/2026
+
+- **Theme Configurator:** floating settings panel (light/dark, accent swatches, layout skin) — Soft UI–style UX built in-house; does not include Soft UI Pro
+
+## V3.1.030 — 21/07/2026
+
+- **Dashboard edit UX:** fix drag/resize (dedicated drag handle, measured grid width inside sections); pack new widgets horizontally; clearer widget chrome and edit hint
+
+## V3.1.029 — 21/07/2026
+
+- **Widget catalog:** Add widget picker uses categories (Status / Sensors / History / Controls / System); section jump chips on multi-section dashboards; plugins can declare `category`
+
+## V3.1.028 — 21/07/2026
+
+- **Dashboard sections:** document model is Dashboard → Section → Widget (`schemaVersion: 2`); v1 flat widgets migrate to a Main section; edit UI supports add/rename/collapse/reorder sections; SAS + docs updated
+
+## V3.1.027 — 21/07/2026
+
+- Fix UI Docker build: `useShellAuth` import path (`../api`)
+
+## V3.1.026 — 21/07/2026
+
+- **UI skins:** free MUI dashboard shell (side menu) as default; Classic skin retained; System → Appearance picker; local paid template import path (`apps/ui/src/skins/local/`, excluded from GitHub export)
+
 ## V3.1.025 — 21/07/2026
 
 - **Phase 10:** Hard-retire V2 Next.js — remove Compose `web`, delete `apps/web/`; API bootstraps admin from `ADMIN_*`; Legacy UI link removed; docs/deploy/export updated for `:8080` only

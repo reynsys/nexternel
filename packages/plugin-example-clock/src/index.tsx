@@ -47,7 +47,8 @@ export function ClockWidget() {
 
 export const clockWidgetContribution: WidgetContribution = {
   type: CLOCK_WIDGET_TYPE,
-  label: "Clock (plugin)",
+  label: "Clock",
+  category: "system",
   needsCapability: false,
   Component: ClockWidget,
 };

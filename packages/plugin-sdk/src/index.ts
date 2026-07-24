@@ -22,9 +22,20 @@ export interface PluginManifest {
 }
 
 /** UI host registers React widgets by type id. */
+export type WidgetCategoryId =
+  | "status"
+  | "sensors"
+  | "history"
+  | "controls"
+  | "media"
+  | "system"
+  | "plugins";
+
 export type WidgetContribution = {
   type: string;
   label: string;
+  /** Catalog group for Add widget picker. Defaults to plugins. */
+  category?: WidgetCategoryId;
   /** When false, Add Widget skips capability picker. */
   needsCapability?: boolean;
   /** React component — typed loosely so SDK stays React-free at compile time for API pkgs. */

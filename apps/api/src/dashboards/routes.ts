@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { emptyDashboardDocument } from "@nexternel/domain";
 import { requireUser } from "../auth/plugin.js";
 import {
   createDashboard,
@@ -34,7 +35,7 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
     const row = await createDashboard({
       name,
       ownerUserId: request.user!.id,
-      document: { schemaVersion: 1, name, widgets: [] },
+      document: emptyDashboardDocument(name),
     });
     return { dashboard: toDto(row) };
   });
@@ -54,7 +55,7 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
     Params: { id: string };
     Body: {
       name?: string;
-      document?: { schemaVersion: number; name: string; widgets: unknown[] };
+      document?: unknown;
       isDefault?: boolean;
     };
   }>("/api/v1/dashboards/:id", async (request, reply) => {

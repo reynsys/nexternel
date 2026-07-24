@@ -452,10 +452,19 @@ export type WidgetInstance = {
   config: Record<string, unknown>;
 };
 
-export type DashboardDocument = {
-  schemaVersion: number;
-  name: string;
+export type DashboardSection = {
+  id: string;
+  title: string;
+  order: number;
+  collapsed?: boolean;
+  roomId?: string | null;
   widgets: WidgetInstance[];
+};
+
+export type DashboardDocument = {
+  schemaVersion: 2;
+  name: string;
+  sections: DashboardSection[];
 };
 
 export type DashboardSummary = {

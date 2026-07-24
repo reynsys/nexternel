@@ -16,3 +16,8 @@ mosquitto/config/passwd
 data/
 .DS_Store
 Thumbs.db
+# Paid / private UI skin packs (local import only)
+apps/ui/src/skins/local/**
+!apps/ui/src/skins/local/README.md
+!apps/ui/src/skins/local/.gitkeep
+!apps/ui/src/skins/local/.gitignore

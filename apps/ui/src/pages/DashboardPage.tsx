@@ -1,65 +1,82 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import GridLayout, { WidthProvider, type Layout } from "react-grid-layout";
+import { type Layout } from "react-grid-layout";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
-  Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
+  ListSubheader,
   MenuItem,
   Select,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import {
   api,
   connectLiveSocket,
   type Capability,
   type DashboardDocument,
+  type DashboardSection,
   type WidgetInstance,
 } from "../api";
-import { WidgetRenderer } from "../widgets/WidgetRenderer";
-import { listWidgetContributions, getWidgetContribution } from "../plugins/registry";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-
-const ReactGridLayout = WidthProvider(GridLayout);
-
-function newWidgetId() {
-  try {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-  } catch {
-    /* http://LAN-IP is not a secure context — randomUUID throws */
-  }
-  return `w-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function nextY(widgets: WidgetInstance[]): number {
-  if (widgets.length === 0) return 0;
-  return Math.max(...widgets.map((w) => w.layout.y + w.layout.h));
-}
+import { getWidgetContribution } from "../plugins/registry";
+import {
+  catalogByCategory,
+  categoriesWithEntries,
+  getCatalogEntry,
+  type WidgetCategoryId,
+} from "../library/widget-catalog";
+import {
+  emptyDocument,
+  newId,
+  nextWidgetPlacement,
+  normalizeDocument,
+  sortSections,
+} from "../lib/dashboard-document";
+import { SectionGrid } from "../components/SectionGrid";
+import {
+  defaultPresetForKind,
+  getEchartsPreset,
+  presetIdFromCatalogType,
+} from "../widgets/echarts";
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [name, setName] = useState("Dashboard");
-  const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
+  const [sections, setSections] = useState<DashboardSection[]>(
+    () => emptyDocument().sections
+  );
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addSectionId, setAddSectionId] = useState<string>("");
+  const [addCategory, setAddCategory] = useState<WidgetCategoryId>("status");
   const [addType, setAddType] = useState("stat");
   const [addCapId, setAddCapId] = useState("");
   const [addRange, setAddRange] = useState("24h");
+
+  const categoryOptions = categoriesWithEntries();
+  const typeOptions = catalogByCategory(addCategory);
+  const selectedEntry = getCatalogEntry(addType);
+
+  const ordered = useMemo(() => sortSections(sections), [sections]);
 
   function applyLive(capabilityId: string, value: unknown, quality: string, updatedAt: string) {
     setCapabilities((prev) =>
@@ -67,6 +84,13 @@ export function DashboardPage() {
         c.id === capabilityId ? { ...c, state: { value, quality, updatedAt } } : c
       )
     );
+  }
+
+  function loadDocument(doc: unknown, dashName: string) {
+    const normalized = normalizeDocument(doc, dashName);
+    setName(normalized.name);
+    setSections(normalized.sections);
+    if (normalized.sections[0]) setAddSectionId(normalized.sections[0].id);
   }
 
   useEffect(() => {
@@ -77,8 +101,7 @@ export function DashboardPage() {
           api.getDashboard(id),
           api.capabilities(),
         ]);
-        setName(dash.dashboard.name);
-        setWidgets(dash.dashboard.document.widgets ?? []);
+        loadDocument(dash.dashboard.document, dash.dashboard.name);
         setCapabilities(caps.capabilities);
         if (caps.capabilities[0]) setAddCapId(caps.capabilities[0].id);
       } catch (err) {
@@ -105,91 +128,182 @@ export function DashboardPage() {
     });
   }, []);
 
-  const layout: Layout[] = useMemo(
-    () =>
-      widgets.map((w) => ({
-        i: w.id,
-        x: w.layout.x,
-        y: w.layout.y,
-        w: w.layout.w,
-        h: w.layout.h,
-        minW: w.layout.minW ?? 2,
-        minH: w.layout.minH ?? 2,
-      })),
-    [widgets]
-  );
+  function updateSection(
+    sectionId: string,
+    patch: Partial<DashboardSection> | ((s: DashboardSection) => DashboardSection)
+  ) {
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        return typeof patch === "function" ? patch(s) : { ...s, ...patch };
+      })
+    );
+  }
 
-  function onLayoutChange(next: Layout[]) {
+  function onLayoutChange(sectionId: string, next: Layout[]) {
     if (!editMode) return;
-    // Ignore empty/stale callbacks that would drop newly added widgets
-    if (next.length === 0 && widgets.length > 0) return;
-    setWidgets((prev) =>
-      prev.map((w) => {
-        const l = next.find((x) => x.i === w.id);
-        if (!l) return w;
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        if (next.length === 0 && s.widgets.length > 0) return s;
         return {
-          ...w,
-          layout: {
-            i: w.id,
-            x: l.x,
-            y: Number.isFinite(l.y) ? l.y : w.layout.y,
-            w: l.w,
-            h: l.h,
-            minW: l.minW,
-            minH: l.minH,
-          },
+          ...s,
+          widgets: s.widgets.map((w) => {
+            const l = next.find((x) => x.i === w.id);
+            if (!l) return w;
+            return {
+              ...w,
+              layout: {
+                i: w.id,
+                x: l.x,
+                y: Number.isFinite(l.y) ? l.y : w.layout.y,
+                w: l.w,
+                h: l.h,
+                minW: l.minW,
+                minH: l.minH,
+              },
+            };
+          }),
         };
       })
     );
   }
 
+  function addSection() {
+    const order = sections.length === 0 ? 0 : Math.max(...sections.map((s) => s.order)) + 1;
+    const section: DashboardSection = {
+      id: newId("section"),
+      title: `Section ${order + 1}`,
+      order,
+      collapsed: false,
+      widgets: [],
+    };
+    setSections((prev) => [...prev, section]);
+    setAddSectionId(section.id);
+  }
+
+  function removeSection(sectionId: string) {
+    setSections((prev) => {
+      if (prev.length <= 1) {
+        setError("Keep at least one section");
+        return prev;
+      }
+      return prev.filter((s) => s.id !== sectionId);
+    });
+  }
+
+  function moveSection(sectionId: string, dir: -1 | 1) {
+    const sorted = sortSections(sections);
+    const idx = sorted.findIndex((s) => s.id === sectionId);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= sorted.length) return;
+    const a = sorted[idx]!;
+    const b = sorted[swap]!;
+    const next = sorted.map((s) => {
+      if (s.id === a.id) return { ...s, order: b.order };
+      if (s.id === b.id) return { ...s, order: a.order };
+      return s;
+    });
+    // reassign contiguous orders
+    const reordered = sortSections(next).map((s, i) => ({ ...s, order: i }));
+    setSections(reordered);
+  }
+
   function addWidget() {
+    const sectionId = addSectionId || sections[0]?.id;
+    if (!sectionId) {
+      setError("Add a section first");
+      return;
+    }
+    const entry = getCatalogEntry(addType);
     const plugin = getWidgetContribution(addType);
     const requiresCapability =
-      addType === "auto" ||
-      addType === "stat" ||
-      addType === "switch" ||
-      addType === "gauge" ||
-      addType === "history" ||
-      (plugin ? plugin.needsCapability !== false : false);
+      entry?.needsCapability ??
+      (plugin ? plugin.needsCapability !== false : true);
 
     if (requiresCapability && !addCapId) {
       setError("Choose a capability first");
       return;
     }
     const cap = addCapId ? capabilities.find((c) => c.id === addCapId) : undefined;
-    const widgetId = newWidgetId();
-    const type =
-      addType === "auto"
-        ? cap?.kind === "switch"
-          ? "switch"
-          : "stat"
-        : addType;
-    const w = type === "history" ? 6 : type === "gauge" || type.startsWith("plugin.") ? 4 : 3;
-    const h = type === "history" ? 4 : type === "gauge" ? 4 : 3;
-    const widget: WidgetInstance = {
-      id: widgetId,
-      type,
-      title: plugin?.label || cap?.name || type,
-      layout: {
-        i: widgetId,
-        x: 0,
-        y: nextY(widgets),
-        w,
-        h,
-        minW: type === "history" ? 3 : 2,
-        minH: type === "history" ? 3 : 2,
-      },
-      bindings: requiresCapability && addCapId ? { capabilityId: addCapId } : {},
-      config: type === "history" ? { range: addRange } : {},
+    const widgetId = newId("w");
+
+    const catalogPresetId =
+      entry?.presetId ?? presetIdFromCatalogType(addType) ?? null;
+    const isEcharts = Boolean(catalogPresetId);
+
+    let type: string;
+    if (addType === "auto") {
+      type = cap?.kind === "switch" ? "switch" : "stat";
+    } else if (isEcharts) {
+      type = "echarts";
+    } else {
+      type = addType;
+    }
+
+    const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
+    const size = preset?.defaultSize ?? {
+      w: type.startsWith("plugin.") ? 4 : 3,
+      h: 3,
     };
-    setWidgets((prev) => [...prev, widget]);
+    const w = size.w;
+    const h = size.h;
+
+    const presetId =
+      catalogPresetId ||
+      (isEcharts ? defaultPresetForKind(cap?.kind) : undefined);
+
+    const config: Record<string, unknown> = {
+      ...(entry?.defaultConfig ?? {}),
+      ...(presetId ? { presetId } : {}),
+    };
+    if (preset?.dataMode === "history") {
+      config.range = addRange;
+    }
+
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        const pos = nextWidgetPlacement(s.widgets, w);
+        const widget: WidgetInstance = {
+          id: widgetId,
+          type,
+          title: entry?.label || plugin?.label || cap?.name || type,
+          layout: {
+            i: widgetId,
+            x: pos.x,
+            y: pos.y,
+            w,
+            h,
+            minW: preset?.dataMode === "history" ? 3 : 2,
+            minH: preset?.dataMode === "history" ? 3 : 2,
+          },
+          bindings: requiresCapability && addCapId ? { capabilityId: addCapId } : {},
+          config,
+        };
+        return { ...s, widgets: [...s.widgets, widget] };
+      })
+    );
     setError(null);
     setAddOpen(false);
   }
 
-  function removeWidget(widgetId: string) {
-    setWidgets((prev) => prev.filter((w) => w.id !== widgetId));
+  function removeWidget(sectionId: string, widgetId: string) {
+    updateSection(sectionId, (s) => ({
+      ...s,
+      widgets: s.widgets.filter((w) => w.id !== widgetId),
+    }));
+  }
+
+  function updateWidget(
+    sectionId: string,
+    widgetId: string,
+    patch: Partial<WidgetInstance>
+  ) {
+    updateSection(sectionId, (s) => ({
+      ...s,
+      widgets: s.widgets.map((w) => (w.id === widgetId ? { ...w, ...patch } : w)),
+    }));
   }
 
   async function save() {
@@ -198,9 +312,9 @@ export function DashboardPage() {
     setError(null);
     try {
       const document: DashboardDocument = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         name,
-        widgets,
+        sections: sortSections(sections).map((s, i) => ({ ...s, order: i })),
       };
       await api.saveDashboard(id, { name, document });
       setEditMode(false);
@@ -235,7 +349,16 @@ export function DashboardPage() {
           </Button>
           {editMode ? (
             <>
-              <Button variant="outlined" onClick={() => setAddOpen(true)}>
+              <Button variant="outlined" onClick={addSection}>
+                Add section
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
+                  setAddOpen(true);
+                }}
+              >
                 Add widget
               </Button>
               <Button variant="contained" disabled={saving} onClick={() => void save()}>
@@ -246,8 +369,7 @@ export function DashboardPage() {
                   setEditMode(false);
                   if (id) {
                     void api.getDashboard(id).then((d) => {
-                      setName(d.dashboard.name);
-                      setWidgets(d.dashboard.document.widgets ?? []);
+                      loadDocument(d.dashboard.document, d.dashboard.name);
                     });
                   }
                 }}
@@ -265,101 +387,214 @@ export function DashboardPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Box
-        sx={{
-          minHeight: 480,
-          border: "1px dashed",
-          borderColor: editMode ? "primary.main" : "divider",
-          borderRadius: 1,
-          p: 1,
-          bgcolor: "background.default",
-        }}
-      >
-        <ReactGridLayout
-          className="layout"
-          layout={layout}
-          cols={12}
-          rowHeight={48}
-          margin={[12, 12]}
-          isDraggable={editMode}
-          isResizable={editMode}
-          onLayoutChange={onLayoutChange}
-          draggableHandle=".widget-drag-handle"
+      {ordered.length > 1 && (
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {ordered.map((s) => (
+            <Chip
+              key={s.id}
+              label={s.title}
+              clickable
+              color={s.collapsed ? "default" : "primary"}
+              variant={s.collapsed ? "outlined" : "filled"}
+              onClick={() => {
+                updateSection(s.id, { collapsed: false });
+                requestAnimationFrame(() => {
+                  document
+                    .getElementById(`dash-section-${s.id}`)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
+              }}
+            />
+          ))}
+        </Stack>
+      )}
+
+      {ordered.map((section, index) => (
+        <Accordion
+          key={section.id}
+          id={`dash-section-${section.id}`}
+          expanded={!section.collapsed}
+          onChange={(_e, expanded) =>
+            updateSection(section.id, { collapsed: !expanded })
+          }
+          disableGutters
+          sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            scrollMarginTop: 16,
+            overflow: "hidden",
+            bgcolor: "background.paper",
+            "&:before": { display: "none" },
+            boxShadow: (t) =>
+              t.palette.mode === "dark" ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+          }}
         >
-          {widgets.map((w) => (
-            <div key={w.id} style={{ height: "100%" }}>
-              <Box sx={{ height: "100%", position: "relative" }}>
-                {editMode && (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    className="widget-drag-handle"
-                    sx={{
-                      position: "absolute",
-                      top: 4,
-                      right: 4,
-                      zIndex: 2,
-                      cursor: "move",
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ width: "100%", pr: 1 }}
+              onClick={(e) => {
+                if (editMode) e.stopPropagation();
+              }}
+            >
+              {editMode ? (
+                <TextField
+                  size="small"
+                  label="Section"
+                  value={section.title}
+                  onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ flex: 1, maxWidth: 360 }}
+                />
+              ) : (
+                <Typography variant="h6" sx={{ flex: 1 }}>
+                  {section.title}
+                </Typography>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                {section.widgets.length} widget{section.widgets.length === 1 ? "" : "s"}
+              </Typography>
+              {editMode && (
+                <Stack direction="row" onClick={(e) => e.stopPropagation()}>
+                  <IconButton
+                    size="small"
+                    aria-label="Move section up"
+                    disabled={index === 0}
+                    onClick={() => moveSection(section.id, -1)}
+                  >
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    aria-label="Move section down"
+                    disabled={index === ordered.length - 1}
+                    onClick={() => moveSection(section.id, 1)}
+                  >
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => removeSection(section.id)}
+                  >
+                    Remove
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setAddSectionId(section.id);
+                      setAddOpen(true);
                     }}
                   >
-                    <Button size="small" color="error" onClick={() => removeWidget(w.id)}>
-                      Remove
-                    </Button>
-                  </Stack>
-                )}
-                <WidgetRenderer
-                  widget={w}
-                  capabilities={capabilities}
-                  editMode={editMode}
-                />
-              </Box>
-            </div>
-          ))}
-        </ReactGridLayout>
-        {widgets.length === 0 && (
-          <Typography color="text.secondary" sx={{ p: 2 }}>
-            {editMode
-              ? "No widgets yet — click Add widget."
-              : "Empty dashboard — click Edit to add widgets."}
-          </Typography>
-        )}
-      </Box>
+                    Add widget
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
+            <SectionGrid
+              sectionId={section.id}
+              widgets={section.widgets}
+              capabilities={capabilities}
+              editMode={editMode}
+              onLayoutChange={onLayoutChange}
+              onRemoveWidget={removeWidget}
+              onUpdateWidget={updateWidget}
+            />
+          </AccordionDetails>
+        </Accordion>
+      ))}
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="xs">
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Add widget</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel id="section-target">Section</InputLabel>
+              <Select
+                labelId="section-target"
+                label="Section"
+                value={addSectionId || ordered[0]?.id || ""}
+                onChange={(e) => setAddSectionId(e.target.value)}
+              >
+                {ordered.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="widget-cat">Category</InputLabel>
+              <Select
+                labelId="widget-cat"
+                label="Category"
+                value={addCategory}
+                onChange={(e) => {
+                  const cat = e.target.value as WidgetCategoryId;
+                  setAddCategory(cat);
+                  const first = catalogByCategory(cat)[0];
+                  if (first) setAddType(first.type);
+                }}
+              >
+                {categoryOptions.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="caption" color="text.secondary">
+              {categoryOptions.find((c) => c.id === addCategory)?.description}
+            </Typography>
             <FormControl fullWidth>
               <InputLabel id="widget-type">Type</InputLabel>
               <Select
                 labelId="widget-type"
                 label="Type"
-                value={addType}
+                value={
+                  typeOptions.some((t) => t.type === addType)
+                    ? addType
+                    : typeOptions[0]?.type || ""
+                }
                 onChange={(e) => {
                   const next = e.target.value;
                   setAddType(next);
-                  if (next === "history" && addCapId) {
-                    const cap = capabilities.find((c) => c.id === addCapId);
-                    if (cap?.kind === "switch") {
-                      const first = capabilities.find((c) => c.kind !== "switch");
-                      if (first) setAddCapId(first.id);
+                  const entry = getCatalogEntry(next);
+                  const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
+                  if (presetId && addCapId) {
+                    const preset = getEchartsPreset(presetId);
+                    if (preset.dataMode === "history") {
+                      const cap = capabilities.find((c) => c.id === addCapId);
+                      if (cap?.kind === "switch") {
+                        const first = capabilities.find((c) => c.kind !== "switch");
+                        if (first) setAddCapId(first.id);
+                      }
                     }
                   }
                 }}
               >
-                <MenuItem value="auto">Auto (switch or stat)</MenuItem>
-                <MenuItem value="stat">Stat</MenuItem>
-                <MenuItem value="switch">Switch</MenuItem>
-                <MenuItem value="gauge">Gauge</MenuItem>
-                <MenuItem value="history">History chart</MenuItem>
-                {listWidgetContributions().map((p) => (
-                  <MenuItem key={p.type} value={p.type}>
-                    {p.label}
+                <ListSubheader>
+                  {categoryOptions.find((c) => c.id === addCategory)?.label}
+                </ListSubheader>
+                {typeOptions.map((t) => (
+                  <MenuItem key={t.type} value={t.type}>
+                    {t.label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            {addType === "history" && (
+            {selectedEntry?.description && (
+              <Typography variant="caption" color="text.secondary">
+                {selectedEntry.description}
+              </Typography>
+            )}
+            {selectedEntry?.presetId &&
+              getEchartsPreset(selectedEntry.presetId).dataMode === "history" && (
               <FormControl fullWidth>
                 <InputLabel id="hist-range">Range</InputLabel>
                 <Select
@@ -375,27 +610,26 @@ export function DashboardPage() {
                 </Select>
               </FormControl>
             )}
-            {!(
-              getWidgetContribution(addType)?.needsCapability === false
-            ) && (
-            <FormControl fullWidth>
-              <InputLabel id="cap">Capability</InputLabel>
-              <Select
-                labelId="cap"
-                label="Capability"
-                value={addCapId}
-                onChange={(e) => setAddCapId(e.target.value)}
-              >
-                {(addType === "history"
-                  ? capabilities.filter((c) => c.kind !== "switch")
-                  : capabilities
-                ).map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.deviceName} · {c.name} ({c.kind})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {(selectedEntry?.needsCapability ?? true) && (
+              <FormControl fullWidth>
+                <InputLabel id="cap">Capability</InputLabel>
+                <Select
+                  labelId="cap"
+                  label="Capability"
+                  value={addCapId}
+                  onChange={(e) => setAddCapId(e.target.value)}
+                >
+                  {(selectedEntry?.presetId &&
+                  getEchartsPreset(selectedEntry.presetId).dataMode === "history"
+                    ? capabilities.filter((c) => c.kind !== "switch")
+                    : capabilities
+                  ).map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.deviceName} · {c.name} ({c.kind})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )}
           </Stack>
         </DialogContent>
@@ -410,11 +644,7 @@ export function DashboardPage() {
                 setError(err instanceof Error ? err.message : "Could not add widget");
               }
             }}
-            disabled={
-              getWidgetContribution(addType)?.needsCapability === false
-                ? false
-                : !addCapId
-            }
+            disabled={(selectedEntry?.needsCapability ?? true) ? !addCapId : false}
           >
             Add
           </Button>

@@ -18,6 +18,9 @@ Permanent planning reference for Generation 3. **No implementation until documen
 | 11 | Phase 8 Admin + Plugins | [11-PHASE8-ADMIN-PLUGINS.md](11-PHASE8-ADMIN-PLUGINS.md) |
 | 12 | Phase 9 Cutover (parallel run) | [12-PHASE9-CUTOVER.md](12-PHASE9-CUTOVER.md) |
 | 13 | Phase 10 Retire Next.js | [13-PHASE10-RETIRE-NEXT.md](13-PHASE10-RETIRE-NEXT.md) |
+| 14 | UI skins / templates | [14-UI-SKINS.md](14-UI-SKINS.md) |
+| 15 | Dashboard sections | [15-DASHBOARD-SECTIONS.md](15-DASHBOARD-SECTIONS.md) |
+| 16 | Widget catalog categories | [16-WIDGET-CATALOG.md](16-WIDGET-CATALOG.md) |
 
 **Baseline:** V2.1.207 → **Target:** V3.1.1 (acceptance)  
 
