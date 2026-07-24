@@ -183,7 +183,16 @@ export function SectionGrid({
                       </Button>
                     </Stack>
                   )}
-                  <Box sx={{ flex: 1, minHeight: 0, p: 1.5 }}>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      minHeight: 0,
+                      minWidth: 0,
+                      p: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
                     <WidgetRenderer
                       widget={w}
                       capabilities={capabilities}

@@ -450,17 +450,31 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
     needsCapability: true,
     defaultSize: GAUGE_SIZE,
     buildOption: (ctx) => {
+      /**
+       * Port of official gauge-temperature example (ECharts docs).
+       * Differences vs a full-page demo: we fill the measured host (radius ~95%)
+       * and scale track/fonts from sizePx so the center value does not eat the arc.
+       */
+      const px = ctx.sizePx ?? 220;
+      const s = Math.min(1.1, Math.max(0.45, px / 320));
+      const track = Math.max(12, Math.round(30 * s));
+      const inner = Math.max(4, Math.round(8 * s));
       const a = axis(ctx, 12);
-      const layout = gaugeLayout("temp");
-      const track = gs(ctx, 22, 12);
-      const inner = Math.max(4, Math.round(track * 0.28));
       const color = accentOf(ctx, "#FFAB91");
       const colorHot = accentOf(ctx, "#FD7347");
+      const layout = gaugeLayout("temp");
+      // Center readout: official uses fontSize 60 on a large canvas — keep proportional
+      // so it sits in the open horseshoe, not on the arc.
+      const detailFont = Math.max(16, Math.min(Math.round(px * 0.2), Math.round(60 * s)));
+      const detailOffset: [number, string] =
+        px < 170 ? [0, "5%"] : [0, "-15%"];
+
       return {
         series: [
           {
             type: "gauge",
-            ...layout,
+            center: layout.center,
+            radius: layout.radius,
             startAngle: 200,
             endAngle: -20,
             min: a.min,
@@ -471,19 +485,19 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
             pointer: { show: false },
             axisLine: { lineStyle: { width: track } },
             axisTick: {
-              distance: -Math.round(track * 1.35),
+              distance: -Math.round(45 * s),
               splitNumber: 5,
               lineStyle: { width: 2, color: "#999" },
             },
             splitLine: {
-              distance: -Math.round(track * 1.55),
-              length: gs(ctx, 10, 5),
+              distance: -Math.round(52 * s),
+              length: Math.max(8, Math.round(14 * s)),
               lineStyle: { width: 3, color: "#999" },
             },
             axisLabel: {
-              distance: Math.max(8, Math.round(track * 0.15)),
+              distance: -Math.max(10, Math.round(20 * s)),
               color: "#999",
-              fontSize: gs(ctx, 12, 9),
+              fontSize: Math.max(10, Math.round(20 * s)),
               formatter: fmtAxisLabel,
             },
             anchor: { show: false },
@@ -491,10 +505,10 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
             detail: {
               valueAnimation: true,
               width: "60%",
-              lineHeight: gs(ctx, 24, 14),
+              lineHeight: Math.max(18, Math.round(detailFont * 0.9)),
               borderRadius: 8,
-              offsetCenter: [0, "-10%"],
-              fontSize: gs(ctx, 28, 16),
+              offsetCenter: detailOffset,
+              fontSize: detailFont,
               fontWeight: "bolder",
               formatter: (v: number) => fmtValue(ctx, v),
               color: "inherit",
@@ -503,7 +517,8 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
           },
           {
             type: "gauge",
-            ...layout,
+            center: layout.center,
+            radius: layout.radius,
             startAngle: 200,
             endAngle: -20,
             min: a.min,
@@ -604,7 +619,6 @@ export const GAUGE_PRESETS: EchartsPreset[] = [
           {
             type: "gauge",
             ...layout,
-            radius: "75%",
             min: a.min,
             max: a.max,
             splitNumber: a.splitNumber,

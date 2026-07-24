@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Typography } from "@mui/material";
 import ReactECharts from "echarts-for-react";
+import type { ECharts } from "echarts";
 import type { Capability, HistoryRange, WidgetInstance } from "../../api";
 import { api } from "../../api";
 import {
@@ -32,21 +33,27 @@ export function EChartsWidgetBody({
   const range: HistoryRange = config.range ?? "24h";
   const capabilityId = capabilityIdOf(widget);
   const hostRef = useRef<HTMLDivElement>(null);
-  const [sizePx, setSizePx] = useState(220);
+  const chartRef = useRef<ECharts | null>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
 
   const [points, setPoints] = useState<HistoryPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const needsHistory = preset.dataMode === "history";
+  const sizePx = box.w > 0 && box.h > 0 ? Math.min(box.w, box.h) : 220;
 
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
     const measure = () => {
       const r = el.getBoundingClientRect();
-      const shortest = Math.min(r.width, r.height);
-      if (shortest > 0) setSizePx(Math.floor(shortest));
+      const w = Math.max(0, Math.floor(r.width));
+      const h = Math.max(0, Math.floor(r.height));
+      if (w > 0 && h > 0) {
+        setBox((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+        chartRef.current?.resize({ width: w, height: h });
+      }
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -104,7 +111,6 @@ export function EChartsWidgetBody({
       range,
       sizePx,
     };
-    // Apply nice axis to ALL gauge presets at the context level
     if (preset.family === "gauge") {
       const nice = niceGaugeAxis(base, 8);
       return { ...base, min: nice.min, max: nice.max, splitNumber: nice.splitNumber };
@@ -144,11 +150,20 @@ export function EChartsWidgetBody({
   }
 
   const renderer = needsHistory || preset.family === "heatmap" ? "canvas" : "svg";
+  const ready = box.w > 0 && box.h > 0;
 
   return (
     <Box
       ref={hostRef}
-      sx={{ height: "100%", minHeight: 140, position: "relative", width: "100%" }}
+      sx={{
+        position: "relative",
+        flex: 1,
+        alignSelf: "stretch",
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+        minWidth: 0,
+      }}
     >
       {needsHistory && (
         <Typography
@@ -160,12 +175,18 @@ export function EChartsWidgetBody({
           {error ? ` · ${error}` : ""}
         </Typography>
       )}
-      <ReactECharts
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer }}
-        notMerge
-      />
+      {ready && (
+        <ReactECharts
+          option={option}
+          style={{ width: box.w, height: box.h, position: "absolute", inset: 0 }}
+          opts={{ renderer, width: box.w, height: box.h }}
+          notMerge
+          onChartReady={(chart) => {
+            chartRef.current = chart;
+            chart.resize({ width: box.w, height: box.h });
+          }}
+        />
+      )}
     </Box>
   );
 }

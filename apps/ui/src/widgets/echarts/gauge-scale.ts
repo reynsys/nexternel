@@ -103,28 +103,31 @@ export function niceGaugeAxis(
 
 export type GaugeLayoutId = "full" | "semi" | "temp" | "ring";
 
-/** Clip-safe placement inside dashboard widget cells (all gauges). */
+/** Placement that fills the chart host (radius % of min(width,height)). */
 export function gaugeLayout(id: GaugeLayoutId): {
   center: [string, string];
   radius: string;
 } {
   switch (id) {
     case "temp":
-      return { center: ["50%", "68%"], radius: "84%" };
+      // Official center 50%/60%; use near-full radius so the dial isn't tiny in the cell
+      return { center: ["50%", "58%"], radius: "95%" };
     case "semi":
-      return { center: ["50%", "72%"], radius: "90%" };
+      return { center: ["50%", "70%"], radius: "100%" };
     case "ring":
-      return { center: ["50%", "52%"], radius: "78%" };
+      return { center: ["50%", "50%"], radius: "90%" };
     default:
-      return { center: ["50%", "54%"], radius: "78%" };
+      return { center: ["50%", "52%"], radius: "90%" };
   }
 }
 
-function clampRadius(radius: unknown, maxPct = 88): string {
-  if (typeof radius !== "string") return `${Math.min(78, maxPct)}%`;
+function clampRadius(radius: unknown, maxPct = 100): string {
+  if (typeof radius !== "string") return "90%";
   const m = radius.match(/^(\d+(?:\.\d+)?)%$/);
   if (!m) return radius;
-  return `${Math.min(Number(m[1]), maxPct)}%`;
+  const n = Number(m[1]);
+  // Never shrink a preset below ~85% — empty widget space was from radius 75% + undersized host
+  return `${Math.min(Math.max(n, 85), maxPct)}%`;
 }
 
 function ensureCenter(center: unknown): [string, string] {
@@ -188,7 +191,7 @@ export function enforceAllGaugeSeries(
                     ).splitNumber
                   : nice.splitNumber,
             }),
-        radius: clampRadius(s.radius, 88),
+        radius: clampRadius(s.radius, 100),
         center: ensureCenter(s.center),
         axisLabel,
       };

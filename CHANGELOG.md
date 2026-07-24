@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.038 — 24/07/2026
+
+- **All ECharts gauges:** chart host fills the widget (pixel resize); larger radius (~90–95%); temperature matches official dual-arc with proportional center value (no overlap on the dial)
+
+## V3.1.037 — 24/07/2026
+
+- **Temperature gauge:** match official ECharts option (labels outside arc with negative `distance`, center 50%/60%, dual progress widths 30/8 scaled) — fixes numbers sitting on the arc
+
 ## V3.1.036 — 24/07/2026
 
 - **All gauges:** shared nice-axis + clip-safe layout pipeline (`enforceAllGaugeSeries`) so every preset gets clean ticks and no clipped top digits — not temperature-only

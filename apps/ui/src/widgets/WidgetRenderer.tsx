@@ -48,17 +48,32 @@ export function WidgetRenderer({
 
   const body = (
     <>
-      {chrome && (
-        <Typography variant="subtitle2" noWrap sx={{ mb: 0.5, fontWeight: 600 }}>
+      {(chrome || title) && (
+        <Typography
+          variant="subtitle2"
+          noWrap
+          sx={{
+            mb: 0.25,
+            fontWeight: 600,
+            opacity: chrome ? 1 : 0.9,
+            flexShrink: 0,
+            lineHeight: 1.2,
+            fontSize: "0.8rem",
+          }}
+        >
           {title}
         </Typography>
       )}
-      {!chrome && (
-        <Typography variant="subtitle2" noWrap sx={{ mb: 1, fontWeight: 600, opacity: 0.9 }}>
-          {title}
-        </Typography>
-      )}
-      <Box sx={{ flex: 1, minHeight: 0 }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {PluginComponent ? (
           <PluginComponent widget={widget} capabilities={capabilities} editMode={editMode} />
         ) : widget.type === "switch" ? (
