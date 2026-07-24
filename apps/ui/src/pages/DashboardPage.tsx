@@ -54,6 +54,10 @@ import {
   getEchartsPreset,
   presetIdFromCatalogType,
 } from "../widgets/echarts";
+import {
+  capabilityPickerLabel,
+  defaultWidgetTitle,
+} from "../lib/capability-labels";
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
@@ -77,6 +81,21 @@ export function DashboardPage() {
   const typeOptions = catalogByCategory(addCategory);
   const typeGroups = groupCatalogByEchartsFamily(typeOptions);
   const selectedEntry = getCatalogEntry(addType);
+
+  const addCapabilityOptions = useMemo(() => {
+    const presetId =
+      selectedEntry?.presetId ?? presetIdFromCatalogType(addType) ?? null;
+    if (presetId && getEchartsPreset(presetId).dataMode === "history") {
+      return capabilities.filter((c) => c.kind !== "switch");
+    }
+    if (addType === "switch") {
+      return capabilities.filter((c) => c.kind === "switch");
+    }
+    if (addType === "stat") {
+      return capabilities.filter((c) => c.kind !== "switch");
+    }
+    return capabilities;
+  }, [addType, capabilities, selectedEntry?.presetId]);
 
   const ordered = useMemo(() => sortSections(sections), [sections]);
 
@@ -223,11 +242,22 @@ export function DashboardPage() {
       entry?.needsCapability ??
       (plugin ? plugin.needsCapability !== false : true);
 
-    if (requiresCapability && !addCapId) {
-      setError("Choose a capability first");
+    const effectiveCapId =
+      addCapabilityOptions.some((c) => c.id === addCapId)
+        ? addCapId
+        : addCapabilityOptions[0]?.id || "";
+
+    if (requiresCapability && !effectiveCapId) {
+      setError(
+        addType === "switch"
+          ? "No switch/relay capability available — register a device first"
+          : "Choose a capability first"
+      );
       return;
     }
-    const cap = addCapId ? capabilities.find((c) => c.id === addCapId) : undefined;
+    const cap = effectiveCapId
+      ? capabilities.find((c) => c.id === effectiveCapId)
+      : undefined;
     const widgetId = newId("w");
 
     const catalogPresetId =
@@ -263,6 +293,11 @@ export function DashboardPage() {
       config.range = addRange;
     }
 
+    const title =
+      type === "switch" || type === "stat" || addType === "auto"
+        ? defaultWidgetTitle(cap, entry?.label || type)
+        : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
+
     setSections((prev) =>
       prev.map((s) => {
         if (s.id !== sectionId) return s;
@@ -270,7 +305,7 @@ export function DashboardPage() {
         const widget: WidgetInstance = {
           id: widgetId,
           type,
-          title: entry?.label || plugin?.label || cap?.name || type,
+          title,
           layout: {
             i: widgetId,
             x: pos.x,
@@ -280,7 +315,10 @@ export function DashboardPage() {
             minW: preset?.dataMode === "history" ? 3 : 2,
             minH: preset?.dataMode === "history" ? 3 : 2,
           },
-          bindings: requiresCapability && addCapId ? { capabilityId: addCapId } : {},
+          bindings:
+            requiresCapability && effectiveCapId
+              ? { capabilityId: effectiveCapId }
+              : {},
           config,
         };
         return { ...s, widgets: [...s.widgets, widget] };
@@ -568,15 +606,18 @@ export function DashboardPage() {
                   setAddType(next);
                   const entry = getCatalogEntry(next);
                   const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
-                  if (presetId && addCapId) {
-                    const preset = getEchartsPreset(presetId);
-                    if (preset.dataMode === "history") {
-                      const cap = capabilities.find((c) => c.id === addCapId);
-                      if (cap?.kind === "switch") {
-                        const first = capabilities.find((c) => c.kind !== "switch");
-                        if (first) setAddCapId(first.id);
-                      }
-                    }
+                  let pool = capabilities;
+                  if (next === "switch") {
+                    pool = capabilities.filter((c) => c.kind === "switch");
+                  } else if (
+                    next === "stat" ||
+                    (presetId && getEchartsPreset(presetId).dataMode === "history")
+                  ) {
+                    pool = capabilities.filter((c) => c.kind !== "switch");
+                  }
+                  const stillValid = pool.some((c) => c.id === addCapId);
+                  if (!stillValid) {
+                    setAddCapId(pool[0]?.id ?? "");
                   }
                 }}
               >
@@ -624,31 +665,52 @@ export function DashboardPage() {
             )}
             {(selectedEntry?.needsCapability ?? true) && (
               <FormControl fullWidth>
-                <InputLabel id="cap">Capability</InputLabel>
+                <InputLabel id="cap">
+                  {addType === "switch" ? "Relay / switch" : "Capability"}
+                </InputLabel>
                 <Select
                   labelId="cap"
-                  label="Capability"
-                  value={addCapId}
+                  label={addType === "switch" ? "Relay / switch" : "Capability"}
+                  value={
+                    addCapabilityOptions.some((c) => c.id === addCapId)
+                      ? addCapId
+                      : addCapabilityOptions[0]?.id || ""
+                  }
                   onChange={(e) => setAddCapId(e.target.value)}
                 >
-                  {(selectedEntry?.presetId &&
-                  getEchartsPreset(selectedEntry.presetId).dataMode === "history"
-                    ? capabilities.filter((c) => c.kind !== "switch")
-                    : capabilities
-                  ).map((c) => (
+                  {addCapabilityOptions.map((c) => (
                     <MenuItem key={c.id} value={c.id}>
-                      {c.deviceName} · {c.name} ({c.kind})
+                      {capabilityPickerLabel(c)}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
+            {addType === "switch" && addCapabilityOptions.length === 0 && (
+              <Typography variant="caption" color="warning.main">
+                No switch capabilities found — register relays on the Devices page and sync
+                capabilities.
+              </Typography>
+            )}
+            {selectedEntry?.needsCapability !== false &&
+              addCapabilityOptions.length > 0 &&
+              addCapId && (
+                <Typography variant="caption" color="text.secondary">
+                  Widget title will default to the relay/sensor name. You can rename it with Edit
+                  after adding.
+                </Typography>
+              )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
+            disabled={
+              (selectedEntry?.needsCapability ?? true)
+                ? addCapabilityOptions.length === 0
+                : false
+            }
             onClick={() => {
               try {
                 addWidget();
@@ -656,7 +718,6 @@ export function DashboardPage() {
                 setError(err instanceof Error ? err.message : "Could not add widget");
               }
             }}
-            disabled={(selectedEntry?.needsCapability ?? true) ? !addCapId : false}
           >
             Add
           </Button>

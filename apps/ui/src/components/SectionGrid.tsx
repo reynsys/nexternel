@@ -13,6 +13,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
+import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
 import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -26,6 +27,10 @@ type Props = {
   onRemoveWidget: (sectionId: string, widgetId: string) => void;
   onUpdateWidget: (sectionId: string, widgetId: string, patch: Partial<WidgetInstance>) => void;
 };
+
+function isCoreEditable(type: string): boolean {
+  return type === "switch" || type === "stat";
+}
 
 /**
  * RGL inside accordion/collapse needs measured width — WidthProvider often stays at 0.
@@ -69,6 +74,8 @@ export function SectionGrid({
   const editing = editWidgetId
     ? widgets.find((w) => w.id === editWidgetId) ?? null
     : null;
+  const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
+  const editingCore = editing ? isCoreEditable(editing.type) : false;
 
   return (
     <Box
@@ -90,7 +97,7 @@ export function SectionGrid({
     >
       {editMode && widgets.length > 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          Drag the handle to move · resize from the corner · Edit opens the ECharts preset panel
+          Drag the handle to move · resize from the corner · Edit changes binding / title
         </Typography>
       )}
       {width > 0 && widgets.length > 0 && (
@@ -116,6 +123,8 @@ export function SectionGrid({
         >
           {widgets.map((w) => {
             const echarts = isEchartsWidgetType(w.type);
+            const core = isCoreEditable(w.type);
+            const canEdit = echarts || core;
             return (
               <div key={w.id}>
                 <Paper
@@ -160,9 +169,9 @@ export function SectionGrid({
                         sx={{ flex: 1 }}
                         noWrap
                       >
-                        {echarts ? "ECharts" : "Drag"}
+                        {echarts ? "ECharts" : w.type === "switch" ? "Switch" : w.type === "stat" ? "Stat" : "Widget"}
                       </Typography>
-                      {echarts && (
+                      {canEdit && (
                         <Button
                           size="small"
                           startIcon={<TuneIcon />}
@@ -213,8 +222,8 @@ export function SectionGrid({
       )}
 
       <EChartsWidgetEditor
-        open={Boolean(editing)}
-        widget={editing}
+        open={Boolean(editing) && editingEcharts}
+        widget={editingEcharts ? editing : null}
         capabilities={capabilities}
         onClose={() => setEditWidgetId(null)}
         onSave={(patch) => {
@@ -225,6 +234,20 @@ export function SectionGrid({
             type: patch.type ?? "echarts",
             bindings: patch.bindings ?? editing.bindings,
             config: nextConfig,
+          });
+        }}
+      />
+
+      <CoreWidgetEditor
+        open={Boolean(editing) && editingCore}
+        widget={editingCore ? editing : null}
+        capabilities={capabilities}
+        onClose={() => setEditWidgetId(null)}
+        onSave={(patch) => {
+          if (!editing) return;
+          onUpdateWidget(sectionId, editing.id, {
+            title: patch.title,
+            bindings: patch.bindings ?? editing.bindings,
           });
         }}
       />

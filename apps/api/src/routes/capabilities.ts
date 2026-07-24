@@ -22,6 +22,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           deviceId: c.device_id,
           deviceName: c.device_name,
           roomId: c.room_id,
+          roomName: c.room_name,
           kind: c.kind,
           name: c.name,
           unit: c.unit,

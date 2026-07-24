@@ -206,6 +206,7 @@ export type Capability = {
   deviceId: string;
   deviceName: string;
   roomId: string | null;
+  roomName?: string | null;
   kind: string;
   name: string;
   unit: string | null;

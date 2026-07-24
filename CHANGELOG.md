@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.046 — 24/07/2026
+
+- **Dashboard switches:** widgets titled from the relay name (not generic “Switch”); show Device · Area under the title; Edit drawer to change binding/title; Add dialog lists Area · Device · Relay
+
 ## V3.1.045 — 24/07/2026
 
 - **Devices:** full admin parity — register from ESPHome YAML, edit, enable/disable, delete, sync entities from YAML, rename sensors/relays, area assignment; removed V2 read-only messaging. API mounts `esphome/` for catalog/suggest

@@ -5,6 +5,7 @@ export type CapabilityRow = {
   device_id: string;
   device_name: string;
   room_id: string | null;
+  room_name: string | null;
   kind: string;
   name: string;
   unit: string | null;
@@ -17,25 +18,27 @@ export type CapabilityRow = {
 
 export async function listCapabilities(): Promise<CapabilityRow[]> {
   const result = await getPool().query<CapabilityRow>(
-    `SELECT c.id, c.device_id, d.name AS device_name, d.room_id,
+    `SELECT c.id, c.device_id, d.name AS device_name, d.room_id, r.name AS room_name,
             c.kind, c.name, c.unit, c.source_type, c.source_id, c.is_enabled,
             b.state_topic, b.command_topic
      FROM capabilities c
      JOIN devices d ON d.id = c.device_id
+     LEFT JOIN rooms r ON r.id = d.room_id
      LEFT JOIN capability_bindings b ON b.capability_id = c.id
      WHERE c.is_enabled = TRUE
-     ORDER BY d.name ASC, c.name ASC`
+     ORDER BY COALESCE(r.name, ''), d.name ASC, c.name ASC`
   );
   return result.rows;
 }
 
 export async function getCapabilityById(id: string): Promise<CapabilityRow | null> {
   const result = await getPool().query<CapabilityRow>(
-    `SELECT c.id, c.device_id, d.name AS device_name, d.room_id,
+    `SELECT c.id, c.device_id, d.name AS device_name, d.room_id, r.name AS room_name,
             c.kind, c.name, c.unit, c.source_type, c.source_id, c.is_enabled,
             b.state_topic, b.command_topic
      FROM capabilities c
      JOIN devices d ON d.id = c.device_id
+     LEFT JOIN rooms r ON r.id = d.room_id
      LEFT JOIN capability_bindings b ON b.capability_id = c.id
      WHERE c.id = $1
      LIMIT 1`,

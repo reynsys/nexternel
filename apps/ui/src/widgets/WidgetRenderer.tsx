@@ -3,6 +3,10 @@ import { Box, Paper, Stack, Switch, Typography } from "@mui/material";
 import type { Capability } from "../api";
 import { api, type WidgetInstance } from "../api";
 import { getWidgetContribution } from "../plugins/registry";
+import {
+  capabilityLocationLabel,
+  defaultWidgetTitle,
+} from "../lib/capability-labels";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 
 function capabilityIdOf(widget: WidgetInstance): string | null {
@@ -42,28 +46,47 @@ export function WidgetRenderer({
     ? migrateWidgetToEcharts(rawWidget)
     : rawWidget;
   const cap = findCap(capabilities, widget);
-  const title = widget.title || cap?.name || widget.type;
+  const rawTitle = widget.title?.trim() ?? "";
+  const genericTitle =
+    !rawTitle ||
+    rawTitle === "Switch" ||
+    rawTitle === "Stat" ||
+    rawTitle === "Auto" ||
+    rawTitle === widget.type;
+  const title = genericTitle
+    ? defaultWidgetTitle(cap, widget.type === "switch" ? "Switch" : widget.type)
+    : rawTitle;
   const plugin = getWidgetContribution(rawWidget.type);
   const PluginComponent = plugin?.Component;
 
   const body = (
     <>
-      {(chrome || title) && (
+      <Stack spacing={0} sx={{ mb: 0.5, flexShrink: 0, minWidth: 0 }}>
         <Typography
           variant="subtitle2"
           noWrap
+          title={title}
           sx={{
-            mb: 0.25,
             fontWeight: 600,
-            opacity: chrome ? 1 : 0.9,
-            flexShrink: 0,
+            opacity: chrome ? 1 : 0.95,
             lineHeight: 1.2,
-            fontSize: "0.8rem",
+            fontSize: "0.85rem",
           }}
         >
           {title}
         </Typography>
-      )}
+        {(widget.type === "switch" || widget.type === "stat" || cap) && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            noWrap
+            title={capabilityLocationLabel(cap)}
+            sx={{ lineHeight: 1.2 }}
+          >
+            {capabilityLocationLabel(cap)}
+          </Typography>
+        )}
+      </Stack>
       <Box
         sx={{
           flex: 1,
@@ -127,7 +150,7 @@ function StatWidgetBody({ cap }: { cap: Capability | undefined }) {
         {formatValue(cap)}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        {cap ? `${cap.deviceName} · ${cap.kind}` : "No capability bound"}
+        {cap ? cap.kind : "No capability bound"}
       </Typography>
     </Stack>
   );
@@ -155,11 +178,18 @@ function SwitchWidgetBody({
 
   return (
     <Stack height="100%" direction="row" alignItems="center" justifyContent="space-between">
-      <Typography variant="h6">{on ? "ON" : "OFF"}</Typography>
+      <Typography variant="h6" color={on ? "success.main" : "text.secondary"}>
+        {cap ? (on ? "ON" : "OFF") : "—"}
+      </Typography>
       <Switch
         checked={on}
         disabled={disabled || busy || !cap?.hasCommand}
         onChange={() => void toggle()}
+        inputProps={{
+          "aria-label": cap
+            ? `Toggle ${cap.name} on ${cap.deviceName}`
+            : "Toggle switch",
+        }}
       />
     </Stack>
   );
