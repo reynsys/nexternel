@@ -42,6 +42,8 @@ export type DbDevice = {
   room_id: string | null;
   name: string;
   slug: string;
+  mqtt_topic_prefix?: string;
+  esphome_name?: string | null;
   is_enabled: boolean;
   is_online: boolean;
   last_seen_at: Date | null;

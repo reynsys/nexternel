@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.045 — 24/07/2026
+
+- **Devices:** full admin parity — register from ESPHome YAML, edit, enable/disable, delete, sync entities from YAML, rename sensors/relays, area assignment; removed V2 read-only messaging. API mounts `esphome/` for catalog/suggest
+
 ## V3.1.044 — 24/07/2026
 
 - **Areas:** renamed Rooms → Areas in nav/UI (rooms, gardens, outdoors, etc.); full add / edit / delete in V3 (no V2 dependency); API `POST/PATCH/DELETE /api/v1/rooms` (DB table unchanged)

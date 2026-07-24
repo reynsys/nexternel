@@ -10,7 +10,7 @@ export type HistorySeriesTarget = {
 };
 
 /**
- * Map capabilityId → Influx tags (device slug + entity_id) via V2 sensors/relays.
+ * Map capabilityId → Influx tags (device slug + entity_id) via sensors/relays.
  */
 export async function resolveHistoryTarget(
   capabilityId: string

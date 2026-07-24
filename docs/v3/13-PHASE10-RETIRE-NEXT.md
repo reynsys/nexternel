@@ -97,5 +97,6 @@ Prefer fixing V3 instead of rolling back unless daily ops are blocked.
 ## Out of scope (unchanged)
 
 - Reverse proxy / TLS
-- Re-implementing V2 ESPHome YAML import in the API
 - Deleting legacy Postgres tables (`dashboard_layouts`, etc.)
+
+ESPHome YAML catalog/import/sync is implemented in the V3 API (see [19-DEVICES.md](19-DEVICES.md)).

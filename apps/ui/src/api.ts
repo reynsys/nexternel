@@ -366,15 +366,77 @@ export const api = {
     apiFetch<{ ok: boolean }>(`/api/v1/rooms/${id}`, { method: "DELETE" }),
 
   devices: () =>
+    apiFetch<{ devices: DeviceRecord[] }>("/api/v1/devices"),
+
+  createDevice: (body: {
+    name: string;
+    roomId?: string | null;
+    mqttTopicPrefix: string;
+    esphomeName?: string | null;
+    ipAddress?: string | null;
+    macAddress?: string | null;
+    sensors?: EsphomeSensorInput[];
+    relays?: EsphomeRelayInput[];
+  }) =>
+    apiFetch<{ device: DeviceRecord }>("/api/v1/devices", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateDevice: (
+    id: string,
+    body: {
+      name?: string;
+      roomId?: string | null;
+      mqttTopicPrefix?: string;
+      esphomeName?: string | null;
+      ipAddress?: string | null;
+      macAddress?: string | null;
+      isEnabled?: boolean;
+    }
+  ) =>
+    apiFetch<{ device: DeviceRecord }>(`/api/v1/devices/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteDevice: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/devices/${id}`, { method: "DELETE" }),
+
+  esphomeCatalog: () =>
     apiFetch<{
-      devices: {
-        id: string;
-        name: string;
-        slug: string;
-        isOnline: boolean;
-        roomId: string | null;
-      }[];
-    }>("/api/v1/devices"),
+      configs: EsphomeCatalogEntry[];
+      esphomeDirHint: string | null;
+    }>("/api/v1/devices/esphome-catalog"),
+
+  esphomeSuggest: (name: string) =>
+    apiFetch<EsphomeImportSuggestion>(
+      `/api/v1/devices/esphome-suggest?name=${encodeURIComponent(name)}`
+    ),
+
+  syncDeviceEsphome: (id: string) =>
+    apiFetch<{
+      addedRelays: number;
+      updatedRelays: number;
+      totalRelays: number;
+      yamlFile: string;
+      mqttTopicPrefix: string;
+      relaysInYaml: string[];
+      isOnline: boolean;
+      device: DeviceRecord | null;
+    }>(`/api/v1/devices/${id}/sync-esphome`, { method: "POST" }),
+
+  renameRelay: (deviceId: string, relayId: string, name: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/devices/${deviceId}/relays/${relayId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+
+  renameSensor: (deviceId: string, sensorId: string, name: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/devices/${deviceId}/sensors/${sensorId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
 
   capabilities: () =>
     apiFetch<{ capabilities: Capability[] }>("/api/v1/capabilities"),
@@ -472,6 +534,74 @@ export type AdminUser = {
   isActive: boolean;
   role: "admin" | "viewer";
   createdAt: string;
+};
+
+export type EsphomeSensorInput = {
+  name: string;
+  slug: string;
+  sensorType: string;
+  unit?: string;
+  esphomeEntityId: string;
+};
+
+export type EsphomeRelayInput = {
+  name: string;
+  slug: string;
+  esphomeEntityId: string;
+  gpioPin?: number;
+};
+
+export type EsphomeImportSuggestion = {
+  esphomeName: string;
+  mqttTopicPrefix: string;
+  yamlFile: string;
+  sensors: EsphomeSensorInput[];
+  relays: EsphomeRelayInput[];
+};
+
+export type EsphomeCatalogEntry = {
+  fileName: string;
+  esphomeName: string;
+  mqttTopicPrefix: string;
+  registered: boolean;
+  sensorCount: number;
+  relayCount: number;
+  suggestion: EsphomeImportSuggestion | null;
+};
+
+export type DeviceRecord = {
+  id: string;
+  roomId: string | null;
+  roomName: string | null;
+  name: string;
+  slug: string;
+  mqttTopicPrefix: string;
+  esphomeName: string | null;
+  ipAddress: string | null;
+  macAddress: string | null;
+  isEnabled: boolean;
+  isOnline: boolean;
+  lastSeenAt: string | null;
+  sensors: {
+    id: string;
+    name: string;
+    slug: string;
+    sensorType: string;
+    unit: string | null;
+    esphomeEntityId: string | null;
+    mqttStateTopic: string;
+    isEnabled: boolean;
+  }[];
+  relays: {
+    id: string;
+    name: string;
+    slug: string;
+    esphomeEntityId: string | null;
+    mqttCommandTopic: string;
+    mqttStateTopic: string;
+    lastState: string | null;
+    isEnabled: boolean;
+  }[];
 };
 
 export type HistoryRange = "1h" | "6h" | "24h" | "7d";

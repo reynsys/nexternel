@@ -1,7 +1,7 @@
 /** Nexternel Backend API — Generation 3 */
 export const VERSION_GENERATION = 3;
 export const VERSION_HARDWARE = 1;
-export const VERSION_SOFTWARE = 44;
+export const VERSION_SOFTWARE = 45;
 
 export function formatVersion(
   gen = VERSION_GENERATION,

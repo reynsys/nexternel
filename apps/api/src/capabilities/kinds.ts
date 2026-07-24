@@ -1,4 +1,4 @@
-/** Map V2 sensor_type strings to capability kinds. */
+/** Map sensor_type strings to capability kinds. */
 export function kindFromSensorType(sensorType: string): string {
   const t = sensorType.trim().toLowerCase();
   const known = new Set([

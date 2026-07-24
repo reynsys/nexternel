@@ -2,7 +2,7 @@ import { getPool } from "../db.js";
 import { kindFromSensorType } from "./kinds.js";
 
 /**
- * Upsert capabilities + bindings from V2 sensors / relays tables.
+ * Upsert capabilities + bindings from sensors / relays tables.
  * Safe to run repeatedly (idempotent on source_type + source_id).
  */
 export async function syncCapabilitiesFromLegacy(): Promise<{
