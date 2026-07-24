@@ -317,9 +317,53 @@ export const api = {
   me: () => apiFetch<{ user: User }>("/api/v1/auth/me"),
 
   rooms: () =>
-    apiFetch<{ rooms: { id: string; name: string; description: string | null }[] }>(
-      "/api/v1/rooms"
-    ),
+    apiFetch<{
+      rooms: {
+        id: string;
+        name: string;
+        description: string | null;
+        sortOrder: number;
+        deviceCount: number;
+      }[];
+    }>("/api/v1/rooms"),
+
+  createRoom: (body: {
+    name: string;
+    description?: string;
+    sortOrder?: number;
+  }) =>
+    apiFetch<{
+      room: {
+        id: string;
+        name: string;
+        description: string | null;
+        sortOrder: number;
+        deviceCount: number;
+      };
+    }>("/api/v1/rooms", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateRoom: (
+    id: string,
+    body: { name?: string; description?: string | null; sortOrder?: number }
+  ) =>
+    apiFetch<{
+      room: {
+        id: string;
+        name: string;
+        description: string | null;
+        sortOrder: number;
+        deviceCount: number;
+      };
+    }>(`/api/v1/rooms/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteRoom: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/rooms/${id}`, { method: "DELETE" }),
 
   devices: () =>
     apiFetch<{

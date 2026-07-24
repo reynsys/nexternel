@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.044 — 24/07/2026
+
+- **Areas:** renamed Rooms → Areas in nav/UI (rooms, gardens, outdoors, etc.); full add / edit / delete in V3 (no V2 dependency); API `POST/PATCH/DELETE /api/v1/rooms` (DB table unchanged)
+
 ## V3.1.043 — 24/07/2026
 
 - **ECharts Edit drawer:** categorization fixed — editing a gauge only shows gauge styles; editing a chart only shows chart types (no gauges mixed in). Families use ECharts names (Gauge, Line, Area, Bar, …); drawer title is Edit gauge / Edit chart

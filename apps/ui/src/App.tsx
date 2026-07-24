@@ -8,7 +8,7 @@ import { LivePage } from "./pages/LivePage";
 import { TroubleshootPage } from "./pages/TroubleshootPage";
 import { SystemPage } from "./pages/admin/SystemPage";
 import { UsersPage } from "./pages/admin/UsersPage";
-import { RoomsPage } from "./pages/admin/RoomsPage";
+import { AreasPage } from "./pages/admin/AreasPage";
 import { DevicesPage } from "./pages/admin/DevicesPage";
 import { api, getStoredAccessToken, type User } from "./api";
 
@@ -85,12 +85,16 @@ export function App() {
           }
         />
         <Route
-          path="/admin/rooms"
+          path="/admin/areas"
           element={
             <RequireAuth>
-              <RoomsPage />
+              <AreasPage />
             </RequireAuth>
           }
+        />
+        <Route
+          path="/admin/rooms"
+          element={<Navigate to="/admin/areas" replace />}
         />
         <Route
           path="/admin/devices"

@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
+import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import BugReportRoundedIcon from "@mui/icons-material/BugReportRounded";
@@ -21,7 +21,7 @@ export const MAIN_NAV: NavItem[] = [
   { label: "Dashboards", to: "/dashboards", icon: DashboardRoundedIcon, auth: true },
   { label: "Live", to: "/live", icon: SensorsRoundedIcon, auth: true },
   { label: "System", to: "/admin/system", icon: SettingsRoundedIcon, auth: true },
-  { label: "Rooms", to: "/admin/rooms", icon: MeetingRoomRoundedIcon, auth: true },
+  { label: "Areas", to: "/admin/areas", icon: PlaceRoundedIcon, auth: true },
   { label: "Devices", to: "/admin/devices", icon: DevicesRoundedIcon, auth: true },
   { label: "Users", to: "/admin/users", icon: PeopleRoundedIcon, auth: true, admin: true },
 ];
