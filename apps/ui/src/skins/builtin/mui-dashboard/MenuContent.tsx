@@ -32,7 +32,9 @@ function NavList({
       {items.map((item) => {
         const Icon = item.icon;
         const selected =
-          pathname === item.to || pathname.startsWith(`${item.to}/`);
+          item.to === "/dashboards"
+            ? pathname === "/dashboards" || pathname.startsWith("/dashboards/")
+            : pathname === item.to || pathname.startsWith(`${item.to}/`);
         return (
           <ListItem key={item.to} disablePadding sx={{ display: "block" }}>
             <ListItemButton

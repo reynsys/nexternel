@@ -786,12 +786,17 @@ export type DashboardSection = {
   order: number;
   collapsed?: boolean;
   roomId?: string | null;
+  icon?: string;
+  /** 12-col span: 12 full, 6 half, 4 third, 3 quarter */
+  colSpan?: number;
   widgets: WidgetInstance[];
 };
 
 export type DashboardDocument = {
   schemaVersion: 2;
   name: string;
+  tabIcon?: string;
+  showTabLabel?: boolean;
   sections: DashboardSection[];
 };
 
@@ -800,6 +805,8 @@ export type DashboardSummary = {
   name: string;
   isDefault: boolean;
   updatedAt: string;
+  tabIcon?: string;
+  showTabLabel?: boolean;
 };
 
 export type DashboardDetail = DashboardSummary & {

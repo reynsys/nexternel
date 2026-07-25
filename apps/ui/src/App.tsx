@@ -10,6 +10,7 @@ import { SystemPage } from "./pages/admin/SystemPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { AreasPage } from "./pages/admin/AreasPage";
 import { DevicesPage } from "./pages/admin/DevicesPage";
+import { HomeRedirect } from "./pages/HomeRedirect";
 import { api, getStoredAccessToken, type User } from "./api";
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -107,10 +108,13 @@ export function App() {
         <Route
           path="/"
           element={
-            <Navigate
-              to={getStoredAccessToken() ? "/dashboards" : "/login"}
-              replace
-            />
+            getStoredAccessToken() ? (
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

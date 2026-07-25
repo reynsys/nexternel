@@ -24,7 +24,7 @@ export function LoginPage() {
     setError(null);
     try {
       await api.login(username.trim(), password);
-      navigate("/dashboards", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

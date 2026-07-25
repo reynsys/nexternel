@@ -26,6 +26,7 @@ Permanent planning reference for Generation 3. **No implementation until documen
 | 19 | Devices | [19-DEVICES.md](19-DEVICES.md) |
 | 20 | Live switch idle | [20-LIVE-SWITCH-IDLE.md](20-LIVE-SWITCH-IDLE.md) |
 | 21 | General dashboard widgets | [21-GENERAL-WIDGETS.md](21-GENERAL-WIDGETS.md) |
+| 22 | Dashboard tabs | [22-DASHBOARD-TABS.md](22-DASHBOARD-TABS.md) |
 
 **Baseline:** V2.1.207 → **Target:** V3.1.1 (acceptance)  
 

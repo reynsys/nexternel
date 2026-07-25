@@ -11,6 +11,10 @@ import {
 
 function toDto(row: Awaited<ReturnType<typeof getDashboard>>) {
   if (!row) return null;
+  const doc = row.document as {
+    tabIcon?: string;
+    showTabLabel?: boolean;
+  };
   return {
     id: row.id,
     name: row.name,
@@ -19,6 +23,8 @@ function toDto(row: Awaited<ReturnType<typeof getDashboard>>) {
     ownerUserId: row.owner_user_id,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    tabIcon: typeof doc?.tabIcon === "string" ? doc.tabIcon : "dashboard",
+    showTabLabel: doc?.showTabLabel !== false,
   };
 }
 

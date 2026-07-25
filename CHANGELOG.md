@@ -14,6 +14,15 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.052 — 25/07/2026
+
+- **Dashboard chrome:** removed name/Manage/Edit toolbar row; Manage and Edit live in the top-right gear menu on the tab bar
+
+## V3.1.051 — 25/07/2026
+
+- **Dashboard tabs:** top horizontal menu to switch dashboards; login opens default/first dashboard; Manage page for create/default/tab icons
+- **Sections:** optional icons; Full/Half/Third/Quarter width on a 12-column grid so sections can sit side-by-side
+
 ## V3.1.050 — 25/07/2026
 
 - **Build fix:** move `GeneralWidgetBody` JSX out of `index.ts` into `.tsx` (Vite/esbuild rejected JSX in `.ts`)

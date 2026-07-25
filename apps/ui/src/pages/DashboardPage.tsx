@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { type Layout } from "react-grid-layout";
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Box,
   Button,
   Chip,
   Dialog,
@@ -17,10 +18,13 @@ import {
   InputLabel,
   ListSubheader,
   MenuItem,
+  Popover,
   Select,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -42,11 +46,15 @@ import {
   type WidgetCategoryId,
 } from "../library/widget-catalog";
 import {
+  DEFAULT_SECTION_ICON,
   emptyDocument,
   newId,
   nextWidgetPlacement,
   normalizeDocument,
+  normalizeSectionColSpan,
+  sectionColSpanLabel,
   sortSections,
+  type SectionColSpan,
 } from "../lib/dashboard-document";
 import {
   generalDefaultConfig,
@@ -54,6 +62,9 @@ import {
   isGeneralWidgetType,
 } from "../widgets/general";
 import { SectionGrid } from "../components/SectionGrid";
+import { DashboardTabBar } from "../components/DashboardTabBar";
+import { DashboardIconPicker } from "../components/DashboardIconPicker";
+import { getDashboardIcon } from "../lib/dashboard-icons";
 import {
   defaultPresetForKind,
   getEchartsPreset,
@@ -66,8 +77,11 @@ import {
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const theme = useTheme();
+  const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
   const [name, setName] = useState("Dashboard");
+  const [tabIcon, setTabIcon] = useState("dashboard");
+  const [showTabLabel, setShowTabLabel] = useState(true);
   const [sections, setSections] = useState<DashboardSection[]>(
     () => emptyDocument().sections
   );
@@ -81,6 +95,9 @@ export function DashboardPage() {
   const [addType, setAddType] = useState("stat");
   const [addCapId, setAddCapId] = useState("");
   const [addRange, setAddRange] = useState("24h");
+  const [iconPickerSectionId, setIconPickerSectionId] = useState<string | null>(null);
+  const [iconPickerAnchor, setIconPickerAnchor] = useState<HTMLElement | null>(null);
+  const [tabRefreshKey, setTabRefreshKey] = useState(0);
 
   const categoryOptions = categoriesWithEntries();
   const typeOptions = catalogByCategory(addCategory);
@@ -115,6 +132,8 @@ export function DashboardPage() {
   function loadDocument(doc: unknown, dashName: string) {
     const normalized = normalizeDocument(doc, dashName);
     setName(normalized.name);
+    setTabIcon(normalized.tabIcon ?? "dashboard");
+    setShowTabLabel(normalized.showTabLabel !== false);
     setSections(normalized.sections);
     if (normalized.sections[0]) setAddSectionId(normalized.sections[0].id);
   }
@@ -202,6 +221,8 @@ export function DashboardPage() {
       title: `Section ${order + 1}`,
       order,
       collapsed: false,
+      icon: DEFAULT_SECTION_ICON,
+      colSpan: 12,
       widgets: [],
     };
     setSections((prev) => [...prev, section]);
@@ -373,10 +394,17 @@ export function DashboardPage() {
       const document: DashboardDocument = {
         schemaVersion: 2,
         name,
-        sections: sortSections(sections).map((s, i) => ({ ...s, order: i })),
+        tabIcon,
+        showTabLabel,
+        sections: sortSections(sections).map((s, i) => ({
+          ...s,
+          order: i,
+          colSpan: normalizeSectionColSpan(s.colSpan),
+        })),
       };
       await api.saveDashboard(id, { name, document });
       setEditMode(false);
+      setTabRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -386,188 +414,263 @@ export function DashboardPage() {
 
   return (
     <Stack spacing={2}>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        alignItems={{ sm: "center" }}
-        justifyContent="space-between"
-      >
-        {editMode ? (
-          <TextField
-            size="small"
-            label="Dashboard name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        ) : (
-          <Typography variant="h4">{name}</Typography>
-        )}
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Button variant="text" onClick={() => navigate("/dashboards")}>
-            Back
+      <DashboardTabBar
+        activeId={id}
+        refreshKey={tabRefreshKey}
+        editMode={editMode}
+        onEdit={() => setEditMode(true)}
+      />
+
+      {editMode && (
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          alignItems="center"
+          justifyContent="flex-end"
+        >
+          <Button variant="outlined" onClick={addSection}>
+            Add section
           </Button>
-          {editMode ? (
-            <>
-              <Button variant="outlined" onClick={addSection}>
-                Add section
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
-                  setAddOpen(true);
-                }}
-              >
-                Add widget
-              </Button>
-              <Button variant="contained" disabled={saving} onClick={() => void save()}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-              <Button
-                onClick={() => {
-                  setEditMode(false);
-                  if (id) {
-                    void api.getDashboard(id).then((d) => {
-                      loadDocument(d.dashboard.document, d.dashboard.name);
-                    });
-                  }
-                }}
-              >
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <Button variant="contained" onClick={() => setEditMode(true)}>
-              Edit
-            </Button>
-          )}
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
+              setAddOpen(true);
+            }}
+          >
+            Add widget
+          </Button>
+          <Button variant="contained" disabled={saving} onClick={() => void save()}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            onClick={() => {
+              setEditMode(false);
+              if (id) {
+                void api.getDashboard(id).then((d) => {
+                  loadDocument(d.dashboard.document, d.dashboard.name);
+                });
+              }
+            }}
+          >
+            Cancel
+          </Button>
         </Stack>
-      </Stack>
+      )}
 
       {error && <Alert severity="error">{error}</Alert>}
 
       {ordered.length > 1 && (
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {ordered.map((s) => (
-            <Chip
-              key={s.id}
-              label={s.title}
-              clickable
-              color={s.collapsed ? "default" : "primary"}
-              variant={s.collapsed ? "outlined" : "filled"}
-              onClick={() => {
-                updateSection(s.id, { collapsed: false });
-                requestAnimationFrame(() => {
-                  document
-                    .getElementById(`dash-section-${s.id}`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                });
-              }}
-            />
-          ))}
+          {ordered.map((s) => {
+            const SecIcon = getDashboardIcon(s.icon);
+            return (
+              <Chip
+                key={s.id}
+                icon={<SecIcon />}
+                label={s.title}
+                clickable
+                color={s.collapsed ? "default" : "primary"}
+                variant={s.collapsed ? "outlined" : "filled"}
+                onClick={() => {
+                  updateSection(s.id, { collapsed: false });
+                  requestAnimationFrame(() => {
+                    document
+                      .getElementById(`dash-section-${s.id}`)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  });
+                }}
+              />
+            );
+          })}
         </Stack>
       )}
 
-      {ordered.map((section, index) => (
-        <Accordion
-          key={section.id}
-          id={`dash-section-${section.id}`}
-          expanded={!section.collapsed}
-          onChange={(_e, expanded) =>
-            updateSection(section.id, { collapsed: !expanded })
-          }
-          disableGutters
-          sx={{
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-            scrollMarginTop: 16,
-            overflow: "hidden",
-            bgcolor: "background.paper",
-            "&:before": { display: "none" },
-            boxShadow: (t) =>
-              t.palette.mode === "dark" ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
-          }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              sx={{ width: "100%", pr: 1 }}
-              onClick={(e) => {
-                if (editMode) e.stopPropagation();
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+          gap: 2,
+          alignItems: "start",
+        }}
+      >
+        {ordered.map((section, index) => {
+          const span = isNarrow ? 12 : normalizeSectionColSpan(section.colSpan);
+          const SecIcon = getDashboardIcon(section.icon);
+          return (
+            <Accordion
+              key={section.id}
+              id={`dash-section-${section.id}`}
+              expanded={!section.collapsed}
+              onChange={(_e, expanded) =>
+                updateSection(section.id, { collapsed: !expanded })
+              }
+              disableGutters
+              sx={{
+                gridColumn: `span ${span}`,
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 2,
+                scrollMarginTop: 16,
+                overflow: "hidden",
+                bgcolor: "background.paper",
+                "&:before": { display: "none" },
+                boxShadow: (t) =>
+                  t.palette.mode === "dark" ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+                minWidth: 0,
               }}
             >
-              {editMode ? (
-                <TextField
-                  size="small"
-                  label="Section"
-                  value={section.title}
-                  onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  sx={{ flex: 1, maxWidth: 360 }}
-                />
-              ) : (
-                <Typography variant="h6" sx={{ flex: 1 }}>
-                  {section.title}
-                </Typography>
-              )}
-              <Typography variant="caption" color="text.secondary">
-                {section.widgets.length} widget{section.widgets.length === 1 ? "" : "s"}
-              </Typography>
-              {editMode && (
-                <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-                  <IconButton
-                    size="small"
-                    aria-label="Move section up"
-                    disabled={index === 0}
-                    onClick={() => moveSection(section.id, -1)}
-                  >
-                    <ArrowUpwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    aria-label="Move section down"
-                    disabled={index === ordered.length - 1}
-                    onClick={() => moveSection(section.id, 1)}
-                  >
-                    <ArrowDownwardIcon fontSize="small" />
-                  </IconButton>
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => removeSection(section.id)}
-                  >
-                    Remove
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setAddSectionId(section.id);
-                      setAddOpen(true);
-                    }}
-                  >
-                    Add widget
-                  </Button>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ width: "100%", pr: 1 }}
+                  onClick={(e) => {
+                    if (editMode) e.stopPropagation();
+                  }}
+                >
+                  {editMode ? (
+                    <IconButton
+                      size="small"
+                      aria-label="Section icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIconPickerSectionId(section.id);
+                        setIconPickerAnchor(e.currentTarget);
+                      }}
+                    >
+                      <SecIcon fontSize="small" />
+                    </IconButton>
+                  ) : (
+                    <SecIcon color="action" fontSize="small" />
+                  )}
+                  {editMode ? (
+                    <TextField
+                      size="small"
+                      label="Section"
+                      value={section.title}
+                      onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      sx={{ flex: 1, maxWidth: 280 }}
+                    />
+                  ) : (
+                    <Typography variant="h6" sx={{ flex: 1 }} noWrap>
+                      {section.title}
+                    </Typography>
+                  )}
+                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    {section.widgets.length} widget{section.widgets.length === 1 ? "" : "s"}
+                  </Typography>
+                  {editMode && (
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                      flexWrap="wrap"
+                      useFlexGap
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <InputLabel id={`span-${section.id}`}>Width</InputLabel>
+                        <Select
+                          labelId={`span-${section.id}`}
+                          label="Width"
+                          value={normalizeSectionColSpan(section.colSpan)}
+                          onChange={(e) =>
+                            updateSection(section.id, {
+                              colSpan: Number(e.target.value) as SectionColSpan,
+                            })
+                          }
+                        >
+                          {([12, 6, 4, 3] as SectionColSpan[]).map((n) => (
+                            <MenuItem key={n} value={n}>
+                              {sectionColSpanLabel(n)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <IconButton
+                        size="small"
+                        aria-label="Move section up"
+                        disabled={index === 0}
+                        onClick={() => moveSection(section.id, -1)}
+                      >
+                        <ArrowUpwardIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label="Move section down"
+                        disabled={index === ordered.length - 1}
+                        onClick={() => moveSection(section.id, 1)}
+                      >
+                        <ArrowDownwardIcon fontSize="small" />
+                      </IconButton>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => removeSection(section.id)}
+                      >
+                        Remove
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setAddSectionId(section.id);
+                          setAddOpen(true);
+                        }}
+                      >
+                        Add widget
+                      </Button>
+                    </Stack>
+                  )}
                 </Stack>
-              )}
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
-            <SectionGrid
-              sectionId={section.id}
-              widgets={section.widgets}
-              capabilities={capabilities}
-              editMode={editMode}
-              onLayoutChange={onLayoutChange}
-              onRemoveWidget={removeWidget}
-              onUpdateWidget={updateWidget}
-              onCapabilityState={applyLive}
-            />
-          </AccordionDetails>
-        </Accordion>
-      ))}
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
+                <SectionGrid
+                  sectionId={section.id}
+                  widgets={section.widgets}
+                  capabilities={capabilities}
+                  editMode={editMode}
+                  onLayoutChange={onLayoutChange}
+                  onRemoveWidget={removeWidget}
+                  onUpdateWidget={updateWidget}
+                  onCapabilityState={applyLive}
+                />
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Box>
+
+      <Popover
+        open={Boolean(iconPickerAnchor) && Boolean(iconPickerSectionId)}
+        anchorEl={iconPickerAnchor}
+        onClose={() => {
+          setIconPickerAnchor(null);
+          setIconPickerSectionId(null);
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Box sx={{ p: 2, width: 320 }}>
+          <DashboardIconPicker
+            dense
+            value={
+              ordered.find((s) => s.id === iconPickerSectionId)?.icon ??
+              DEFAULT_SECTION_ICON
+            }
+            onChange={(iconId) => {
+              if (iconPickerSectionId) {
+                updateSection(iconPickerSectionId, { icon: iconId });
+              }
+              setIconPickerAnchor(null);
+              setIconPickerSectionId(null);
+            }}
+          />
+        </Box>
+      </Popover>
 
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Add widget</DialogTitle>
