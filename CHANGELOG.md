@@ -14,6 +14,18 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.055 — 25/07/2026
+
+- **Home / login:** `/` and sidebar Dashboards open the default dashboard (auto-promote first if none marked); Manage stays under the tab-bar gear; star on Manage sets default; first created dashboard becomes default when none exists
+
+## V3.1.054 — 25/07/2026
+
+- **Appearance:** removed floating Theme Options FAB; light/dark, accent, and skin controls live under System → Appearance
+
+## V3.1.053 — 25/07/2026
+
+- **History charts:** time axis labels no longer show bare day-of-month (e.g. "25"); day ticks use "25 Jul", hours stay HH:mm — applies to line, smooth, step, area, bar, and scatter
+
 ## V3.1.052 — 25/07/2026
 
 - **Dashboard chrome:** removed name/Manage/Edit toolbar row; Manage and Edit live in the top-right gear menu on the tab bar

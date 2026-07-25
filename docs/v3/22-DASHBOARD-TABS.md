@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.052 |
+| **Version** | V3.1.055 |
 | **UI** | [`DashboardTabBar.tsx`](../../apps/ui/src/components/DashboardTabBar.tsx) |
 | **Manage** | [`DashboardsPage.tsx`](../../apps/ui/src/pages/DashboardsPage.tsx) |
 | **Home** | [`HomeRedirect.tsx`](../../apps/ui/src/pages/HomeRedirect.tsx) |
@@ -13,10 +13,10 @@ Quick switch between dashboards (e.g. Living Room → Garden) without returning 
 
 ## Behaviour
 
-1. After login, `/` opens the **default** dashboard (or the first if none is marked default). If there are no dashboards, `/` goes to Manage.
-2. On `/dashboards/:id`, a top **tab bar** lists all dashboards (icon + optional label).
-3. The **gear** menu (top-right of the tab bar) has **Manage dashboards** and **Edit dashboard**. Rename / tab icon / default are on Manage.
-4. Sidebar **Dashboards** still opens Manage; viewing a dashboard also highlights that nav item.
+1. After login, `/` opens the **default** dashboard. If none is marked default, the first dashboard is promoted to default automatically, then opened. If there are no dashboards, `/` goes to Manage.
+2. Sidebar **Dashboards** also goes to `/` (same home redirect), not the Manage list.
+3. On `/dashboards/:id`, a top **tab bar** lists all dashboards (icon + optional label).
+4. The **gear** menu (top-right of the tab bar) has **Manage dashboards** and **Edit dashboard**. On Manage, use the **star** to set the default; rename / tab icon are there too.
 
 ## Data
 

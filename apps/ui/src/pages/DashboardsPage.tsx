@@ -132,10 +132,18 @@ export function DashboardsPage() {
       <Box>
         <Typography variant="h4">Manage dashboards</Typography>
         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-          Create layouts, set the default home dashboard, and choose tab icons for the top menu.
+          Create layouts, choose tab icons, and set which dashboard opens at login (star =
+          default). Login and the sidebar <strong>Dashboards</strong> link open the default
+          dashboard — not this page.
         </Typography>
       </Box>
       {error && <Alert severity="error">{error}</Alert>}
+      {dashboards.length > 0 && !dashboards.some((d) => d.isDefault) && (
+        <Alert severity="warning">
+          No default dashboard yet. Click the star on a row to choose which one opens when you
+          log in or visit the home page.
+        </Alert>
+      )}
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         <TextField

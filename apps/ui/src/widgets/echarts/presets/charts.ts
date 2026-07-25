@@ -14,6 +14,22 @@ function yFmt(ctx: EchartsBuildCtx) {
 
 const historyGrid = { left: 40, right: 16, top: 28, bottom: 28 };
 
+/** ECharts 5 default day template is bare `{d}` → labels like "25". */
+const timeAxisLabel = {
+  fontSize: 10,
+  hideOverlap: true,
+  formatter: {
+    year: "{yyyy}",
+    month: "{MMM} {yyyy}",
+    day: "{d} {MMM}",
+    hour: "{HH}:{mm}",
+    minute: "{HH}:{mm}",
+    second: "{HH}:{mm}:{ss}",
+  },
+};
+
+const timeXAxis = { type: "time" as const, axisLabel: timeAxisLabel };
+
 export const CHART_PRESETS: EchartsPreset[] = [
   {
     id: "line-basic",
@@ -28,7 +44,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         scale: true,
@@ -58,7 +74,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         scale: true,
@@ -89,7 +105,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         scale: true,
@@ -120,7 +136,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         scale: true,
@@ -152,7 +168,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
@@ -183,7 +199,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
@@ -394,7 +410,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "item" },
-      xAxis: { type: "time", axisLabel: { fontSize: 10 } },
+      xAxis: timeXAxis,
       yAxis: {
         type: "value",
         scale: true,

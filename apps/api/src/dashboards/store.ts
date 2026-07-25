@@ -60,11 +60,17 @@ export async function createDashboard(input: {
     input.document ?? emptyDashboardDocument(input.name)
   );
   document.name = input.name;
+
+  const defaults = await getPool().query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM v3_dashboards WHERE is_default = TRUE`
+  );
+  const makeDefault = Number(defaults.rows[0]?.c ?? 0) === 0;
+
   const result = await getPool().query<DashboardRow>(
-    `INSERT INTO v3_dashboards (owner_user_id, name, document)
-     VALUES ($1, $2, $3::jsonb)
+    `INSERT INTO v3_dashboards (owner_user_id, name, document, is_default)
+     VALUES ($1, $2, $3::jsonb, $4)
      RETURNING id, owner_user_id, name, document, is_default, created_at, updated_at`,
-    [input.ownerUserId, input.name, JSON.stringify(document)]
+    [input.ownerUserId, input.name, JSON.stringify(document), makeDefault]
   );
   return normalizeRow(result.rows[0]);
 }

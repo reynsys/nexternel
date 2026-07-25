@@ -5,16 +5,12 @@ import {
   Card,
   CardContent,
   Chip,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Radio,
-  RadioGroup,
   Stack,
   Typography,
 } from "@mui/material";
 import { api, type SystemInfo } from "../../api";
 import { useSkin } from "../../skins/SkinProvider";
+import { ThemeOptionsPanel } from "../../skins/ThemeOptionsPanel";
 
 function formatUptime(sec: number): string {
   const d = Math.floor(sec / 86400);
@@ -28,7 +24,7 @@ function formatUptime(sec: number): string {
 export function SystemPage() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { skin, skins, setSkinId } = useSkin();
+  const { skin } = useSkin();
 
   useEffect(() => {
     void api
@@ -43,8 +39,8 @@ export function SystemPage() {
     <Stack spacing={2}>
       <Typography variant="h4">System</Typography>
       <Typography color="text.secondary">
-        API host status, network, Node-RED, and UI appearance (skins / templates).
-        This UI (:8080) talks to the API (:4000).
+        API host status, network, Node-RED, and UI appearance. This UI (:8080) talks to the
+        API (:4000).
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -53,43 +49,7 @@ export function SystemPage() {
           <Typography variant="h6" gutterBottom>
             Appearance
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Prefer the floating <strong>Theme</strong> button (bottom-right) for light/dark
-            and accent colour. Skins below change the layout chrome. Choices are saved in
-            this browser only.
-          </Typography>
-          <FormControl>
-            <FormLabel id="skin-label">Active template / skin</FormLabel>
-            <RadioGroup
-              aria-labelledby="skin-label"
-              value={skin.id}
-              onChange={(e) => setSkinId(e.target.value)}
-            >
-              {skins.map((s) => (
-                <FormControlLabel
-                  key={s.id}
-                  value={s.id}
-                  control={<Radio />}
-                  label={
-                    <Stack spacing={0}>
-                      <Typography variant="body1">{s.label}</Typography>
-                      {s.description && (
-                        <Typography variant="caption" color="text.secondary">
-                          {s.description}
-                        </Typography>
-                      )}
-                    </Stack>
-                  }
-                />
-              ))}
-            </RadioGroup>
-          </FormControl>
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Soft UI Pro configurator HTML is a <strong>paid demo</strong> — do not copy it
-            into this repo. After you purchase Soft UI Pro, place an adapter under{" "}
-            <code>apps/ui/src/skins/local/</code> (excluded from GitHub). Free MUI templates
-            in <code>Template/</code> are reference only.
-          </Alert>
+          <ThemeOptionsPanel />
         </CardContent>
       </Card>
 

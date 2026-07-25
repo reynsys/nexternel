@@ -18,7 +18,7 @@ export type NavItem = {
 };
 
 export const MAIN_NAV: NavItem[] = [
-  { label: "Dashboards", to: "/dashboards", icon: DashboardRoundedIcon, auth: true },
+  { label: "Dashboards", to: "/", icon: DashboardRoundedIcon, auth: true },
   { label: "Live", to: "/live", icon: SensorsRoundedIcon, auth: true },
   { label: "System", to: "/admin/system", icon: SettingsRoundedIcon, auth: true },
   { label: "Areas", to: "/admin/areas", icon: PlaceRoundedIcon, auth: true },
