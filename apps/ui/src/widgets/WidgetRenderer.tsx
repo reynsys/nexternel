@@ -8,6 +8,7 @@ import {
   defaultWidgetTitle,
 } from "../lib/capability-labels";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
+import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
 
 function capabilityIdOf(widget: WidgetInstance): string | null {
   const id = widget.bindings.capabilityId;
@@ -67,8 +68,10 @@ export function WidgetRenderer({
   const plugin = getWidgetContribution(rawWidget.type);
   const PluginComponent = plugin?.Component;
   const isClock = rawWidget.type === "plugin.clock";
+  const isGeneral = isGeneralWidgetType(widget.type);
   const showHeader =
     !isClock &&
+    !isGeneral &&
     (chrome ||
       Boolean(title) ||
       widget.type === "switch" ||
@@ -117,6 +120,8 @@ export function WidgetRenderer({
       >
         {PluginComponent ? (
           <PluginComponent widget={widget} capabilities={capabilities} editMode={editMode} />
+        ) : isGeneralWidgetType(widget.type) ? (
+          <GeneralWidgetBody widget={widget} />
         ) : widget.type === "switch" ? (
           <SwitchWidgetBody
             cap={cap}

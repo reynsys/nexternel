@@ -613,6 +613,11 @@ export const api = {
 
   system: () => apiFetch<SystemInfo>("/api/v1/system"),
 
+  weather: (lat: number, lon: number) =>
+    apiFetch<WeatherResponse>(
+      `/api/v1/weather?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}`
+    ),
+
   users: () => apiFetch<{ users: AdminUser[] }>("/api/v1/users"),
 
   createUser: (body: {
@@ -654,6 +659,26 @@ export type SystemInfo = {
   mqttError: string | null;
   nodeRedUrl: string;
   nodeRedPort: number;
+};
+
+export type WeatherForecastDay = {
+  date: string;
+  weatherCode: number;
+  description: string;
+  tempMax?: number;
+  tempMin?: number;
+};
+
+export type WeatherResponse = {
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  weatherCode?: number;
+  description?: string;
+  time?: string;
+  latitude?: number;
+  longitude?: number;
+  forecast: WeatherForecastDay[];
 };
 
 export type AdminUser = {

@@ -21,6 +21,11 @@ Permanent planning reference for Generation 3. **No implementation until documen
 | 14 | UI skins / templates | [14-UI-SKINS.md](14-UI-SKINS.md) |
 | 15 | Dashboard sections | [15-DASHBOARD-SECTIONS.md](15-DASHBOARD-SECTIONS.md) |
 | 16 | Widget catalog categories | [16-WIDGET-CATALOG.md](16-WIDGET-CATALOG.md) |
+| 17 | ECharts widgets | [17-ECHARTS-WIDGETS.md](17-ECHARTS-WIDGETS.md) |
+| 18 | Areas | [18-AREAS.md](18-AREAS.md) |
+| 19 | Devices | [19-DEVICES.md](19-DEVICES.md) |
+| 20 | Live switch idle | [20-LIVE-SWITCH-IDLE.md](20-LIVE-SWITCH-IDLE.md) |
+| 21 | General dashboard widgets | [21-GENERAL-WIDGETS.md](21-GENERAL-WIDGETS.md) |
 
 **Baseline:** V2.1.207 → **Target:** V3.1.1 (acceptance)  
 

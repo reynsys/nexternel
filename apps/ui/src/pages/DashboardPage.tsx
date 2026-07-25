@@ -48,6 +48,11 @@ import {
   normalizeDocument,
   sortSections,
 } from "../lib/dashboard-document";
+import {
+  generalDefaultConfig,
+  generalDefaultSize,
+  isGeneralWidgetType,
+} from "../widgets/general";
 import { SectionGrid } from "../components/SectionGrid";
 import {
   defaultPresetForKind,
@@ -274,10 +279,12 @@ export function DashboardPage() {
     }
 
     const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
-    const size = preset?.defaultSize ?? {
-      w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
-      h: type === "plugin.clock" ? 3 : 3,
-    };
+    const generalSize = isGeneralWidgetType(type) ? generalDefaultSize(type) : null;
+    const size = preset?.defaultSize ??
+      generalSize ?? {
+        w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
+        h: type === "plugin.clock" ? 3 : 3,
+      };
     const w = size.w;
     const h = size.h;
 
@@ -286,6 +293,7 @@ export function DashboardPage() {
       (isEcharts ? defaultPresetForKind(cap?.kind) : undefined);
 
     const config: Record<string, unknown> = {
+      ...(isGeneralWidgetType(type) ? generalDefaultConfig(type) : {}),
       ...(entry?.defaultConfig ?? {}),
       ...(presetId ? { presetId } : {}),
     };
@@ -303,9 +311,11 @@ export function DashboardPage() {
     const title =
       type === "plugin.clock"
         ? undefined
-        : type === "switch" || type === "stat" || addType === "auto"
-          ? defaultWidgetTitle(cap, entry?.label || type)
-          : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
+        : isGeneralWidgetType(type)
+          ? entry?.label
+          : type === "switch" || type === "stat" || addType === "auto"
+            ? defaultWidgetTitle(cap, entry?.label || type)
+            : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
 
     setSections((prev) =>
       prev.map((s) => {

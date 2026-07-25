@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.050 — 25/07/2026
+
+- **Build fix:** move `GeneralWidgetBody` JSX out of `index.ts` into `.tsx` (Vite/esbuild rejected JSX in `.ts`)
+
+## V3.1.049 — 25/07/2026
+
+- **General widgets:** Calendar, Weather (Open-Meteo via `GET /api/v1/weather`), System information, Device status — System catalog category; Edit drawer; no capability binding required
+
 ## V3.1.048 — 25/07/2026
 
 - **Live switches after idle:** WebSocket reconnects with token refresh (visibility/online); switch commands use explicit on/off from the UI and apply the HTTP result even if WS is down; ignore brief retained MQTT echoes that undo a fresh command

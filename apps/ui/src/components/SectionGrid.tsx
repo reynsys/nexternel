@@ -16,6 +16,8 @@ import { WidgetRenderer } from "../widgets/WidgetRenderer";
 import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
 import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
 import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
+import { GeneralWidgetEditor } from "../widgets/GeneralWidgetEditor";
+import { isGeneralWidgetType } from "../widgets/general";
 import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -90,6 +92,7 @@ export function SectionGrid({
   const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
   const editingCore = editing ? isCoreEditable(editing.type) : false;
   const editingClock = editing ? isClockWidget(editing.type) : false;
+  const editingGeneral = editing ? isGeneralWidgetType(editing.type) : false;
 
   return (
     <Box
@@ -139,7 +142,8 @@ export function SectionGrid({
             const echarts = isEchartsWidgetType(w.type);
             const core = isCoreEditable(w.type);
             const clock = isClockWidget(w.type);
-            const canEdit = echarts || core || clock;
+            const general = isGeneralWidgetType(w.type);
+            const canEdit = echarts || core || clock || general;
             return (
               <div key={w.id}>
                 <Paper
@@ -188,11 +192,21 @@ export function SectionGrid({
                           ? "ECharts"
                           : clock
                             ? "Clock"
-                            : w.type === "switch"
-                              ? "Switch"
-                              : w.type === "stat"
-                                ? "Stat"
-                                : "Widget"}
+                            : general
+                              ? w.type === "calendar"
+                                ? "Calendar"
+                                : w.type === "weather"
+                                  ? "Weather"
+                                  : w.type === "system_info"
+                                    ? "System"
+                                    : w.type === "device_status"
+                                      ? "Devices"
+                                      : "General"
+                              : w.type === "switch"
+                                ? "Switch"
+                                : w.type === "stat"
+                                  ? "Stat"
+                                  : "Widget"}
                       </Typography>
                       {canEdit && (
                         <Button
@@ -279,6 +293,19 @@ export function SectionGrid({
       <ClockWidgetEditor
         open={Boolean(editing) && editingClock}
         widget={editingClock ? editing : null}
+        onClose={() => setEditWidgetId(null)}
+        onSave={(patch) => {
+          if (!editing) return;
+          onUpdateWidget(sectionId, editing.id, {
+            title: patch.title,
+            config: patch.config ?? editing.config,
+          });
+        }}
+      />
+
+      <GeneralWidgetEditor
+        open={Boolean(editing) && editingGeneral}
+        widget={editingGeneral ? editing : null}
         onClose={() => setEditWidgetId(null)}
         onSave={(patch) => {
           if (!editing) return;

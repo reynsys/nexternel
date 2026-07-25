@@ -1,0 +1,98 @@
+import { useEffect, useState } from "react";
+import { Box, Typography } from "@mui/material";
+import type { WidgetInstance } from "../../api";
+import { widgetTitleOr } from "./config";
+
+function useNow(intervalMs = 60_000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+export function CalendarWidget({ widget }: { widget: WidgetInstance }) {
+  const now = useNow(60_000);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = now.getDate();
+  const firstDayJs = new Date(year, month, 1).getDay();
+  const firstDay = (firstDayJs + 6) % 7; // Monday-first
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthName = now.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+  const weekDays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const title = widgetTitleOr(widget, "Calendar");
+
+  return (
+    <Box
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        minHeight: 0,
+      }}
+    >
+      {title && (
+        <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
+          {title}
+        </Typography>
+      )}
+      <Typography
+        variant="caption"
+        fontWeight={600}
+        color="text.secondary"
+        sx={{ mb: 0.75, flexShrink: 0 }}
+      >
+        {monthName}
+      </Typography>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: "repeat(7, 1fr)",
+          gridTemplateRows: `auto repeat(${Math.ceil(cells.length / 7)}, minmax(0, 1fr))`,
+          gap: 0.25,
+          textAlign: "center",
+        }}
+      >
+        {weekDays.map((d) => (
+          <Typography
+            key={d}
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: "0.65rem", fontWeight: 600, lineHeight: 1.2 }}
+          >
+            {d}
+          </Typography>
+        ))}
+        {cells.map((day, i) => (
+          <Box
+            key={i}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 0.5,
+              fontSize: "clamp(0.65rem, 2.2cqi, 0.85rem)",
+              fontWeight: day === today ? 700 : 400,
+              bgcolor: day === today ? "primary.main" : "transparent",
+              color: day === today ? "primary.contrastText" : "text.primary",
+            }}
+          >
+            {day ?? ""}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}

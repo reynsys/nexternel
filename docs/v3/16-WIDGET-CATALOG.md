@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.043+ |
+| **Version** | V3.1.049+ |
 | **Code** | [`apps/ui/src/library/widget-catalog.ts`](../../apps/ui/src/library/widget-catalog.ts) |
 
 ## Purpose
@@ -17,7 +17,7 @@ Add widget picker is organized by **category**, then by **ECharts family** insid
 | Sensors | Gauges, pie, doughnut, rose, radar, funnel (live) |
 | **Charts (history)** | Line, smooth, step, area, bar, scatter, heatmap (from Influx history) |
 | Controls | Switch |
-| System | ECharts blank + Clock (plugin) |
+| System | Clock, calendar, weather, host & device status (+ blank ECharts) |
 | Media | — (reserved) |
 | Plugins | Uncategorized plugin contributions |
 

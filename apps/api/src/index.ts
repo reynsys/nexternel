@@ -20,6 +20,7 @@ import { dashboardsRoutes } from "./dashboards/routes.js";
 import { historyRoutes } from "./routes/history.js";
 import { usersRoutes } from "./routes/users.js";
 import { systemRoutes } from "./routes/system.js";
+import { weatherRoutes } from "./routes/weather.js";
 import { wsRoutes } from "./telemetry/ws.js";
 import { APP_VERSION } from "./version.js";
 
@@ -60,6 +61,7 @@ await app.register(async (api) => {
   await api.register(historyRoutes);
   await api.register(usersRoutes);
   await api.register(systemRoutes);
+  await api.register(weatherRoutes);
   await api.register(wsRoutes);
 });
 

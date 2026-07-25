@@ -53,7 +53,7 @@ export const WIDGET_CATEGORIES: {
   {
     id: "system",
     label: "System",
-    description: "Clock, blank ECharts shell, host tools",
+    description: "Clock, calendar, weather, host & device status",
   },
   {
     id: "plugins",
@@ -84,6 +84,40 @@ const CORE_CATALOG: CatalogEntry[] = [
     description: "On/off control for a switch capability",
     category: "controls",
     needsCapability: true,
+  },
+  {
+    type: "calendar",
+    label: "Calendar",
+    description: "Month view with today highlighted",
+    category: "system",
+    needsCapability: false,
+  },
+  {
+    type: "weather",
+    label: "Weather",
+    description: "Live temperature, humidity, wind and forecast (Open-Meteo)",
+    category: "system",
+    needsCapability: false,
+    defaultConfig: {
+      weatherLocation: "London",
+      weatherLat: 51.5074,
+      weatherLon: -0.1278,
+    },
+  },
+  {
+    type: "system_info",
+    label: "System information",
+    description: "Server version, uptime, CPU, RAM, MQTT",
+    category: "system",
+    needsCapability: false,
+  },
+  {
+    type: "device_status",
+    label: "Device status",
+    description: "Online / offline ESPHome devices by area",
+    category: "system",
+    needsCapability: false,
+    defaultConfig: { offlineOnly: false },
   },
 ];
 
