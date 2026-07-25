@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Paper, Stack, Switch, Typography } from "@mui/material";
 import type { Capability } from "../api";
 import { api, type WidgetInstance } from "../api";
@@ -35,12 +35,20 @@ export function WidgetRenderer({
   capabilities,
   editMode,
   chrome = true,
+  onCapabilityState,
 }: {
   widget: WidgetInstance;
   capabilities: Capability[];
   editMode: boolean;
   /** When false, parent supplies the card chrome (edit grid). */
   chrome?: boolean;
+  /** Apply command/live updates into parent capability state (survives dead WS). */
+  onCapabilityState?: (
+    capabilityId: string,
+    value: unknown,
+    quality?: string,
+    updatedAt?: string
+  ) => void;
 }) {
   const widget = isEchartsWidgetType(rawWidget.type)
     ? migrateWidgetToEcharts(rawWidget)
@@ -110,7 +118,11 @@ export function WidgetRenderer({
         {PluginComponent ? (
           <PluginComponent widget={widget} capabilities={capabilities} editMode={editMode} />
         ) : widget.type === "switch" ? (
-          <SwitchWidgetBody cap={cap} disabled={editMode} />
+          <SwitchWidgetBody
+            cap={cap}
+            disabled={editMode}
+            onCapabilityState={onCapabilityState}
+          />
         ) : isEchartsWidgetType(rawWidget.type) || widget.type === "echarts" ? (
           <EChartsWidgetBody widget={widget} cap={cap} title={title} />
         ) : (
@@ -169,38 +181,80 @@ function StatWidgetBody({ cap }: { cap: Capability | undefined }) {
 function SwitchWidgetBody({
   cap,
   disabled,
+  onCapabilityState,
 }: {
   cap: Capability | undefined;
   disabled: boolean;
+  onCapabilityState?: (
+    capabilityId: string,
+    value: unknown,
+    quality?: string,
+    updatedAt?: string
+  ) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const on = cap?.state?.value === true;
+  const [error, setError] = useState<string | null>(null);
+  /** Optimistic override until parent/WS confirms (covers dead live socket). */
+  const [pending, setPending] = useState<boolean | null>(null);
+  const remoteOn = cap?.state?.value === true;
+  const on = pending ?? remoteOn;
+
+  useEffect(() => {
+    if (pending !== null && remoteOn === pending) {
+      setPending(null);
+    }
+  }, [pending, remoteOn]);
 
   async function toggle() {
-    if (!cap?.hasCommand || disabled) return;
+    if (!cap?.hasCommand || disabled || busy) return;
+    const previous = on;
+    const next = !previous;
     setBusy(true);
+    setError(null);
+    setPending(next);
+    onCapabilityState?.(cap.id, next, "good", new Date().toISOString());
     try {
-      await api.command(cap.id, "toggle");
+      // Explicit on/off from what the user sees — not server-side toggle of a possibly stale cache.
+      const res = await api.command(cap.id, next ? "on" : "off");
+      const value = res.value;
+      setPending(value);
+      onCapabilityState?.(cap.id, value, "good", new Date().toISOString());
+    } catch (err) {
+      setPending(null);
+      onCapabilityState?.(
+        cap.id,
+        previous,
+        cap.state?.quality ?? "unknown",
+        cap.state?.updatedAt ?? new Date().toISOString()
+      );
+      setError(err instanceof Error ? err.message : "Command failed");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Stack height="100%" direction="row" alignItems="center" justifyContent="space-between">
-      <Typography variant="h6" color={on ? "success.main" : "text.secondary"}>
-        {cap ? (on ? "ON" : "OFF") : "—"}
-      </Typography>
-      <Switch
-        checked={on}
-        disabled={disabled || busy || !cap?.hasCommand}
-        onChange={() => void toggle()}
-        inputProps={{
-          "aria-label": cap
-            ? `Toggle ${cap.name} on ${cap.deviceName}`
-            : "Toggle switch",
-        }}
-      />
+    <Stack height="100%" justifyContent="center" spacing={0.5}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h6" color={on ? "success.main" : "text.secondary"}>
+          {cap ? (on ? "ON" : "OFF") : "—"}
+        </Typography>
+        <Switch
+          checked={on}
+          disabled={disabled || busy || !cap?.hasCommand}
+          onChange={() => void toggle()}
+          inputProps={{
+            "aria-label": cap
+              ? `Toggle ${cap.name} on ${cap.deviceName}`
+              : "Toggle switch",
+          }}
+        />
+      </Stack>
+      {error && (
+        <Typography variant="caption" color="error">
+          {error}
+        </Typography>
+      )}
     </Stack>
   );
 }

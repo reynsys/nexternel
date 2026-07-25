@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.048 — 25/07/2026
+
+- **Live switches after idle:** WebSocket reconnects with token refresh (visibility/online); switch commands use explicit on/off from the UI and apply the HTTP result even if WS is down; ignore brief retained MQTT echoes that undo a fresh command
+
 ## V3.1.047 — 24/07/2026
 
 - **Clock widget:** digits scale to fill the cell; Edit drawer for digital/analog, font style, seconds, date, 12/24h, size; optional title

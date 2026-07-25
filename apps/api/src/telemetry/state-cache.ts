@@ -29,6 +29,18 @@ export function setLiveState(
   value: unknown,
   opts?: { quality?: LiveQuality; retained?: boolean }
 ): LiveCapabilityState {
+  const prev = cache.get(capabilityId);
+  // Do not let a retained MQTT echo immediately undo a fresher command write.
+  if (
+    opts?.retained &&
+    prev &&
+    !prev.retained &&
+    prev.value !== value &&
+    Date.now() - Date.parse(prev.updatedAt) < 2500
+  ) {
+    return prev;
+  }
+
   const state: LiveCapabilityState = {
     capabilityId,
     value,

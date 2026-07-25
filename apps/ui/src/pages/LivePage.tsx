@@ -63,9 +63,20 @@ export function LivePage() {
 
   async function onToggle(cap: Capability) {
     setToggling(cap.id);
+    setError(null);
+    const previous = cap.state?.value === true;
+    const next = !previous;
+    applyLive(cap.id, next, "good", new Date().toISOString());
     try {
-      await api.command(cap.id, "toggle");
+      const res = await api.command(cap.id, next ? "on" : "off");
+      applyLive(cap.id, res.value, "good", new Date().toISOString());
     } catch (err) {
+      applyLive(
+        cap.id,
+        previous,
+        cap.state?.quality ?? "unknown",
+        cap.state?.updatedAt ?? new Date().toISOString()
+      );
       setError(err instanceof Error ? err.message : "Toggle failed");
     } finally {
       setToggling(null);

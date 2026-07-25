@@ -243,30 +243,158 @@ export type LiveEvent = {
 };
 
 export function connectLiveSocket(onEvent: (ev: LiveEvent) => void): () => void {
-  const token = getStoredAccessToken();
-  if (!token) return () => undefined;
+  let closedByCaller = false;
+  let ws: WebSocket | null = null;
+  let pingTimer: number | null = null;
+  let reconnectTimer: number | null = null;
+  let attempt = 0;
+  let connecting = false;
 
-  const url = `${getWsBase()}/api/v1/ws?access_token=${encodeURIComponent(token)}`;
-  const ws = new WebSocket(url);
+  function clearPing() {
+    if (pingTimer !== null) {
+      window.clearInterval(pingTimer);
+      pingTimer = null;
+    }
+  }
 
-  ws.onmessage = (msg) => {
+  function clearReconnect() {
+    if (reconnectTimer !== null) {
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
+
+  function scheduleReconnect() {
+    if (closedByCaller) return;
+    clearReconnect();
+    const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5));
+    attempt += 1;
+    reconnectTimer = window.setTimeout(() => {
+      void openSocket();
+    }, delay);
+  }
+
+  async function openSocket() {
+    if (closedByCaller || connecting) return;
+    connecting = true;
+    clearPing();
+
     try {
-      const data = JSON.parse(String(msg.data)) as LiveEvent;
-      onEvent(data);
-    } catch {
-      /* ignore */
-    }
-  };
+      // Ensure access token is fresh before WS auth (token is checked only at connect).
+      let token = getStoredAccessToken();
+      if (!token) {
+        const ok = await tryRefreshSession();
+        if (!ok || closedByCaller) {
+          connecting = false;
+          scheduleReconnect();
+          return;
+        }
+        token = getStoredAccessToken();
+      }
+      if (!token) {
+        connecting = false;
+        scheduleReconnect();
+        return;
+      }
 
-  const ping = window.setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "ping" }));
+      // If the stored access token is already expired, refresh first.
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as { exp?: number };
+        if (typeof payload.exp === "number" && payload.exp * 1000 < Date.now() + 15_000) {
+          await tryRefreshSession();
+          token = getStoredAccessToken() ?? token;
+        }
+      } catch {
+        /* non-JWT or opaque — continue */
+      }
+
+      if (closedByCaller) {
+        connecting = false;
+        return;
+      }
+
+      if (ws) {
+        try {
+          ws.onclose = null;
+          ws.onerror = null;
+          ws.onmessage = null;
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+        ws = null;
+      }
+
+      const url = `${getWsBase()}/api/v1/ws?access_token=${encodeURIComponent(token)}`;
+      const socket = new WebSocket(url);
+      ws = socket;
+
+      socket.onopen = () => {
+        attempt = 0;
+        connecting = false;
+        clearPing();
+        pingTimer = window.setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 25000);
+      };
+
+      socket.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(String(msg.data)) as LiveEvent;
+          onEvent(data);
+        } catch {
+          /* ignore */
+        }
+      };
+
+      socket.onerror = () => {
+        /* onclose will reconnect */
+      };
+
+      socket.onclose = () => {
+        connecting = false;
+        clearPing();
+        if (ws === socket) ws = null;
+        if (!closedByCaller) scheduleReconnect();
+      };
+    } catch {
+      connecting = false;
+      if (!closedByCaller) scheduleReconnect();
     }
-  }, 25000);
+  }
+
+  function onVisibilityOrOnline() {
+    if (closedByCaller) return;
+    if (document.visibilityState === "hidden") return;
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    // Tab woke / network back — reconnect promptly
+    attempt = 0;
+    clearReconnect();
+    void openSocket();
+  }
+
+  document.addEventListener("visibilitychange", onVisibilityOrOnline);
+  window.addEventListener("online", onVisibilityOrOnline);
+
+  void openSocket();
 
   return () => {
-    window.clearInterval(ping);
-    ws.close();
+    closedByCaller = true;
+    clearPing();
+    clearReconnect();
+    document.removeEventListener("visibilitychange", onVisibilityOrOnline);
+    window.removeEventListener("online", onVisibilityOrOnline);
+    if (ws) {
+      try {
+        ws.onclose = null;
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+      ws = null;
+    }
   };
 }
 

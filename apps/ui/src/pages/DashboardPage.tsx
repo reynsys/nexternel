@@ -553,6 +553,7 @@ export function DashboardPage() {
               onLayoutChange={onLayoutChange}
               onRemoveWidget={removeWidget}
               onUpdateWidget={updateWidget}
+              onCapabilityState={applyLive}
             />
           </AccordionDetails>
         </Accordion>

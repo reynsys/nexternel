@@ -28,6 +28,12 @@ type Props = {
   onLayoutChange: (sectionId: string, next: Layout[]) => void;
   onRemoveWidget: (sectionId: string, widgetId: string) => void;
   onUpdateWidget: (sectionId: string, widgetId: string, patch: Partial<WidgetInstance>) => void;
+  onCapabilityState?: (
+    capabilityId: string,
+    value: unknown,
+    quality?: string,
+    updatedAt?: string
+  ) => void;
 };
 
 function isCoreEditable(type: string): boolean {
@@ -49,6 +55,7 @@ export function SectionGrid({
   onLayoutChange,
   onRemoveWidget,
   onUpdateWidget,
+  onCapabilityState,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -223,6 +230,7 @@ export function SectionGrid({
                       capabilities={capabilities}
                       editMode={editMode}
                       chrome={false}
+                      onCapabilityState={onCapabilityState}
                     />
                   </Box>
                 </Paper>
