@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
+  Card,
+  CardContent,
   Chip,
   Stack,
   TextField,
@@ -204,93 +205,90 @@ export function TroubleshootPage() {
         <Button onClick={clearErrors}>Clear error log</Button>
       </Stack>
 
-      <Box
-        sx={{
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 1,
-          p: 2,
-        }}
-      >
-        <Typography variant="h6" gutterBottom>
-          Visual diagnostic
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Measures the size and clipping of boxes on screen (the browser&apos;s layout tree of
-          HTML elements — often called the <strong>DOM</strong>). Use it when a widget looks
-          cut off, empty, or the wrong size.
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          1. Click <strong>Show on pages</strong> below (turns on the floating button for this
-          browser session).
-          <br />
-          2. Open the page that has the problem (Dashboard, Live, or any other screen — not
-          this Troubleshoot page).
-          <br />
-          3. Use the floating <strong>Visual Diagnostic</strong> button (bottom-right) →{" "}
-          <strong>Scan this page</strong> or <strong>Pick element</strong>.
-          <br />
-          4. Return here → <strong>Refresh</strong> → <strong>Copy report</strong>.
-          <br />
-          5. When finished, use <strong>Hide on pages</strong> (or “Hide until needed” on the
-          floating panel).
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Button
-            variant={visualFabOn ? "outlined" : "contained"}
-            onClick={() => setVisualDiagEnabled(true)}
-            disabled={visualFabOn}
-          >
-            Show on pages
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => setVisualDiagEnabled(false)}
-            disabled={!visualFabOn}
-          >
-            Hide on pages
-          </Button>
-          <Button onClick={clearVisual} disabled={!visual}>
-            Clear visual scan
-          </Button>
-        </Stack>
-        <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
-          Floating button: {visualFabOn ? "on (this session)" : "off"}
-        </Typography>
-        {visual ? (
-          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
-            Last scan: {visual.href} · {visual.matchCount} matches · mode={visual.mode}
-            {visual.warnings[0] ? ` · ${visual.warnings[0]}` : ""}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Visual diagnostic
           </Typography>
-        ) : (
-          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
-            No visual scan yet — enable Show on pages, run Visual Diagnostic on the page that
-            has the issue, then Refresh.
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Measures the size and clipping of boxes on screen (the browser&apos;s layout tree of
+            HTML elements — often called the <strong>DOM</strong>). Use it when a widget looks
+            cut off, empty, or the wrong size.
           </Typography>
-        )}
-      </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            1. Click <strong>Show on pages</strong> below (turns on the floating button for this
+            browser session).
+            <br />
+            2. Open the page that has the problem (Dashboard, Live, or any other screen — not
+            this Troubleshoot page).
+            <br />
+            3. Use the floating <strong>Visual Diagnostic</strong> button (bottom-right) →{" "}
+            <strong>Scan this page</strong> or <strong>Pick element</strong>.
+            <br />
+            4. Return here → <strong>Refresh</strong> → <strong>Copy report</strong>.
+            <br />
+            5. When finished, use <strong>Hide on pages</strong> (or “Hide until needed” on the
+            floating panel).
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant={visualFabOn ? "outlined" : "contained"}
+              onClick={() => setVisualDiagEnabled(true)}
+              disabled={visualFabOn}
+            >
+              Show on pages
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setVisualDiagEnabled(false)}
+              disabled={!visualFabOn}
+            >
+              Hide on pages
+            </Button>
+            <Button onClick={clearVisual} disabled={!visual}>
+              Clear visual scan
+            </Button>
+          </Stack>
+          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+            Floating button: {visualFabOn ? "on (this session)" : "off"}
+          </Typography>
+          {visual ? (
+            <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+              Last scan: {visual.href} · {visual.matchCount} matches · mode={visual.mode}
+              {visual.warnings[0] ? ` · ${visual.warnings[0]}` : ""}
+            </Typography>
+          ) : (
+            <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+              No visual scan yet — enable Show on pages, run Visual Diagnostic on the page that
+              has the issue, then Refresh.
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
 
       {copyStatus && <Alert severity="success">{copyStatus}</Alert>}
 
-      <Box>
-        <Typography variant="subtitle2" gutterBottom>
-          Report (copy and share)
-        </Typography>
-        <TextField
-          value={report}
-          onChange={(e) => setReport(e.target.value)}
-          fullWidth
-          multiline
-          minRows={18}
-          maxRows={32}
-          InputProps={{
-            sx: {
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-              fontSize: 13,
-            },
-          }}
-        />
-      </Box>
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle2" gutterBottom>
+            Report (copy and share)
+          </Typography>
+          <TextField
+            value={report}
+            onChange={(e) => setReport(e.target.value)}
+            fullWidth
+            multiline
+            minRows={18}
+            maxRows={32}
+            InputProps={{
+              sx: {
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                fontSize: 13,
+              },
+            }}
+          />
+        </CardContent>
+      </Card>
     </Stack>
   );
 }

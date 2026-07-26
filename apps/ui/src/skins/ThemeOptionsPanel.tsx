@@ -13,8 +13,8 @@ export function ThemeOptionsPanel() {
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Choose light or dark mode, accent colour, and layout style. Changes are saved to
-        your account.
+        Choose light or dark mode, accent colour, gradient background, and layout style.
+        Changes are saved to your account.
       </Typography>
       <ThemeOptionsFields
         themePrefs={themePrefs}

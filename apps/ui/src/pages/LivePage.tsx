@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Card,
+  CardContent,
   Chip,
   List,
   ListItem,
@@ -109,28 +111,32 @@ export function LivePage() {
         />
       )}
       {error && <Alert severity="error">{error}</Alert>}
-      <List dense>
-        {capabilities.map((c) => (
-          <ListItem
-            key={c.id}
-            secondaryAction={
-              c.kind === "switch" && c.hasCommand ? (
-                <Switch
-                  edge="end"
-                  checked={c.state?.value === true}
-                  disabled={toggling === c.id}
-                  onChange={() => void onToggle(c)}
+      <Card>
+        <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
+          <List dense>
+            {capabilities.map((c) => (
+              <ListItem
+                key={c.id}
+                secondaryAction={
+                  c.kind === "switch" && c.hasCommand ? (
+                    <Switch
+                      edge="end"
+                      checked={c.state?.value === true}
+                      disabled={toggling === c.id}
+                      onChange={() => void onToggle(c)}
+                    />
+                  ) : null
+                }
+              >
+                <ListItemText
+                  primary={`${c.name} · ${formatValue(c)}`}
+                  secondary={`${c.deviceName} · ${c.kind}`}
                 />
-              ) : null
-            }
-          >
-            <ListItemText
-              primary={`${c.name} · ${formatValue(c)}`}
-              secondary={`${c.deviceName} · ${c.kind}`}
-            />
-          </ListItem>
-        ))}
-      </List>
+              </ListItem>
+            ))}
+          </List>
+        </CardContent>
+      </Card>
     </Stack>
   );
 }

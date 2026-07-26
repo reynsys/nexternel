@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   Alert,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -140,57 +142,61 @@ export function AreasPage() {
       <Typography color="text.secondary">{AREA.description}</Typography>
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell align="right">Devices</TableCell>
-            <TableCell align="right">Sort</TableCell>
-            {isAdmin && <TableCell align="right">Actions</TableCell>}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {areas.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={isAdmin ? 5 : 4}>
-                <Typography color="text.secondary">
-                  No {AREA.plural.toLowerCase()} yet.
-                  {isAdmin ? ` Use “${AREA.add}” to create one.` : ""}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          ) : (
-            areas.map((a) => (
-              <TableRow key={a.id} hover>
-                <TableCell>{a.name}</TableCell>
-                <TableCell>{a.description ?? "—"}</TableCell>
-                <TableCell align="right">{a.deviceCount}</TableCell>
-                <TableCell align="right">{a.sortOrder}</TableCell>
-                {isAdmin && (
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      aria-label={AREA.edit}
-                      onClick={() => openEdit(a)}
-                    >
-                      <EditRoundedIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={AREA.delete}
-                      color="error"
-                      onClick={() => setDeleteTarget(a)}
-                    >
-                      <DeleteRoundedIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                )}
+      <Card>
+        <CardContent sx={{ px: { xs: 1, sm: 2 }, "&:last-child": { pb: 2 } }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell align="right">Devices</TableCell>
+                <TableCell align="right">Sort</TableCell>
+                {isAdmin && <TableCell align="right">Actions</TableCell>}
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            </TableHead>
+            <TableBody>
+              {areas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={isAdmin ? 5 : 4}>
+                    <Typography color="text.secondary">
+                      No {AREA.plural.toLowerCase()} yet.
+                      {isAdmin ? ` Use “${AREA.add}” to create one.` : ""}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                areas.map((a) => (
+                  <TableRow key={a.id} hover>
+                    <TableCell>{a.name}</TableCell>
+                    <TableCell>{a.description ?? "—"}</TableCell>
+                    <TableCell align="right">{a.deviceCount}</TableCell>
+                    <TableCell align="right">{a.sortOrder}</TableCell>
+                    {isAdmin && (
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          aria-label={AREA.edit}
+                          onClick={() => openEdit(a)}
+                        >
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label={AREA.delete}
+                          color="error"
+                          onClick={() => setDeleteTarget(a)}
+                        >
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog
         open={dialogOpen}

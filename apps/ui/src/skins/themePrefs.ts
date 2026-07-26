@@ -1,5 +1,7 @@
 /** Browser prefs for theme / appearance. */
 
+import { GRADIENT_NONE_ID, getGradientPalette } from "./gradientPalettes";
+
 export const THEME_PREFS_KEY = "nexternel.themePrefs";
 
 export type ThemeMode = "light" | "dark";
@@ -10,6 +12,16 @@ export type ThemePrefs = {
   primary: string;
   /** Layout skin id (also kept in localStorage for offline boot) */
   skinId?: string;
+  /**
+   * Page gradient background id (`none` = solid theme background).
+   * See gradientPalettes.ts
+   */
+  gradientId?: string;
+  /**
+   * When a gradient is on: keep Cards / widgets / tables as solid light/dark
+   * paper (true), or frosted glass over the gradient (false).
+   */
+  solidContentPanels?: boolean;
 };
 
 export const PRIMARY_SWATCHES: { id: string; label: string; color: string }[] = [
@@ -25,6 +37,8 @@ export const DEFAULT_THEME_PREFS: ThemePrefs = {
   mode: "dark",
   primary: PRIMARY_SWATCHES[0]!.color,
   skinId: "mui-dashboard",
+  gradientId: GRADIENT_NONE_ID,
+  solidContentPanels: false,
 };
 
 export function normalizeThemePrefs(raw: unknown): ThemePrefs {
@@ -32,6 +46,15 @@ export function normalizeThemePrefs(raw: unknown): ThemePrefs {
     return { ...DEFAULT_THEME_PREFS };
   }
   const parsed = raw as Partial<ThemePrefs>;
+  const gradientRaw =
+    typeof parsed.gradientId === "string" ? parsed.gradientId.trim() : GRADIENT_NONE_ID;
+  const gradientId =
+    !gradientRaw || gradientRaw === GRADIENT_NONE_ID
+      ? GRADIENT_NONE_ID
+      : getGradientPalette(gradientRaw)
+        ? gradientRaw
+        : GRADIENT_NONE_ID;
+
   return {
     mode: parsed.mode === "light" ? "light" : "dark",
     primary:
@@ -42,6 +65,8 @@ export function normalizeThemePrefs(raw: unknown): ThemePrefs {
       typeof parsed.skinId === "string" && parsed.skinId.trim()
         ? parsed.skinId.trim()
         : DEFAULT_THEME_PREFS.skinId,
+    gradientId,
+    solidContentPanels: Boolean(parsed.solidContentPanels),
   };
 }
 
@@ -65,5 +90,7 @@ export function toAccountThemePrefs(prefs: ThemePrefs, skinId: string) {
     mode: prefs.mode,
     primary: prefs.primary,
     skinId: prefs.skinId ?? skinId,
+    gradientId: prefs.gradientId ?? GRADIENT_NONE_ID,
+    solidContentPanels: Boolean(prefs.solidContentPanels),
   };
 }

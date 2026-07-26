@@ -22,6 +22,8 @@ import {
   SIDE_MENU_WIDTH_COLLAPSED,
   SIDE_MENU_WIDTH_EXPANDED,
 } from "../../sideMenuPrefs";
+import { chromeSurfaceSx } from "../../surfaceStyles";
+import { useGradientActive } from "../../useSurfaceStyles";
 
 type Props = {
   signedIn: boolean;
@@ -80,6 +82,7 @@ export function SideMenu({
 }: Props) {
   const [logo, setLogo] = useState<string | null>(() => getBrandLogo());
   const width = collapsed ? SIDE_MENU_WIDTH_COLLAPSED : SIDE_MENU_WIDTH_EXPANDED;
+  const gradientActive = useGradientActive();
 
   useEffect(() => {
     function refresh() {
@@ -118,7 +121,7 @@ export function SideMenu({
         [`& .${drawerClasses.paper}`]: {
           width,
           boxSizing: "border-box",
-          backgroundColor: "background.paper",
+          ...chromeSurfaceSx(gradientActive),
           overflowX: "hidden",
           transition: (theme) =>
             theme.transitions.create("width", {

@@ -1,9 +1,13 @@
-import { createTheme, type Theme } from "@mui/material/styles";
+import { createTheme, alpha, type Theme } from "@mui/material/styles";
 import type { ThemePrefs } from "../../themePrefs";
+import { contentPanelStyles, isGradientActive } from "../../surfaceStyles";
 
 /** Classic flat theme — respects configurator mode + primary. */
 export function createClassicTheme(prefs: ThemePrefs): Theme {
   const mode = prefs.mode;
+  const gradientActive = isGradientActive(prefs);
+  const solidContentPanels = Boolean(prefs.solidContentPanels);
+
   return createTheme({
     palette: {
       mode,
@@ -16,6 +20,24 @@ export function createClassicTheme(prefs: ThemePrefs): Theme {
     },
     typography: {
       fontFamily: '"IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    },
+    components: {
+      MuiCard: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            border: `1px solid ${alpha(theme.palette.mode === "dark" ? "#fff" : "#000", 0.08)}`,
+            ...contentPanelStyles(theme, { gradientActive, solidContentPanels }),
+          }),
+        },
+      },
+      MuiAccordion: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            ...contentPanelStyles(theme, { gradientActive, solidContentPanels }),
+            "&:before": { display: "none" },
+          }),
+        },
+      },
     },
   });
 }

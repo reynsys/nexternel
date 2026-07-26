@@ -14,6 +14,24 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.074 — 26/07/2026
+
+- **Content panels:** Users, Areas, Roles, Live, and Troubleshoot wrap main content in Cards so they follow Appearance → Solid light / dark panels (same as System)
+- **Appearance:** removed duplicate Dark mode switch under Colour mode (Light/Dark buttons only)
+
+## V3.1.073 — 26/07/2026
+
+- **Appearance → Solid light / dark panels:** when a gradient is on, optionally keep cards and lists in solid Light/Dark colours (System, Devices, widgets, etc.); off = frosted glass to match the gradient
+- **System / Devices:** cards and accordions follow the same content-panel style as the rest of the app
+
+## V3.1.072 — 26/07/2026
+
+- **Gradient background coverage:** side menu, mobile top bar, and dashboard sections are clear so the page gradient shows through; widgets use a light frosted glass so content stays readable
+
+## V3.1.071 — 26/07/2026
+
+- **Appearance → Gradient background:** choose Off or one of 33 popular two-colour gradients (e.g. Seascape, Lavender Haze, Azure Mist); fixed page backdrop; cards stay solid for readability; saved with your account theme prefs
+
 ## V3.1.070 — 26/07/2026
 
 - **Copy cleanup:** removed developer-facing notes (ports, Soft UI Pro paths, .env hints, etc.) and replaced with clearer user wording across System, Appearance, Login, Users, Roles, Devices, Live, and Troubleshoot

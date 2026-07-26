@@ -190,6 +190,10 @@ export type UserThemePrefs = {
   mode: "light" | "dark";
   primary: string;
   skinId: string;
+  /** Page gradient id, or `"none"` for solid background */
+  gradientId?: string;
+  /** Keep cards/panels as solid light/dark when a gradient is on */
+  solidContentPanels?: boolean;
 };
 
 export type User = {

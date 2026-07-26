@@ -3,6 +3,8 @@ import {
   Alert,
   Avatar,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -112,6 +114,8 @@ export function UsersPage() {
       mode: theme.mode,
       primary: theme.primary,
       skinId,
+      gradientId: theme.gradientId,
+      solidContentPanels: theme.solidContentPanels,
     };
   }
 
@@ -209,65 +213,69 @@ export function UsersPage() {
         .
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>User</TableCell>
-            <TableCell>Display name</TableCell>
-            <TableCell sx={{ minWidth: 200 }}>Role</TableCell>
-            <TableCell>Theme</TableCell>
-            <TableCell>Active</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {users.map((u) => (
-            <TableRow key={u.id}>
-              <TableCell>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar
-                    src={u.avatarData ?? undefined}
-                    sx={{ width: 32, height: 32, bgcolor: "primary.dark" }}
-                  >
-                    {userInitial(u)}
-                  </Avatar>
-                  <Typography variant="body2">{u.username}</Typography>
-                </Stack>
-              </TableCell>
-              <TableCell>{u.displayName ?? "—"}</TableCell>
-              <TableCell>
-                <Select
-                  size="small"
-                  fullWidth
-                  value={u.role}
-                  aria-label={`Role for ${u.username}`}
-                  onChange={(e) => void setUserRole(u, e.target.value)}
-                >
-                  {roles.map((r) => (
-                    <MenuItem key={r.id} value={r.slug}>
-                      {r.name}
-                      {r.isAdmin ? " (admin)" : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </TableCell>
-              <TableCell>
-                {u.themePrefs
-                  ? `${u.themePrefs.mode} · ${u.themePrefs.primary}`
-                  : "—"}
-              </TableCell>
-              <TableCell>
-                <Switch checked={u.isActive} onChange={() => void toggleActive(u)} />
-              </TableCell>
-              <TableCell align="right">
-                <Button size="small" onClick={() => openEdit(u)}>
-                  Edit
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Card>
+        <CardContent sx={{ px: { xs: 1, sm: 2 }, "&:last-child": { pb: 2 } }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>User</TableCell>
+                <TableCell>Display name</TableCell>
+                <TableCell sx={{ minWidth: 200 }}>Role</TableCell>
+                <TableCell>Theme</TableCell>
+                <TableCell>Active</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar
+                        src={u.avatarData ?? undefined}
+                        sx={{ width: 32, height: 32, bgcolor: "primary.dark" }}
+                      >
+                        {userInitial(u)}
+                      </Avatar>
+                      <Typography variant="body2">{u.username}</Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{u.displayName ?? "—"}</TableCell>
+                  <TableCell>
+                    <Select
+                      size="small"
+                      fullWidth
+                      value={u.role}
+                      aria-label={`Role for ${u.username}`}
+                      onChange={(e) => void setUserRole(u, e.target.value)}
+                    >
+                      {roles.map((r) => (
+                        <MenuItem key={r.id} value={r.slug}>
+                          {r.name}
+                          {r.isAdmin ? " (admin)" : ""}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {u.themePrefs
+                      ? `${u.themePrefs.mode} · ${u.themePrefs.primary}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Switch checked={u.isActive} onChange={() => void toggleActive(u)} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => openEdit(u)}>
+                      Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
         <form onSubmit={onCreate}>

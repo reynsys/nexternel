@@ -1,5 +1,6 @@
 import { createTheme, alpha, type Theme } from "@mui/material/styles";
 import type { ThemePrefs } from "../../themePrefs";
+import { contentPanelStyles, isGradientActive } from "../../surfaceStyles";
 
 function lightSurfaces() {
   return {
@@ -19,7 +20,9 @@ function darkSurfaces() {
 export function createMuiDashboardTheme(prefs: ThemePrefs): Theme {
   const mode = prefs.mode;
   const primary = prefs.primary;
-  const surfaces = mode === "light" ? lightSurfaces() : darkSurfaces();
+  const surfaces = mode === "dark" ? darkSurfaces() : lightSurfaces();
+  const gradientActive = isGradientActive(prefs);
+  const solidContentPanels = Boolean(prefs.solidContentPanels);
 
   return createTheme({
     palette: {
@@ -56,11 +59,20 @@ export function createMuiDashboardTheme(prefs: ThemePrefs): Theme {
       },
       MuiCard: {
         styleOverrides: {
-          root: {
+          root: ({ theme }) => ({
             borderRadius: 12,
-            border: `1px solid ${alpha(mode === "dark" ? "#fff" : "#000", 0.08)}`,
+            border: `1px solid ${alpha(theme.palette.mode === "dark" ? "#fff" : "#000", 0.08)}`,
+            ...contentPanelStyles(theme, { gradientActive, solidContentPanels }),
+          }),
+        },
+      },
+      MuiAccordion: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            ...contentPanelStyles(theme, { gradientActive, solidContentPanels }),
             backgroundImage: "none",
-          },
+            "&:before": { display: "none" },
+          }),
         },
       },
       MuiDrawer: {

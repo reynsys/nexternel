@@ -3,6 +3,8 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Checkbox,
   Chip,
   Dialog,
@@ -228,53 +230,57 @@ export function RolesPage() {
         .
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Slug</TableCell>
-            <TableCell>Permissions</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {roles.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="body2">{r.name}</Typography>
-                  {r.isSystem && <Chip size="small" label="System" variant="outlined" />}
-                </Stack>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" fontFamily="monospace">
-                  {r.slug}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  size="small"
-                  color={r.isAdmin ? "primary" : "default"}
-                  label={`${enabledCount(r)} enabled`}
-                  variant={r.isAdmin ? "filled" : "outlined"}
-                />
-              </TableCell>
-              <TableCell>{r.description ?? "—"}</TableCell>
-              <TableCell align="right">
-                <Button size="small" onClick={() => openEdit(r)}>
-                  Edit
-                </Button>
-                {!r.isSystem && (
-                  <Button size="small" color="error" onClick={() => void onDelete(r)}>
-                    Delete
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Card>
+        <CardContent sx={{ px: { xs: 1, sm: 2 }, "&:last-child": { pb: 2 } }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Slug</TableCell>
+                <TableCell>Permissions</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {roles.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2">{r.name}</Typography>
+                      {r.isSystem && <Chip size="small" label="System" variant="outlined" />}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontFamily="monospace">
+                      {r.slug}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      color={r.isAdmin ? "primary" : "default"}
+                      label={`${enabledCount(r)} enabled`}
+                      variant={r.isAdmin ? "filled" : "outlined"}
+                    />
+                  </TableCell>
+                  <TableCell>{r.description ?? "—"}</TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => openEdit(r)}>
+                      Edit
+                    </Button>
+                    {!r.isSystem && (
+                      <Button size="small" color="error" onClick={() => void onDelete(r)}>
+                        Delete
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="md">
         <form onSubmit={onCreate}>

@@ -8,11 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ThemeProvider, CssBaseline } from "@mui/material";
+import { ThemeProvider, CssBaseline, GlobalStyles } from "@mui/material";
 import { api, getStoredAccessToken, type UserThemePrefs } from "../api";
 import type { UiSkin } from "./types";
 import { getActiveSkinId, setActiveSkinId } from "./activeSkin";
 import { getSkin, listSkins } from "./registry";
+import { gradientCss } from "./gradientPalettes";
 import {
   getThemePrefs,
   setThemePrefs as persistThemePrefsLocal,
@@ -115,6 +116,11 @@ export function SkinProvider({ children }: { children: ReactNode }) {
     [pushAccountPrefs, skinId]
   );
 
+  const pageGradient = useMemo(
+    () => gradientCss(themePrefs.gradientId),
+    [themePrefs.gradientId]
+  );
+
   const value = useMemo(
     () => ({
       skin,
@@ -131,6 +137,28 @@ export function SkinProvider({ children }: { children: ReactNode }) {
     <SkinContext.Provider value={value}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <GlobalStyles
+          styles={{
+            html: {
+              minHeight: "100%",
+            },
+            body: {
+              minHeight: "100%",
+              ...(pageGradient
+                ? {
+                    backgroundColor: "transparent",
+                    backgroundImage: pageGradient,
+                    backgroundAttachment: "fixed",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "cover",
+                  }
+                : {}),
+            },
+            "#root": {
+              minHeight: "100%",
+            },
+          }}
+        />
         {children}
       </ThemeProvider>
     </SkinContext.Provider>

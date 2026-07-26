@@ -45,6 +45,7 @@ import {
   formatLastSeen,
   friendlyDeviceName,
 } from "../../lib/device-utils";
+import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
 
 type AreaOption = { id: string; name: string };
 
@@ -67,6 +68,7 @@ export function DevicesPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hostname, setHostname] = useState("localhost");
+  const contentSurface = useContentSurfaceSx();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DeviceRecord | null>(null);
@@ -324,6 +326,7 @@ export function DevicesPage() {
             borderColor: "divider",
             borderRadius: 1,
             p: 2,
+            ...contentSurface,
           }}
         >
           <Typography variant="subtitle1" fontWeight={600}>
@@ -346,6 +349,7 @@ export function DevicesPage() {
                   borderRadius: 1,
                   px: 1.5,
                   py: 1,
+                  ...contentSurface,
                 }}
               >
                 <Box>

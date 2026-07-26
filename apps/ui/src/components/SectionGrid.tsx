@@ -19,6 +19,8 @@ import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
 import { GeneralWidgetEditor } from "../widgets/GeneralWidgetEditor";
 import { isGeneralWidgetType } from "../widgets/general";
 import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
+import { contentSurfaceSx } from "../skins/surfaceStyles";
+import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -62,6 +64,8 @@ export function SectionGrid({
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [editWidgetId, setEditWidgetId] = useState<string | null>(null);
+  const gradientActive = useGradientActive();
+  const solidContentPanels = useSolidContentPanels();
 
   useEffect(() => {
     const el = hostRef.current;
@@ -157,7 +161,7 @@ export function SectionGrid({
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
-                    bgcolor: "background.paper",
+                    ...contentSurfaceSx(gradientActive, solidContentPanels),
                   }}
                 >
                   {editMode && (

@@ -15,6 +15,8 @@ import type { RolePermissions } from "../../../lib/permissions";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import { Link as RouterLink } from "react-router-dom";
+import { chromeSurfaceSx } from "../../surfaceStyles";
+import { useGradientActive } from "../../useSurfaceStyles";
 
 const Toolbar = styled(MuiToolbar)({
   width: "100%",
@@ -43,6 +45,7 @@ export function AppNavbar({
   onLogout,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const gradientActive = useGradientActive();
 
   return (
     <AppBar
@@ -50,8 +53,7 @@ export function AppNavbar({
       sx={{
         display: { xs: "auto", md: "none" },
         boxShadow: 0,
-        bgcolor: "background.paper",
-        backgroundImage: "none",
+        ...chromeSurfaceSx(gradientActive),
         borderBottom: "1px solid",
         borderColor: "divider",
       }}
@@ -89,7 +91,12 @@ export function AppNavbar({
         anchor="right"
         open={open}
         onClose={() => setOpen(false)}
-        PaperProps={{ sx: { width: "min(280px, 90vw)" } }}
+        PaperProps={{
+          sx: {
+            width: "min(280px, 90vw)",
+            ...chromeSurfaceSx(gradientActive),
+          },
+        }}
       >
         <Box sx={{ p: 2 }}>
           <Typography variant="subtitle1" fontWeight={700}>

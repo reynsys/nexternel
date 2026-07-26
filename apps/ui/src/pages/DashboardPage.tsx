@@ -78,6 +78,8 @@ import {
 } from "../lib/capability-labels";
 import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
+import { chromeSurfaceSx } from "../skins/surfaceStyles";
+import { useGradientActive } from "../skins/useSurfaceStyles";
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,6 +91,7 @@ export function DashboardPage() {
   );
   const theme = useTheme();
   const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
+  const gradientActive = useGradientActive();
   const [name, setName] = useState("Dashboard");
   const [tabIcon, setTabIcon] = useState("dashboard");
   const [showTabLabel, setShowTabLabel] = useState(true);
@@ -566,10 +569,14 @@ export function DashboardPage() {
                 borderRadius: 2,
                 scrollMarginTop: 16,
                 overflow: "hidden",
-                bgcolor: "background.paper",
+                ...chromeSurfaceSx(gradientActive),
                 "&:before": { display: "none" },
                 boxShadow: (t) =>
-                  t.palette.mode === "dark" ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
+                  gradientActive
+                    ? "none"
+                    : t.palette.mode === "dark"
+                      ? "none"
+                      : "0 1px 3px rgba(0,0,0,0.06)",
                 minWidth: 0,
               }}
             >

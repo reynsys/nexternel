@@ -3,6 +3,8 @@ import Stack from "@mui/material/Stack";
 import { Outlet } from "react-router-dom";
 import { VisualDiagOverlay } from "../../../diagnostics/VisualDiagOverlay";
 import { useShellAuth } from "../../useShellAuth";
+import { useSkin } from "../../SkinProvider";
+import { gradientCss } from "../../gradientPalettes";
 import { SideMenu, useSideMenuCollapsed } from "./SideMenu";
 import { AppNavbar } from "./AppNavbar";
 
@@ -10,6 +12,8 @@ import { AppNavbar } from "./AppNavbar";
 export function MuiDashboardLayout() {
   const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
   const [collapsed, setCollapsed] = useSideMenuCollapsed();
+  const { themePrefs } = useSkin();
+  const hasGradient = Boolean(gradientCss(themePrefs.gradientId));
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
@@ -33,7 +37,7 @@ export function MuiDashboardLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          bgcolor: "background.default",
+          bgcolor: hasGradient ? "transparent" : "background.default",
           overflow: "auto",
           minWidth: 0,
         }}

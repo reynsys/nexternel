@@ -7,6 +7,8 @@ import {
   capabilityLocationLabel,
 } from "../lib/capability-labels";
 import { resolveWidgetTitle } from "../lib/widget-title";
+import { contentSurfaceSx } from "../skins/surfaceStyles";
+import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
 
@@ -54,6 +56,8 @@ export function WidgetRenderer({
   const widget = isEchartsWidgetType(rawWidget.type)
     ? migrateWidgetToEcharts(rawWidget)
     : rawWidget;
+  const gradientActive = useGradientActive();
+  const solidContentPanels = useSolidContentPanels();
   const cap = findCap(capabilities, widget);
   const title = resolveWidgetTitle(widget, cap);
   const plugin = getWidgetContribution(rawWidget.type);
@@ -151,7 +155,7 @@ export function WidgetRenderer({
         flexDirection: "column",
         overflow: "hidden",
         borderRadius: 2,
-        bgcolor: "background.paper",
+        ...contentSurfaceSx(gradientActive, solidContentPanels),
       }}
       variant="outlined"
       elevation={0}

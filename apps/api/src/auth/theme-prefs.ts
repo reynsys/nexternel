@@ -4,18 +4,66 @@ export type ThemePrefsDto = {
   mode: "light" | "dark";
   primary: string;
   skinId: string;
+  gradientId?: string;
+  solidContentPanels?: boolean;
 };
 
 const DEFAULT: ThemePrefsDto = {
   mode: "dark",
   primary: "#1A73E8",
   skinId: "mui-dashboard",
+  gradientId: "none",
+  solidContentPanels: false,
 };
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
+/** Known gradient ids (keep in sync with UI gradientPalettes). */
+const GRADIENT_IDS = new Set([
+  "none",
+  "watermelon-crush",
+  "sedona-sunrise",
+  "seascape",
+  "blackcurrant",
+  "cotton-candy",
+  "carrot",
+  "honeydew",
+  "spotlight",
+  "nectarine",
+  "south-pacific",
+  "raspberry-velvet",
+  "pink-sands",
+  "iguana",
+  "stormy-skies",
+  "jade-aubergine",
+  "hot-and-cold",
+  "emerald-isle",
+  "cloudburst",
+  "ocean-sunsets",
+  "lavender-haze",
+  "dust-bowl",
+  "pink-clouds",
+  "azure-mist",
+  "touch-of-gray",
+  "buckskin",
+  "parakeet",
+  "lupine-bloom",
+  "amulet",
+  "seashell",
+  "blueberry-blitz",
+  "lime-sherbet",
+  "grayscale",
+  "asphalt",
+]);
+
 export function defaultThemePrefs(): ThemePrefsDto {
   return { ...DEFAULT };
+}
+
+function normalizeGradientId(raw: unknown): string {
+  if (typeof raw !== "string" || !raw.trim()) return "none";
+  const id = raw.trim();
+  return GRADIENT_IDS.has(id) ? id : "none";
 }
 
 /** Accept unknown JSON from DB or request body; return normalized prefs or null if invalid body. */
@@ -34,7 +82,13 @@ export function parseThemePrefsInput(
       ? o.skinId.trim()
       : null;
   if (!mode || !primary || !skinId) return null;
-  return { mode, primary, skinId };
+  return {
+    mode,
+    primary,
+    skinId,
+    gradientId: normalizeGradientId(o.gradientId),
+    solidContentPanels: Boolean(o.solidContentPanels),
+  };
 }
 
 export function themePrefsFromDb(raw: unknown): ThemePrefsDto {
@@ -52,5 +106,7 @@ export function themePrefsFromDb(raw: unknown): ThemePrefsDto {
       typeof o.skinId === "string" && o.skinId.trim()
         ? o.skinId.trim()
         : DEFAULT.skinId,
+    gradientId: normalizeGradientId(o.gradientId),
+    solidContentPanels: Boolean(o.solidContentPanels),
   };
 }
