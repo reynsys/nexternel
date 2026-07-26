@@ -28,6 +28,8 @@ export type DbUser = {
   display_name: string | null;
   is_active: boolean;
   role: string;
+  theme_prefs?: unknown;
+  avatar_data?: string | null;
 };
 
 export type DbRoom = {

@@ -34,8 +34,7 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
 
   const title =
     widgetTitleOr(widget, "Weather") ||
-    (cfg.weatherLocation !== "Weather" ? cfg.weatherLocation : undefined) ||
-    cfg.weatherLocation;
+    (cfg.weatherLocation !== "Weather" ? cfg.weatherLocation : "Weather");
 
   const code = data?.weatherCode ?? 0;
   const todayForecast = data?.forecast?.[0];

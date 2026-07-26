@@ -6,7 +6,7 @@ import {
   setAuthCookies,
 } from "../auth/plugin.js";
 import {
-  roleFromDb,
+  hashPassword,
   signAccessToken,
   signRefreshToken,
   verifyPassword,
@@ -14,6 +14,30 @@ import {
   verifyTokenDetailed,
 } from "../auth/tokens.js";
 import { REFRESH_COOKIE } from "../config.js";
+import {
+  parseThemePrefsInput,
+  themePrefsFromDb,
+  type ThemePrefsDto,
+} from "../auth/theme-prefs.js";
+import { parseAvatarInput } from "../auth/avatar.js";
+import { resolveRoleInfo } from "../auth/roles.js";
+
+type AuthUserRow = DbUser & { theme_prefs?: unknown; avatar_data?: string | null };
+
+async function mapAuthUser(user: AuthUserRow) {
+  const roleInfo = await resolveRoleInfo(user.role);
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.display_name,
+    role: roleInfo.slug,
+    roleName: roleInfo.name,
+    isAdmin: roleInfo.isAdmin,
+    permissions: roleInfo.permissions,
+    themePrefs: themePrefsFromDb(user.theme_prefs),
+    avatarData: user.avatar_data ?? null,
+  };
+}
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post<{
@@ -37,8 +61,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      const result = await getPool().query<DbUser>(
-        `SELECT id, username, password_hash, display_name, is_active, role
+      const result = await getPool().query<AuthUserRow>(
+        `SELECT id, username, password_hash, display_name, is_active, role, theme_prefs, avatar_data
          FROM users WHERE username = $1 LIMIT 1`,
         [username]
       );
@@ -56,8 +80,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         });
       }
 
-      const role = roleFromDb(user.role);
-      const claims = { userId: user.id, username: user.username, role };
+      const roleInfo = await resolveRoleInfo(user.role);
+      const claims = {
+        userId: user.id,
+        username: user.username,
+        role: roleInfo.slug,
+        isAdmin: roleInfo.isAdmin,
+        permissions: roleInfo.permissions,
+      };
       const accessToken = await signAccessToken(claims);
       const refreshToken = await signRefreshToken(claims);
 
@@ -79,17 +109,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
       clearAuthCookies(reply);
       setAuthCookies(reply, accessToken, refreshToken);
-      request.log.info({ username: user.username, role }, "login success");
+      request.log.info(
+        { username: user.username, role: roleInfo.slug, isAdmin: roleInfo.isAdmin },
+        "login success"
+      );
 
       return {
         accessToken,
         refreshToken,
-        user: {
-          id: user.id,
-          username: user.username,
-          displayName: user.display_name,
-          role,
-        },
+        user: await mapAuthUser(user),
       };
     }
   );
@@ -120,8 +148,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    const result = await getPool().query<DbUser>(
-      `SELECT id, username, display_name, is_active, role
+    const result = await getPool().query<AuthUserRow>(
+      `SELECT id, username, password_hash, display_name, is_active, role, theme_prefs, avatar_data
        FROM users WHERE id = $1 LIMIT 1`,
       [payload.userId]
     );
@@ -133,8 +161,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    const role = roleFromDb(user.role);
-    const claims = { userId: user.id, username: user.username, role };
+    const roleInfo = await resolveRoleInfo(user.role);
+    const claims = {
+      userId: user.id,
+      username: user.username,
+      role: roleInfo.slug,
+      isAdmin: roleInfo.isAdmin,
+      permissions: roleInfo.permissions,
+    };
     const accessToken = await signAccessToken(claims);
     const refreshToken = await signRefreshToken(claims);
     setAuthCookies(reply, accessToken, refreshToken);
@@ -142,19 +176,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        role,
-      },
+      user: await mapAuthUser(user),
     };
   });
 
   app.get("/api/v1/auth/me", async (request, reply) => {
     if (!requireUser(request, reply)) return;
-    const result = await getPool().query<DbUser>(
-      `SELECT id, username, display_name, is_active, role
+    const result = await getPool().query<AuthUserRow>(
+      `SELECT id, username, password_hash, display_name, is_active, role, theme_prefs, avatar_data
        FROM users WHERE id = $1 LIMIT 1`,
       [request.user!.id]
     );
@@ -164,13 +193,86 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         error: { code: "unauthorized", message: "User not found" },
       });
     }
-    return {
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        role: roleFromDb(user.role),
-      },
+    return { user: await mapAuthUser(user) };
+  });
+
+  /** Self-service: any signed-in user may update own name, password, theme, avatar. Role is admin-only elsewhere. */
+  app.patch<{
+    Body: {
+      displayName?: string | null;
+      password?: string;
+      themePrefs?: ThemePrefsDto;
+      avatarData?: string | null;
     };
+  }>("/api/v1/auth/me", async (request, reply) => {
+    if (!requireUser(request, reply)) return;
+    const id = request.user!.id;
+    const existing = await getPool().query<AuthUserRow>(
+      `SELECT id, username, password_hash, display_name, is_active, role, theme_prefs, avatar_data
+       FROM users WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    const user = existing.rows[0];
+    if (!user || !user.is_active) {
+      return reply.code(401).send({
+        error: { code: "unauthorized", message: "User not found" },
+      });
+    }
+
+    let displayName = user.display_name;
+    let passwordHash = user.password_hash;
+    let themePrefs = themePrefsFromDb(user.theme_prefs);
+    let avatarData = user.avatar_data ?? null;
+
+    if (request.body?.displayName !== undefined) {
+      const v = request.body.displayName;
+      displayName = typeof v === "string" ? v.trim() || null : null;
+    }
+    if (request.body?.password) {
+      if (request.body.password.length < 6) {
+        return reply.code(400).send({
+          error: {
+            code: "bad_request",
+            message: "password must be at least 6 characters",
+          },
+        });
+      }
+      passwordHash = await hashPassword(request.body.password);
+    }
+    if (request.body?.themePrefs !== undefined) {
+      const parsed = parseThemePrefsInput(request.body.themePrefs);
+      if (!parsed) {
+        return reply.code(400).send({
+          error: {
+            code: "bad_request",
+            message: "themePrefs must include mode, primary (#RRGGBB), and skinId",
+          },
+        });
+      }
+      themePrefs = parsed;
+    }
+    if (request.body?.avatarData !== undefined) {
+      const parsed = parseAvatarInput(request.body.avatarData);
+      if (parsed === null && request.body.avatarData !== null && request.body.avatarData !== "") {
+        return reply.code(400).send({
+          error: {
+            code: "bad_request",
+            message:
+              "avatarData must be a JPEG/PNG/WebP data URL under ~250KB (or null to clear)",
+          },
+        });
+      }
+      avatarData = parsed ?? null;
+    }
+
+    const result = await getPool().query<AuthUserRow>(
+      `UPDATE users
+       SET display_name = $2, password_hash = $3, theme_prefs = $4::jsonb,
+           avatar_data = $5, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, username, password_hash, display_name, is_active, role, theme_prefs, avatar_data`,
+      [id, displayName, passwordHash, JSON.stringify(themePrefs), avatarData]
+    );
+    return { user: await mapAuthUser(result.rows[0]) };
   });
 };

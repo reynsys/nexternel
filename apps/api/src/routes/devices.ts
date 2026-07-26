@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { requireUser } from "../auth/plugin.js";
-import { requireAdmin } from "../auth/rbac.js";
+import { requirePermission } from "../auth/rbac.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
 import { refreshTelemetrySubscriptions } from "../telemetry/mqtt.js";
 import { getPool } from "../db.js";
@@ -34,13 +33,13 @@ async function afterDeviceMutation() {
 
 export const devicesRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/devices", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewDevices")) return;
     const devices = await listDevicesDetailed();
     return { devices };
   });
 
   app.get("/api/v1/devices/esphome-catalog", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewDevices")) return;
 
     const files = await listEsphomeYamlFiles();
     const registered = await getPool().query<{
@@ -84,7 +83,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/api/v1/devices/esphome-suggest", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewDevices")) return;
     const q = request.query as { name?: string };
     const name = typeof q.name === "string" ? q.name.trim() : "";
     if (!name) {
@@ -102,7 +101,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/api/v1/devices", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
 
     const body = (request.body ?? {}) as {
       name?: unknown;
@@ -157,7 +156,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch("/api/v1/devices/:id", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
 
@@ -213,7 +212,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete("/api/v1/devices/:id", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const { id } = request.params as { id: string };
     const ok = await deleteDevice(id);
     if (!ok) {
@@ -226,7 +225,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/api/v1/devices/:id/sync-esphome", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const { id } = request.params as { id: string };
     const device = await getDeviceDetailed(id);
     if (!device) {
@@ -261,7 +260,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch("/api/v1/devices/:deviceId/relays/:relayId", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const { deviceId, relayId } = request.params as {
       deviceId: string;
       relayId: string;
@@ -293,7 +292,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch("/api/v1/devices/:deviceId/sensors/:sensorId", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const { deviceId, sensorId } = request.params as {
       deviceId: string;
       sensorId: string;

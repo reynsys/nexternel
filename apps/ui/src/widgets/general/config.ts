@@ -84,6 +84,26 @@ export function widgetTitleOr(
   fallback: string
 ): string | undefined {
   const t = widget.title?.trim();
-  if (!t || t === fallback || t === widget.type) return undefined;
+  if (!t) return undefined;
+  if (t === fallback || t === widget.type) return undefined;
+  // Catalog labels from older saves
+  if (
+    t === "Calendar" ||
+    t === "Weather" ||
+    t === "System information" ||
+    t === "System" ||
+    t === "Device status" ||
+    t === "Devices"
+  ) {
+    return undefined;
+  }
   return t;
+}
+
+/** Heading shown inside general widgets (custom title or sensible default). */
+export function generalWidgetHeading(
+  widget: WidgetInstance,
+  fallback: string
+): string {
+  return widgetTitleOr(widget, fallback) ?? fallback;
 }

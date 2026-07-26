@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { emptyDashboardDocument } from "@nexternel/domain";
-import { requireUser } from "../auth/plugin.js";
+import { requirePermission } from "../auth/rbac.js";
 import {
   createDashboard,
   deleteDashboard,
@@ -30,13 +30,13 @@ function toDto(row: Awaited<ReturnType<typeof getDashboard>>) {
 
 export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/dashboards", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewDashboards")) return;
     const rows = await listDashboards(request.user!.id);
     return { dashboards: rows.map((r) => toDto(r)) };
   });
 
   app.post<{ Body: { name?: string } }>("/api/v1/dashboards", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "editDashboards")) return;
     const name = request.body?.name?.trim() || "New dashboard";
     const row = await createDashboard({
       name,
@@ -47,7 +47,7 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get<{ Params: { id: string } }>("/api/v1/dashboards/:id", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewDashboards")) return;
     const row = await getDashboard(request.params.id);
     if (!row) {
       return reply.code(404).send({
@@ -65,7 +65,7 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
       isDefault?: boolean;
     };
   }>("/api/v1/dashboards/:id", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "editDashboards")) return;
     const row = await updateDashboard(request.params.id, {
       name: request.body?.name,
       document: request.body?.document,
@@ -82,7 +82,7 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
   app.delete<{ Params: { id: string } }>(
     "/api/v1/dashboards/:id",
     async (request, reply) => {
-      if (!requireUser(request, reply)) return;
+      if (!requirePermission(request, reply, "editDashboards")) return;
       const ok = await deleteDashboard(request.params.id);
       if (!ok) {
         return reply.code(404).send({

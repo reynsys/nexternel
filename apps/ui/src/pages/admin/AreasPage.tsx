@@ -49,7 +49,7 @@ export function AreasPage() {
     try {
       const [res, me] = await Promise.all([api.rooms(), api.me()]);
       setAreas(res.rooms);
-      setIsAdmin(me.user.role === "admin");
+      setIsAdmin(Boolean(me.user.permissions?.editAreas ?? me.user.isAdmin ?? me.user.role === "admin"));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to load ${AREA.plural.toLowerCase()}`);

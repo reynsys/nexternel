@@ -16,6 +16,12 @@ import {
   capabilityPickerLabel,
   defaultWidgetTitle,
 } from "../lib/capability-labels";
+import {
+  editorTitleForBoundWidget,
+  isPlaceholderWidgetTitle,
+  kindLabelForWidgetType,
+  persistBoundWidgetTitle,
+} from "../lib/widget-title";
 
 type Props = {
   open: boolean;
@@ -41,25 +47,26 @@ export function CoreWidgetEditor({
   const [title, setTitle] = useState("");
   const [capabilityId, setCapabilityId] = useState("");
 
+  // Init only when the drawer opens or the edited widget changes — not on every live MQTT tick.
   useEffect(() => {
     if (!open || !widget) return;
     const id =
       typeof widget.bindings.capabilityId === "string" ? widget.bindings.capabilityId : "";
     const cap = capabilities.find((c) => c.id === id);
     setCapabilityId(id);
-    setTitle(widget.title ?? defaultWidgetTitle(cap, widget.type));
-  }, [open, widget, capabilities]);
+    setTitle(editorTitleForBoundWidget(widget, cap));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open/widget.id only
+  }, [open, widget?.id]);
 
   if (!widget) return null;
 
   const options = capsForWidgetType(widget.type, capabilities);
   const cap = capabilities.find((c) => c.id === capabilityId);
-  const kindLabel =
-    widget.type === "switch" ? "Switch" : widget.type === "stat" ? "Stat" : "Widget";
+  const kindLabel = kindLabelForWidgetType(widget.type);
 
   function handleApply() {
     onSave({
-      title: title.trim() || defaultWidgetTitle(cap, kindLabel),
+      title: persistBoundWidgetTitle(title, widget.type, cap) ?? defaultWidgetTitle(cap, kindLabel),
       bindings: capabilityId ? { capabilityId } : {},
     });
     onClose();
@@ -96,17 +103,14 @@ export function CoreWidgetEditor({
             value={capabilityId}
             onChange={(e) => {
               const next = e.target.value;
-              setCapabilityId(next);
+              const prevCap = capabilities.find((c) => c.id === capabilityId);
               const nextCap = capabilities.find((c) => c.id === next);
-              if (nextCap) {
-                const wasGeneric =
-                  !title.trim() ||
-                  title === "Switch" ||
-                  title === "Stat" ||
-                  title === "Auto" ||
-                  title === widget.type;
-                if (wasGeneric) setTitle(defaultWidgetTitle(nextCap, kindLabel));
-              }
+              setCapabilityId(next);
+              if (!nextCap) return;
+              const prevDefault = defaultWidgetTitle(prevCap, kindLabel);
+              const wasAuto =
+                isPlaceholderWidgetTitle(title, widget.type) || title === prevDefault;
+              if (wasAuto) setTitle(defaultWidgetTitle(nextCap, kindLabel));
             }}
           >
             {options.map((c) => (

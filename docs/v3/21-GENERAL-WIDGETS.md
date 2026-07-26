@@ -21,7 +21,7 @@ Clock remains the example **plugin** (`plugin.clock`). Calendar, Weather, System
 |---------|-----|------|-------------|------|
 | `calendar` | Month grid, Mon-first, today highlight | Client `Date` | Optional title | 1 min (re-render) |
 | `weather` | Temp / humidity / wind + 5-day strip | `GET /api/v1/weather` → Open-Meteo | Title, location label, lat, lon | ~15 min |
-| `system_info` | Version, uptime, CPU%, RAM, MQTT, LAN | `GET /api/v1/system` | Optional title | ~30 s |
+| `system_info` | Version, uptime, CPU%, RAM%, temperature | `GET /api/v1/system` | Optional title | ~30 s |
 | `device_status` | Online / offline / disabled counts + list | `GET /api/v1/devices` | Title; offline-only toggle | ~30 s |
 
 Default grid sizes: calendar / weather / device_status **4×4**; system_info **4×3**.

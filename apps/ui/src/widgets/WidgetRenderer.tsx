@@ -5,8 +5,8 @@ import { api, type WidgetInstance } from "../api";
 import { getWidgetContribution } from "../plugins/registry";
 import {
   capabilityLocationLabel,
-  defaultWidgetTitle,
 } from "../lib/capability-labels";
+import { resolveWidgetTitle } from "../lib/widget-title";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
 
@@ -55,16 +55,7 @@ export function WidgetRenderer({
     ? migrateWidgetToEcharts(rawWidget)
     : rawWidget;
   const cap = findCap(capabilities, widget);
-  const rawTitle = widget.title?.trim() ?? "";
-  const genericTitle =
-    !rawTitle ||
-    rawTitle === "Switch" ||
-    rawTitle === "Stat" ||
-    rawTitle === "Auto" ||
-    rawTitle === widget.type;
-  const title = genericTitle
-    ? defaultWidgetTitle(cap, widget.type === "switch" ? "Switch" : widget.type)
-    : rawTitle;
+  const title = resolveWidgetTitle(widget, cap);
   const plugin = getWidgetContribution(rawWidget.type);
   const PluginComponent = plugin?.Component;
   const isClock = rawWidget.type === "plugin.clock";

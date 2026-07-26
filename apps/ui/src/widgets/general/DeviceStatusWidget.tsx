@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Chip, Stack, Typography } from "@mui/material";
 import { api, type DeviceRecord, type WidgetInstance } from "../../api";
-import { parseDeviceStatusConfig, widgetTitleOr } from "./config";
+import { parseDeviceStatusConfig, generalWidgetHeading } from "./config";
 import { formatLastSeen } from "../../lib/device-utils";
 
 export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
   const { offlineOnly } = parseDeviceStatusConfig(widget.config);
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const title = widgetTitleOr(widget, "Device status") || "Devices";
+  const title = generalWidgetHeading(widget, "Devices");
 
   useEffect(() => {
     let cancelled = false;

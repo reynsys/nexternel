@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { getPool, type DbRoom } from "../db.js";
-import { requireUser } from "../auth/plugin.js";
-import { requireAdmin } from "../auth/rbac.js";
+import { requirePermission } from "../auth/rbac.js";
 
 type RoomRow = DbRoom & { device_count: string };
 
@@ -17,7 +16,7 @@ function mapRoom(r: RoomRow) {
 
 export const roomsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/rooms", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewAreas")) return;
 
     const result = await getPool().query<RoomRow>(
       `SELECT r.id, r.name, r.description, r.sort_order,
@@ -32,7 +31,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/api/v1/rooms", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editAreas")) return;
 
     const body = (request.body ?? {}) as {
       name?: unknown;
@@ -86,7 +85,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch("/api/v1/rooms/:id", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editAreas")) return;
 
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as {
@@ -167,7 +166,7 @@ export const roomsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete("/api/v1/rooms/:id", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editAreas")) return;
 
     const { id } = request.params as { id: string };
     const result = await getPool().query(`DELETE FROM rooms WHERE id = $1 RETURNING id`, [

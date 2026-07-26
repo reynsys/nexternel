@@ -7,6 +7,9 @@ import { attachUser } from "./auth/plugin.js";
 import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
 import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
 import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
+import { ensureUsersThemeSchema } from "./auth/ensure-users-theme.js";
+import { ensureUsersAvatarSchema } from "./auth/ensure-users-avatar.js";
+import { ensureRolesSchema } from "./auth/ensure-roles-schema.js";
 import { ensureAdminFromEnv } from "./auth/ensure-admin.js";
 import { syncCapabilitiesFromLegacy } from "./capabilities/sync.js";
 import { startTelemetry } from "./telemetry/mqtt.js";
@@ -19,6 +22,7 @@ import { capabilitiesRoutes } from "./routes/capabilities.js";
 import { dashboardsRoutes } from "./dashboards/routes.js";
 import { historyRoutes } from "./routes/history.js";
 import { usersRoutes } from "./routes/users.js";
+import { rolesRoutes } from "./routes/roles.js";
 import { systemRoutes } from "./routes/system.js";
 import { weatherRoutes } from "./routes/weather.js";
 import { wsRoutes } from "./telemetry/ws.js";
@@ -60,6 +64,7 @@ await app.register(async (api) => {
   await api.register(dashboardsRoutes);
   await api.register(historyRoutes);
   await api.register(usersRoutes);
+  await api.register(rolesRoutes);
   await api.register(systemRoutes);
   await api.register(weatherRoutes);
   await api.register(wsRoutes);
@@ -71,6 +76,9 @@ app.get("/", async (_request, reply) => {
 
 try {
   await ensureUsersRoleSchema();
+  await ensureUsersThemeSchema();
+  await ensureUsersAvatarSchema();
+  await ensureRolesSchema();
   await ensureCapabilitySchema();
   await ensureDashboardSchema();
   const adminSeed = await ensureAdminFromEnv();

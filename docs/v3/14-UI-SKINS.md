@@ -2,8 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.026+ |
-| **Purpose** | Pluggable UI chrome (theme + shell), not dashboard widget layouts |
+| **Version** | V3.1.062 |
 
 ## Built-in skins
 
@@ -12,7 +11,7 @@
 | `mui-dashboard` | MUI Dashboard | Default — free MUI dashboard-style side menu |
 | `classic` | Classic | Original flat top AppBar |
 
-Select under **System → Appearance**. Choice is stored in browser `localStorage` (`nexternel.uiSkin`).
+Select under **System → Appearance** (any signed-in user) or set a user’s defaults under **Users → Edit** (admin). Prefs (`mode`, `primary`, `skinId`) are stored on the user account (`users.theme_prefs`) and mirrored in browser `localStorage` for fast boot.
 
 ## Local / paid import (Soft UI Pro, etc.)
 

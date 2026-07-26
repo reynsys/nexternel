@@ -10,9 +10,11 @@ import {
 } from "@mui/material";
 import type { WidgetInstance } from "../api";
 import {
+  generalWidgetHeading,
   isGeneralWidgetType,
   parseDeviceStatusConfig,
   parseWeatherConfig,
+  widgetTitleOr,
   type GeneralWidgetType,
 } from "./general/config";
 
@@ -26,8 +28,8 @@ type Props = {
 const TYPE_LABELS: Record<GeneralWidgetType, string> = {
   calendar: "Calendar",
   weather: "Weather",
-  system_info: "System information",
-  device_status: "Device status",
+  system_info: "System",
+  device_status: "Devices",
 };
 
 export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
@@ -39,13 +41,22 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
 
   useEffect(() => {
     if (!open || !widget || !isGeneralWidgetType(widget.type)) return;
-    setTitle(widget.title ?? "");
-    const w = parseWeatherConfig(widget.config);
-    setWeatherLocation(w.weatherLocation === "Weather" ? "London" : w.weatherLocation);
-    setWeatherLat(String(w.weatherLat));
-    setWeatherLon(String(w.weatherLon));
+    const type = widget.type as GeneralWidgetType;
+    const label = TYPE_LABELS[type];
+    if (type === "weather") {
+      const w = parseWeatherConfig(widget.config);
+      const loc = w.weatherLocation === "Weather" ? "London" : w.weatherLocation;
+      setWeatherLocation(loc);
+      setWeatherLat(String(w.weatherLat));
+      setWeatherLon(String(w.weatherLon));
+      // Title field shows custom override; location is the default heading
+      setTitle(widgetTitleOr(widget, "Weather") ?? "");
+    } else {
+      const custom = widgetTitleOr(widget, label);
+      setTitle(custom ?? "");
+    }
     setOfflineOnly(parseDeviceStatusConfig(widget.config).offlineOnly);
-  }, [open, widget]);
+  }, [open, widget?.id]);
 
   if (!widget || !isGeneralWidgetType(widget.type)) return null;
 
@@ -57,15 +68,24 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
     if (type === "weather") {
       const lat = Number(weatherLat);
       const lon = Number(weatherLon);
-      config.weatherLocation = weatherLocation.trim() || "Weather";
+      config.weatherLocation = weatherLocation.trim() || "London";
       config.weatherLat = Number.isFinite(lat) ? lat : 51.5074;
       config.weatherLon = Number.isFinite(lon) ? lon : -0.1278;
     }
     if (type === "device_status") {
       config.offlineOnly = offlineOnly;
     }
+    const trimmed = title.trim();
+    const isPlaceholder =
+      !trimmed ||
+      trimmed === label ||
+      trimmed === type ||
+      trimmed === "System information" ||
+      trimmed === "Device status" ||
+      trimmed === "Calendar" ||
+      trimmed === "Weather";
     onSave({
-      title: title.trim() || undefined,
+      title: isPlaceholder ? undefined : trimmed,
       config,
     });
     onClose();
@@ -82,10 +102,10 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
         <Typography variant="h6">Edit {label.toLowerCase()}</Typography>
         <Typography variant="caption" color="text.secondary">
           {type === "weather"
-            ? "Set location label and coordinates (Open-Meteo via API)."
+            ? "Location label is the heading. Optional Title overrides it."
             : type === "device_status"
-              ? "Optional title and whether to list offline devices only."
-              : "Optional title. Data refreshes automatically."}
+              ? "Optional title (default: Devices) and offline-only list."
+              : `Optional title (default: ${label}). Data refreshes automatically.`}
         </Typography>
 
         <TextField
@@ -94,7 +114,16 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
           fullWidth
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={label}
+          placeholder={
+            type === "weather"
+              ? weatherLocation || "Weather"
+              : generalWidgetHeading(widget, label)
+          }
+          helperText={
+            type === "weather"
+              ? "Leave blank to use the location label below"
+              : `Leave blank to use “${label}”`
+          }
         />
 
         {type === "weather" && (
@@ -105,7 +134,7 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               fullWidth
               value={weatherLocation}
               onChange={(e) => setWeatherLocation(e.target.value)}
-              helperText="Shown as the weather heading"
+              helperText="Default heading when Title is empty"
             />
             <TextField
               label="Latitude"

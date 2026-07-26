@@ -115,6 +115,8 @@ services:
       SERVER_IP: ${SERVER_IP}
     volumes:
       - ./esphome:/esphome:ro
+      # Host CPU thermal zones for System Information widget (read-only)
+      - /sys/class/thermal:/sys/class/thermal:ro
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:

@@ -88,7 +88,7 @@ export function DevicesPage() {
       ]);
       setDevices(devRes.devices);
       setAreas(roomRes.rooms.map((r) => ({ id: r.id, name: r.name })));
-      setIsAdmin(me.user.role === "admin");
+      setIsAdmin(Boolean(me.user.permissions?.editDevices ?? me.user.isAdmin ?? me.user.role === "admin"));
       setCatalog(catRes.configs);
       setCatalogHint(catRes.esphomeDirHint);
       setError(null);

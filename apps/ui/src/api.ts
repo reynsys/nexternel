@@ -186,11 +186,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type UserThemePrefs = {
+  mode: "light" | "dark";
+  primary: string;
+  skinId: string;
+};
+
 export type User = {
   id: string;
   username: string;
   displayName: string | null;
   role: string;
+  roleName?: string;
+  isAdmin?: boolean;
+  permissions?: import("./lib/permissions").RolePermissions;
+  themePrefs?: UserThemePrefs;
+  avatarData?: string | null;
 };
 
 export type Health = {
@@ -445,6 +456,17 @@ export const api = {
 
   me: () => apiFetch<{ user: User }>("/api/v1/auth/me"),
 
+  patchMe: (body: {
+    displayName?: string | null;
+    password?: string;
+    themePrefs?: UserThemePrefs;
+    avatarData?: string | null;
+  }) =>
+    apiFetch<{ user: User }>("/api/v1/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
   rooms: () =>
     apiFetch<{
       rooms: {
@@ -624,7 +646,9 @@ export const api = {
     username: string;
     password: string;
     displayName?: string;
-    role: "admin" | "viewer";
+    role: string;
+    themePrefs?: UserThemePrefs;
+    avatarData?: string | null;
   }) =>
     apiFetch<{ user: AdminUser }>("/api/v1/users", {
       method: "POST",
@@ -635,15 +659,50 @@ export const api = {
     id: string,
     body: {
       displayName?: string | null;
-      role?: "admin" | "viewer";
+      role?: string;
       isActive?: boolean;
       password?: string;
+      themePrefs?: UserThemePrefs;
+      avatarData?: string | null;
     }
   ) =>
     apiFetch<{ user: AdminUser }>(`/api/v1/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+
+  roles: () => apiFetch<{ roles: RoleDef[] }>("/api/v1/roles"),
+
+  createRole: (body: {
+    slug: string;
+    name: string;
+    description?: string | null;
+    isAdmin?: boolean;
+    permissions?: import("./lib/permissions").RolePermissions;
+    sortOrder?: number;
+  }) =>
+    apiFetch<{ role: RoleDef }>("/api/v1/roles", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  patchRole: (
+    id: string,
+    body: {
+      name?: string;
+      description?: string | null;
+      isAdmin?: boolean;
+      permissions?: import("./lib/permissions").RolePermissions;
+      sortOrder?: number;
+    }
+  ) =>
+    apiFetch<{ role: RoleDef }>(`/api/v1/roles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteRole: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/roles/${id}`, { method: "DELETE" }),
 };
 
 export type SystemInfo = {
@@ -651,7 +710,9 @@ export type SystemInfo = {
   service: string;
   uptimeSeconds: number;
   cpu: { model: string; cores: number; loadPercent: number };
-  memory: { totalMb: number; usedMb: number; freeMb: number };
+  memory: { totalMb: number; usedMb: number; freeMb: number; percent?: number };
+  /** Host CPU / board temperature (°C), when thermal zones are available */
+  temperatureC?: number | null;
   lanIp: string | null;
   wanIp: string | null;
   database: string;
@@ -686,8 +747,25 @@ export type AdminUser = {
   username: string;
   displayName: string | null;
   isActive: boolean;
-  role: "admin" | "viewer";
+  role: string;
+  roleName?: string;
+  isAdmin?: boolean;
   createdAt: string;
+  themePrefs?: UserThemePrefs;
+  avatarData?: string | null;
+};
+
+export type RoleDef = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  isAdmin: boolean;
+  isSystem: boolean;
+  sortOrder: number;
+  permissions?: import("./lib/permissions").RolePermissions;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type EsphomeSensorInput = {

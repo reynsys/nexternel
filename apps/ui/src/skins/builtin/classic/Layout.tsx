@@ -16,9 +16,9 @@ import { useShellAuth } from "../../useShellAuth";
 
 /** Flat top-nav shell (original V3 look). */
 export function ClassicLayout() {
-  const { signedIn, user, isAdmin, logout } = useShellAuth();
-  const main = filterNav(MAIN_NAV, { signedIn, isAdmin });
-  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin });
+  const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
+  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions });
+  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions });
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -49,7 +49,10 @@ export function ClassicLayout() {
           </Stack>
           {signedIn ? (
             <Button color="inherit" size="small" onClick={() => void logout()}>
-              Sign out{user ? ` (${user.username})` : ""}
+              Sign out
+              {user
+                ? ` (${user.displayName?.trim() || user.username})`
+                : ""}
             </Button>
           ) : (
             <Link component={RouterLink} to="/login" color="inherit" underline="hover">

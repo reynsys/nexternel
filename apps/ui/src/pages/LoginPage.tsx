@@ -9,9 +9,11 @@ import {
   Typography,
 } from "@mui/material";
 import { api, clearStoredTokens } from "../api";
+import { useSkin } from "../skins/SkinProvider";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { applyAccountPrefs } = useSkin();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,8 @@ export function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.login(username.trim(), password);
+      const data = await api.login(username.trim(), password);
+      applyAccountPrefs(data.user.themePrefs);
       navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

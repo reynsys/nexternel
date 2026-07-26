@@ -14,6 +14,64 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.068 — 26/07/2026
+
+- **Side menu:** Roles removed from nav (still under Users → Edit roles); collapsible icons-only mode; version shown under the logged-in user; brand logo (blue circle) editable via click or System → Brand logo
+
+## V3.1.067 — 26/07/2026
+
+- **Fix blank dashboard / “?” user:** roles schema ensure no longer uses broken multi-statement SQL; Administrator permissions repaired on startup; permission gate no longer redirect-loops to `/`; `/me` failures go to login
+
+## V3.1.066 — 26/07/2026
+
+- **Role permissions:** Edit Role now has per-feature checkboxes (view/edit dashboards, Live, Areas, Devices, users, roles, relay control)
+- **Viewer default:** view-only for config; can use switches; own profile/appearance under System; no dashboard gear / manage
+- **API + nav** enforce the same permissions (hidden pages + blocked mutations)
+
+## V3.1.065 — 26/07/2026
+
+- **Build fix:** API `roles` route imports corrected (`../auth/rbac`, `../auth/roles`) so Docker `tsc` succeeds
+
+## V3.1.064 — 26/07/2026
+
+- **Roles manager:** new admin page to Add / Edit / Delete roles (defaults: Administrator, Viewer); custom roles with optional admin access
+- **Users:** role dropdown loads all roles; “Edit roles” link; sidebar shows role display name
+
+## V3.1.063 — 26/07/2026
+
+- **Users → Role:** dropdown on each row (Administrator / Viewer) plus Role in Edit dialog
+- **Sidebar user chip:** shows display name + “Administrator”/“Viewer” (not username twice); refreshes after profile edits
+- **Profile picture:** upload/remove on Users Edit/Add and System → My profile; stored on the user account
+
+## V3.1.062 — 26/07/2026
+
+- **Users:** Edit dialog for display name, role (Administrator only), password reset, active flag, and per-user default theme (mode / accent / skin)
+- **Theme prefs:** stored on each user account; System → Appearance saves to the signed-in account (not browser-only)
+
+## V3.1.061 — 26/07/2026
+
+- **Dashboard options:** gear enters options mode on the current dashboard (no choice popup); Manage dashboards (create / default / icons) is an accordion inside that mode
+
+## V3.1.060 — 26/07/2026
+
+- **Dashboard options:** top-right gear opens one “Dashboard options” panel (Edit this dashboard + Manage dashboards) instead of two separate menu items
+
+## V3.1.059 — 26/07/2026
+
+- **Edit widget titles:** Title field now matches what you see on the dashboard; Apply no longer gets wiped by live MQTT updates; rebinding a switch/sensor updates an auto title; general/clock placeholders no longer fight custom titles
+
+## V3.1.058 — 26/07/2026
+
+- **System information widget:** removed LAN and MQTT; CPU and RAM show % only; added host Temperature (°C) from Linux thermal zones (`docker-compose` mounts `/sys/class/thermal` into the API)
+
+## V3.1.057 — 25/07/2026
+
+- **Home URL fix:** `/` and `/dashboards` hard-redirect to the default dashboard (never the select list); Manage moved to `/manage/dashboards` (gear menu)
+
+## V3.1.056 — 25/07/2026
+
+- **Home URL:** `/` and plain `/dashboards` both open the default dashboard; Manage list is only at `/dashboards?manage=1` (gear menu)
+
 ## V3.1.055 — 25/07/2026
 
 - **Home / login:** `/` and sidebar Dashboards open the default dashboard (auto-promote first if none marked); Manage stays under the tab-bar gear; star on Manage sets default; first created dashboard becomes default when none exists

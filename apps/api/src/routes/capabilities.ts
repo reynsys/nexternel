@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireUser } from "../auth/plugin.js";
-import { requireAdmin } from "../auth/rbac.js";
+import { requirePermission } from "../auth/rbac.js";
 import { listCapabilities, getCapabilityById } from "../capabilities/store.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
 import { getLiveState, getAllLiveStates } from "../telemetry/state-cache.js";
@@ -41,7 +41,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/api/v1/capabilities/sync", async (request, reply) => {
-    if (!requireAdmin(request, reply)) return;
+    if (!requirePermission(request, reply, "editDevices")) return;
     const result = await syncCapabilitiesFromLegacy();
     await refreshTelemetrySubscriptions();
     return { ok: true, ...result };
@@ -51,7 +51,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     Params: { id: string };
     Body: { action?: string };
   }>("/api/v1/capabilities/:id/command", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "controlRelays")) return;
     const action = (request.body?.action ?? "").toLowerCase();
     if (action !== "on" && action !== "off" && action !== "toggle") {
       return reply.code(400).send({

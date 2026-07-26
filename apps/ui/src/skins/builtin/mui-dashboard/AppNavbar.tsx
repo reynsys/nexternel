@@ -11,6 +11,7 @@ import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { APP_VERSION } from "../../../version";
 import { MenuContent } from "./MenuContent";
 import type { User } from "../../../api";
+import type { RolePermissions } from "../../../lib/permissions";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import { Link as RouterLink } from "react-router-dom";
@@ -29,11 +30,18 @@ const Toolbar = styled(MuiToolbar)({
 type Props = {
   signedIn: boolean;
   isAdmin: boolean;
+  permissions?: RolePermissions | null;
   user: User | null;
   onLogout: () => void;
 };
 
-export function AppNavbar({ signedIn, isAdmin, user, onLogout }: Props) {
+export function AppNavbar({
+  signedIn,
+  isAdmin,
+  permissions,
+  user,
+  onLogout,
+}: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -97,6 +105,7 @@ export function AppNavbar({ signedIn, isAdmin, user, onLogout }: Props) {
         <MenuContent
           signedIn={signedIn}
           isAdmin={isAdmin}
+          permissions={permissions}
           onNavigate={() => setOpen(false)}
         />
         <Box sx={{ p: 2 }}>

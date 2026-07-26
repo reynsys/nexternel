@@ -41,7 +41,8 @@ export function ClockWidgetEditor({ open, widget, onClose, onSave }: Props) {
   useEffect(() => {
     if (!open || !widget) return;
     const c = widget.config ?? {};
-    setTitle(widget.title ?? "");
+    const raw = widget.title?.trim() ?? "";
+    setTitle(raw && raw !== "Clock" && raw !== CLOCK_WIDGET_TYPE ? raw : "");
     setTimeMode(c.timeMode === "analog" ? "analog" : "digital");
     setDigitalStyle(
       c.digitalStyle === "mono" || c.digitalStyle === "bold" ? c.digitalStyle : "standard"

@@ -1,10 +1,11 @@
 import os from "os";
 import type { FastifyPluginAsync } from "fastify";
-import { requireUser } from "../auth/plugin.js";
+import { requirePermission } from "../auth/rbac.js";
 import { checkDatabase } from "../db.js";
 import { getMqttStatus } from "../telemetry/mqtt.js";
 import { config } from "../config.js";
 import { APP_VERSION } from "../version.js";
+import { readServerTemperatureC } from "../lib/server-temperature.js";
 
 const WAN_CACHE_TTL_MS = 5 * 60_000;
 let wanCache: { ip: string | null; at: number } | null = null;
@@ -47,7 +48,7 @@ function lanIp(): string | null {
 
 export const systemRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/system", async (request, reply) => {
-    if (!requireUser(request, reply)) return;
+    if (!requirePermission(request, reply, "viewSystem")) return;
 
     const cpus = os.cpus();
     const cpuCount = cpus.length || 1;
@@ -55,10 +56,14 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
     const loadPercent = Math.min(100, Math.round((load[0] / cpuCount) * 100));
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    const memoryPercent =
+      totalMem > 0 ? Math.min(100, Math.round((usedMem / totalMem) * 100)) : 0;
 
-    const [database, wanIp] = await Promise.all([
+    const [database, wanIp, temperatureC] = await Promise.all([
       checkDatabase(),
       resolveWanIp(),
+      readServerTemperatureC(),
     ]);
     const mqtt = getMqttStatus();
     const lan = lanIp();
@@ -75,9 +80,11 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
       },
       memory: {
         totalMb: Math.round(totalMem / 1024 / 1024),
-        usedMb: Math.round((totalMem - freeMem) / 1024 / 1024),
+        usedMb: Math.round(usedMem / 1024 / 1024),
         freeMb: Math.round(freeMem / 1024 / 1024),
+        percent: memoryPercent,
       },
+      temperatureC,
       lanIp: lan,
       wanIp,
       database,

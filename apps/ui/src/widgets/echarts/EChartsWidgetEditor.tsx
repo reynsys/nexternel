@@ -15,6 +15,10 @@ import {
   Alert,
 } from "@mui/material";
 import type { Capability, HistoryRange, WidgetInstance } from "../../api";
+import {
+  editorTitleForBoundWidget,
+  persistBoundWidgetTitle,
+} from "../../lib/widget-title";
 import { EChartsWidgetBody } from "./EChartsWidgetBody";
 import { parseEchartsConfig } from "./config";
 import type { EchartsPreset } from "./types";
@@ -96,11 +100,12 @@ export function EChartsWidgetEditor({
     const cfg = parseEchartsConfig(widget.config);
     const current = getEchartsPreset(cfg.presetId);
     const scope = editScopeForPreset(current);
+    const capId =
+      typeof widget.bindings.capabilityId === "string" ? widget.bindings.capabilityId : "";
+    const cap = capabilities.find((c) => c.id === capId);
     setPresetId(cfg.presetId);
-    setTitle(widget.title ?? "");
-    setCapabilityId(
-      typeof widget.bindings.capabilityId === "string" ? widget.bindings.capabilityId : ""
-    );
+    setTitle(editorTitleForBoundWidget(widget, cap));
+    setCapabilityId(capId);
     setMinStr(cfg.min !== undefined ? String(cfg.min) : "");
     setMaxStr(cfg.max !== undefined ? String(cfg.max) : "");
     setAccent(cfg.accent ?? "");
@@ -109,7 +114,8 @@ export function EChartsWidgetEditor({
     setJsonError(null);
     setEditScope(scope);
     setFamilyFilter(current.family);
-  }, [open, widget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open/widget.id only
+  }, [open, widget?.id]);
 
   const preset = getEchartsPreset(presetId);
   const scopedPresets = presetsInScope(editScope);
@@ -184,6 +190,7 @@ export function EChartsWidgetEditor({
   const cap = capabilities.find((c) => c.id === capabilityId);
 
   function handleApply() {
+    if (!widget) return;
     let optionOverride: Record<string, unknown> | undefined;
     if (overrideText.trim()) {
       try {
@@ -212,7 +219,9 @@ export function EChartsWidgetEditor({
       return;
     }
     onSave({
-      title: title.trim() || undefined,
+      title:
+        persistBoundWidgetTitle(title, widget.type, cap) ??
+        (title.trim() || undefined),
       type: "echarts",
       bindings: capabilityId ? { capabilityId } : {},
       config: {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type SystemInfo, type WidgetInstance } from "../../api";
-import { widgetTitleOr } from "./config";
+import { generalWidgetHeading } from "./config";
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -18,7 +18,12 @@ function Row({ label, value }: { label: string; value: string }) {
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="caption" fontWeight={600} noWrap sx={{ tabularNums: true }}>
+      <Typography
+        variant="caption"
+        fontWeight={600}
+        noWrap
+        sx={{ fontVariantNumeric: "tabular-nums" }}
+      >
         {value}
       </Typography>
     </Stack>
@@ -28,7 +33,7 @@ function Row({ label, value }: { label: string; value: string }) {
 export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const title = widgetTitleOr(widget, "System information") || "System";
+  const title = generalWidgetHeading(widget, "System");
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +60,11 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
 
   const mem = info?.memory;
   const memPercent =
-    mem && mem.totalMb > 0 ? Math.round((mem.usedMb / mem.totalMb) * 100) : null;
+    mem?.percent != null
+      ? mem.percent
+      : mem && mem.totalMb > 0
+        ? Math.round((mem.usedMb / mem.totalMb) * 100)
+        : null;
 
   return (
     <Box
@@ -77,28 +86,20 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
       )}
       <Stack spacing={0.5} sx={{ flex: 1, justifyContent: "center", minHeight: 0 }}>
         <Row label="Version" value={info?.version ?? "—"} />
-        <Row
-          label="Uptime"
-          value={info ? formatUptime(info.uptimeSeconds) : "—"}
-        />
+        <Row label="Uptime" value={info ? formatUptime(info.uptimeSeconds) : "—"} />
         <Row
           label="CPU"
-          value={
-            info
-              ? `${info.cpu.loadPercent}% · ${info.cpu.cores} cores`
-              : "—"
-          }
+          value={info ? `${info.cpu.loadPercent}%` : "—"}
         />
+        <Row label="RAM" value={memPercent != null ? `${memPercent}%` : "—"} />
         <Row
-          label="RAM"
+          label="Temperature"
           value={
-            mem
-              ? `${mem.usedMb}/${mem.totalMb} MB${memPercent != null ? ` (${memPercent}%)` : ""}`
+            info?.temperatureC != null && Number.isFinite(info.temperatureC)
+              ? `${info.temperatureC}°C`
               : "—"
           }
         />
-        <Row label="MQTT" value={info?.mqtt ?? "—"} />
-        <Row label="LAN" value={info?.lanIp ?? "—"} />
       </Stack>
     </Box>
   );

@@ -1,42 +1,35 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Button,
-  IconButton,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, Button, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import TuneIcon from "@mui/icons-material/Tune";
-import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import { api, type DashboardSummary } from "../api";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 
 type Props = {
   activeId?: string;
-  /** Bump to reload after create/delete/rename elsewhere */
   refreshKey?: number;
   editMode?: boolean;
-  onEdit?: () => void;
+  /** Show gear / enter Dashboard options */
+  canEdit?: boolean;
+  /** Enter Dashboard options (layout edit + manage). */
+  onDashboardOptions?: () => void;
 };
 
+/**
+ * Dashboard tabs + top-right gear.
+ * Gear opens Dashboard options (edit mode) — not a choice menu.
+ */
 export function DashboardTabBar({
   activeId,
   refreshKey = 0,
   editMode = false,
-  onEdit,
+  canEdit = true,
+  onDashboardOptions,
 }: Props) {
   const navigate = useNavigate();
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,10 +53,6 @@ export function DashboardTabBar({
       cancelled = true;
     };
   }, [refreshKey]);
-
-  function closeMenu() {
-    setMenuAnchor(null);
-  }
 
   return (
     <Stack
@@ -100,7 +89,7 @@ export function DashboardTabBar({
         )}
         {!loading && !error && dashboards.length === 0 && (
           <Typography variant="caption" color="text.secondary">
-            No dashboards — open Manage to create one.
+            No dashboards — open Dashboard options to create one.
           </Typography>
         )}
         {!loading &&
@@ -150,52 +139,19 @@ export function DashboardTabBar({
             );
           })}
       </Box>
-      <Tooltip title="Dashboard options">
-        <IconButton
-          size="small"
-          aria-label="Dashboard options"
-          aria-controls={menuAnchor ? "dashboard-options-menu" : undefined}
-          aria-haspopup="true"
-          aria-expanded={menuAnchor ? "true" : undefined}
-          onClick={(e) => setMenuAnchor(e.currentTarget)}
-        >
-          <SettingsOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Menu
-        id="dashboard-options-menu"
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={closeMenu}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <MenuItem
-          onClick={() => {
-            closeMenu();
-            navigate("/dashboards");
-          }}
-        >
-          <ListItemIcon>
-            <FolderOpenIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Manage dashboards" />
-        </MenuItem>
-        <MenuItem
-          disabled={editMode || !onEdit}
-          onClick={() => {
-            closeMenu();
-            onEdit?.();
-          }}
-        >
-          <ListItemIcon>
-            <TuneIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={editMode ? "Editing…" : "Edit dashboard"}
-          />
-        </MenuItem>
-      </Menu>
+      {canEdit && (
+        <Tooltip title={editMode ? "Dashboard options (open)" : "Dashboard options"}>
+          <IconButton
+            size="small"
+            color={editMode ? "primary" : "default"}
+            aria-label="Dashboard options"
+            aria-pressed={editMode}
+            onClick={() => onDashboardOptions?.()}
+          >
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Stack>
   );
 }

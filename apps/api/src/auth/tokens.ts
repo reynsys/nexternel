@@ -1,13 +1,21 @@
 import { SignJWT, jwtVerify, errors as JoseErrors } from "jose";
 import bcrypt from "bcryptjs";
 import { config } from "../config.js";
+import {
+  normalizePermissions,
+  permissionsFromIsAdmin,
+  type RolePermissions,
+} from "./permissions.js";
 
-export type AuthRole = "admin" | "viewer";
+/** Role slug stored on users / JWT (e.g. admin, viewer, or custom). */
+export type AuthRole = string;
 
 export type TokenPayload = {
   userId: string;
   username: string;
   role: AuthRole;
+  isAdmin: boolean;
+  permissions: RolePermissions;
   tokenType: "access" | "refresh";
 };
 
@@ -25,6 +33,8 @@ export async function signAccessToken(
   return new SignJWT({
     username: payload.username,
     role: payload.role,
+    isAdmin: payload.isAdmin,
+    permissions: payload.permissions,
     tokenType: "access",
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -40,6 +50,8 @@ export async function signRefreshToken(
   return new SignJWT({
     username: payload.username,
     role: payload.role,
+    isAdmin: payload.isAdmin,
+    permissions: payload.permissions,
     tokenType: "refresh",
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -53,6 +65,11 @@ export type VerifyResult =
   | { ok: true; payload: TokenPayload }
   | { ok: false; reason: string };
 
+function coerceIsAdmin(role: string, raw: unknown): boolean {
+  if (typeof raw === "boolean") return raw;
+  return role === "admin";
+}
+
 export async function verifyTokenDetailed(token: string): Promise<VerifyResult> {
   try {
     const { payload } = await jwtVerify(token, secretKey(), {
@@ -64,17 +81,23 @@ export async function verifyTokenDetailed(token: string): Promise<VerifyResult> 
       (typeof payload.userId === "string" ? payload.userId : undefined);
     const username =
       typeof payload.username === "string" ? payload.username : undefined;
-    const role = payload.role as AuthRole | undefined;
+    const role = typeof payload.role === "string" ? payload.role : undefined;
     const rawType = payload.tokenType ?? payload.token_type;
     const tokenType =
       rawType === "access" || rawType === "refresh" ? rawType : undefined;
 
-    if (!userId || !username || !role) {
+    if (!userId || !username || !role || !tokenType) {
       return {
         ok: false,
-        reason: `claims_missing:userId=${Boolean(userId)},username=${Boolean(username)},role=${Boolean(role)},keys=${Object.keys(payload).join("|")}`,
+        reason: `claims_missing:userId=${Boolean(userId)},username=${Boolean(username)},role=${Boolean(role)},tokenType=${Boolean(tokenType)},keys=${Object.keys(payload).join("|")}`,
       };
     }
+
+    const isAdmin = coerceIsAdmin(role, payload.isAdmin);
+    const permissions =
+      payload.permissions && typeof payload.permissions === "object"
+        ? normalizePermissions(payload.permissions)
+        : permissionsFromIsAdmin(isAdmin);
 
     return {
       ok: true,
@@ -82,17 +105,19 @@ export async function verifyTokenDetailed(token: string): Promise<VerifyResult> 
         userId,
         username,
         role,
-        tokenType: tokenType ?? "access",
+        isAdmin,
+        permissions,
+        tokenType,
       },
     };
   } catch (err) {
-    const msg =
-      err instanceof JoseErrors.JOSEError
-        ? `${err.code}:${err.message}`
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    return { ok: false, reason: `jwt:${msg}` };
+    if (err instanceof JoseErrors.JWTExpired) {
+      return { ok: false, reason: "expired" };
+    }
+    return {
+      ok: false,
+      reason: err instanceof Error ? err.message : "verify_failed",
+    };
   }
 }
 
@@ -106,5 +131,6 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export function roleFromDb(role: string | null | undefined): AuthRole {
-  return role === "viewer" ? "viewer" : "admin";
+  const s = (role ?? "").trim();
+  return s || "admin";
 }

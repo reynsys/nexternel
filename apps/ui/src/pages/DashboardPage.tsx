@@ -29,6 +29,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import {
   api,
   connectLiveSocket,
@@ -63,6 +64,7 @@ import {
 } from "../widgets/general";
 import { SectionGrid } from "../components/SectionGrid";
 import { DashboardTabBar } from "../components/DashboardTabBar";
+import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
 import { DashboardIconPicker } from "../components/DashboardIconPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 import {
@@ -74,9 +76,17 @@ import {
   capabilityPickerLabel,
   defaultWidgetTitle,
 } from "../lib/capability-labels";
+import { useShellAuth } from "../skins/useShellAuth";
+import { hasPermission } from "../lib/permissions";
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
+  const { permissions, isAdmin } = useShellAuth();
+  const canEditDashboards = hasPermission(
+    permissions,
+    "editDashboards",
+    isAdmin
+  );
   const theme = useTheme();
   const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
   const [name, setName] = useState("Dashboard");
@@ -98,6 +108,7 @@ export function DashboardPage() {
   const [iconPickerSectionId, setIconPickerSectionId] = useState<string | null>(null);
   const [iconPickerAnchor, setIconPickerAnchor] = useState<HTMLElement | null>(null);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
+  const [manageExpanded, setManageExpanded] = useState(false);
 
   const categoryOptions = categoriesWithEntries();
   const typeOptions = catalogByCategory(addCategory);
@@ -330,13 +341,11 @@ export function DashboardPage() {
     }
 
     const title =
-      type === "plugin.clock"
+      type === "plugin.clock" || isGeneralWidgetType(type)
         ? undefined
-        : isGeneralWidgetType(type)
-          ? entry?.label
-          : type === "switch" || type === "stat" || addType === "auto"
-            ? defaultWidgetTitle(cap, entry?.label || type)
-            : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
+        : type === "switch" || type === "stat" || addType === "auto"
+          ? defaultWidgetTitle(cap, entry?.label || type)
+          : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
 
     setSections((prev) =>
       prev.map((s) => {
@@ -418,45 +427,87 @@ export function DashboardPage() {
         activeId={id}
         refreshKey={tabRefreshKey}
         editMode={editMode}
-        onEdit={() => setEditMode(true)}
+        canEdit={canEditDashboards}
+        onDashboardOptions={() => {
+          if (!canEditDashboards) return;
+          setEditMode(true);
+          setManageExpanded(true);
+        }}
       />
 
-      {editMode && (
-        <Stack
-          direction="row"
-          spacing={1}
-          flexWrap="wrap"
-          useFlexGap
-          alignItems="center"
-          justifyContent="flex-end"
-        >
-          <Button variant="outlined" onClick={addSection}>
-            Add section
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
-              setAddOpen(true);
+      {editMode && canEditDashboards && (
+        <Stack spacing={2}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            flexWrap="wrap"
+            useFlexGap
+            alignItems={{ sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Typography variant="subtitle1" fontWeight={600}>
+              Dashboard options
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button variant="outlined" onClick={addSection}>
+                Add section
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
+                  setAddOpen(true);
+                }}
+              >
+                Add widget
+              </Button>
+              <Button variant="contained" disabled={saving} onClick={() => void save()}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditMode(false);
+                  setManageExpanded(false);
+                  if (id) {
+                    void api.getDashboard(id).then((d) => {
+                      loadDocument(d.dashboard.document, d.dashboard.name);
+                    });
+                  }
+                }}
+              >
+                Done
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Accordion
+            expanded={manageExpanded}
+            onChange={(_e, exp) => setManageExpanded(exp)}
+            disableGutters
+            sx={{
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              "&:before": { display: "none" },
+              overflow: "hidden",
             }}
           >
-            Add widget
-          </Button>
-          <Button variant="contained" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
-          <Button
-            onClick={() => {
-              setEditMode(false);
-              if (id) {
-                void api.getDashboard(id).then((d) => {
-                  loadDocument(d.dashboard.document, d.dashboard.name);
-                });
-              }
-            }}
-          >
-            Cancel
-          </Button>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <FolderOpenIcon fontSize="small" color="action" />
+                <Typography fontWeight={600}>Manage dashboards</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Create · default · tab icons
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              <ManageDashboardsPanel
+                compact
+                onDashboardsChanged={() => setTabRefreshKey((k) => k + 1)}
+              />
+            </AccordionDetails>
+          </Accordion>
         </Stack>
       )}
 

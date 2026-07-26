@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, clearStoredTokens, getStoredAccessToken, type User } from "../api";
+import { USER_UPDATED_EVENT } from "../lib/user-events";
 
 export function useShellAuth() {
   const navigate = useNavigate();
@@ -12,10 +13,28 @@ export function useShellAuth() {
       setUser(null);
       return;
     }
-    void api
-      .me()
-      .then((r) => setUser(r.user))
-      .catch(() => setUser(null));
+
+    let cancelled = false;
+
+    async function loadMe() {
+      try {
+        const r = await api.me();
+        if (!cancelled) setUser(r.user);
+      } catch {
+        if (!cancelled) setUser(null);
+      }
+    }
+
+    void loadMe();
+
+    function onUpdated() {
+      void loadMe();
+    }
+    window.addEventListener(USER_UPDATED_EVENT, onUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(USER_UPDATED_EVENT, onUpdated);
+    };
   }, [signedIn]);
 
   async function logout() {
@@ -31,7 +50,8 @@ export function useShellAuth() {
   return {
     signedIn,
     user,
-    isAdmin: user?.role === "admin",
+    isAdmin: Boolean(user?.isAdmin ?? user?.role === "admin"),
+    permissions: user?.permissions ?? null,
     logout,
   };
 }

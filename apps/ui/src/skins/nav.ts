@@ -6,6 +6,8 @@ import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import BugReportRoundedIcon from "@mui/icons-material/BugReportRounded";
+import type { PermissionKey, RolePermissions } from "../lib/permissions";
+import { hasPermission } from "../lib/permissions";
 
 export type NavItem = {
   label: string;
@@ -13,17 +15,53 @@ export type NavItem = {
   icon: ComponentType<{ fontSize?: "inherit" | "large" | "medium" | "small" }>;
   /** If true, only show when signed in */
   auth?: boolean;
-  /** If true, only show for admin */
-  admin?: boolean;
+  /** Required permission to see this item */
+  permission?: PermissionKey;
 };
 
 export const MAIN_NAV: NavItem[] = [
-  { label: "Dashboards", to: "/", icon: DashboardRoundedIcon, auth: true },
-  { label: "Live", to: "/live", icon: SensorsRoundedIcon, auth: true },
-  { label: "System", to: "/admin/system", icon: SettingsRoundedIcon, auth: true },
-  { label: "Areas", to: "/admin/areas", icon: PlaceRoundedIcon, auth: true },
-  { label: "Devices", to: "/admin/devices", icon: DevicesRoundedIcon, auth: true },
-  { label: "Users", to: "/admin/users", icon: PeopleRoundedIcon, auth: true, admin: true },
+  {
+    label: "Dashboards",
+    to: "/",
+    icon: DashboardRoundedIcon,
+    auth: true,
+    permission: "viewDashboards",
+  },
+  {
+    label: "Live",
+    to: "/live",
+    icon: SensorsRoundedIcon,
+    auth: true,
+    permission: "viewLive",
+  },
+  {
+    label: "System",
+    to: "/admin/system",
+    icon: SettingsRoundedIcon,
+    auth: true,
+    permission: "viewSystem",
+  },
+  {
+    label: "Areas",
+    to: "/admin/areas",
+    icon: PlaceRoundedIcon,
+    auth: true,
+    permission: "viewAreas",
+  },
+  {
+    label: "Devices",
+    to: "/admin/devices",
+    icon: DevicesRoundedIcon,
+    auth: true,
+    permission: "viewDevices",
+  },
+  {
+    label: "Users",
+    to: "/admin/users",
+    icon: PeopleRoundedIcon,
+    auth: true,
+    permission: "manageUsers",
+  },
 ];
 
 export const SECONDARY_NAV: NavItem[] = [
@@ -32,11 +70,17 @@ export const SECONDARY_NAV: NavItem[] = [
 
 export function filterNav(
   items: NavItem[],
-  opts: { signedIn: boolean; isAdmin: boolean }
+  opts: {
+    signedIn: boolean;
+    isAdmin: boolean;
+    permissions?: RolePermissions | null;
+  }
 ): NavItem[] {
   return items.filter((item) => {
     if (item.auth && !opts.signedIn) return false;
-    if (item.admin && !opts.isAdmin) return false;
+    if (item.permission) {
+      return hasPermission(opts.permissions, item.permission, opts.isAdmin);
+    }
     return true;
   });
 }

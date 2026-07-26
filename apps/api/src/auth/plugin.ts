@@ -9,11 +9,14 @@ import {
   type AuthRole,
   type TokenPayload,
 } from "./tokens.js";
+import type { RolePermissions } from "./permissions.js";
 
 export type RequestUser = {
   id: string;
   username: string;
   role: AuthRole;
+  isAdmin: boolean;
+  permissions: RolePermissions;
 };
 
 declare module "fastify" {
@@ -65,6 +68,8 @@ export async function attachUser(request: FastifyRequest) {
         id: result.payload.userId,
         username: result.payload.username,
         role: result.payload.role,
+        isAdmin: result.payload.isAdmin,
+        permissions: result.payload.permissions,
       };
       return;
     }

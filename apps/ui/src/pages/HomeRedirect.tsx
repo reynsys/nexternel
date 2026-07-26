@@ -1,60 +1,71 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { CircularProgress, Stack, Typography } from "@mui/material";
-import { api, getStoredAccessToken } from "../api";
+import { Link as RouterLink } from "react-router-dom";
+import { Alert, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { getStoredAccessToken } from "../api";
+import { resolveHomeDashboardId } from "../lib/home-dashboard";
+import { APP_VERSION } from "../version";
 
 /**
- * Signed-in `/` → default dashboard.
- * If none is marked default, promote the first one, then open it.
- * If there are no dashboards, go to Manage to create one.
+ * Opens the default dashboard via a hard navigation.
+ * Used for `/` and `/dashboards` so the Manage list can never appear there.
  */
 export function HomeRedirect() {
-  const [to, setTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getStoredAccessToken()) {
-      setTo("/login");
+      window.location.replace("/login");
       return;
     }
+
     let cancelled = false;
     void (async () => {
       try {
-        const res = await api.dashboards();
+        const id = await resolveHomeDashboardId();
         if (cancelled) return;
-        const list = res.dashboards;
-        if (list.length === 0) {
-          setTo("/dashboards");
+        if (!id) {
+          window.location.replace("/manage/dashboards");
           return;
         }
-        let target = list.find((d) => d.isDefault);
-        if (!target) {
-          target = list[0]!;
-          try {
-            await api.saveDashboard(target.id, { isDefault: true });
-          } catch {
-            /* still open first even if promote fails */
-          }
+        // Hard navigate — avoids React Router soft-nav quirks leaving you on /dashboards
+        window.location.replace(`/dashboards/${id}`);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to open dashboard");
         }
-        if (cancelled) return;
-        setTo(`/dashboards/${target.id}`);
-      } catch {
-        if (!cancelled) setTo("/dashboards");
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!to) {
+  if (error) {
     return (
       <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }} spacing={2}>
-        <CircularProgress size={32} />
-        <Typography variant="body2" color="text.secondary">
-          Opening dashboard…
+        <Alert severity="error" sx={{ maxWidth: 480 }}>
+          {error}
+        </Alert>
+        <Button variant="contained" component={RouterLink} to="/manage/dashboards">
+          Open Manage dashboards
+        </Button>
+        <Typography variant="caption" color="text.secondary">
+          {APP_VERSION}
         </Typography>
       </Stack>
     );
   }
-  return <Navigate to={to} replace />;
+
+  return (
+    <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }} spacing={2}>
+      <CircularProgress size={32} />
+      <Typography variant="body2" color="text.secondary">
+        Opening default dashboard…
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {APP_VERSION}
+      </Typography>
+    </Stack>
+  );
 }

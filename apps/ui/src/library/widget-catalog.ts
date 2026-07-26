@@ -107,7 +107,7 @@ const CORE_CATALOG: CatalogEntry[] = [
   {
     type: "system_info",
     label: "System information",
-    description: "Server version, uptime, CPU, RAM, MQTT",
+    description: "Server version, uptime, CPU%, RAM%, temperature",
     category: "system",
     needsCapability: false,
   },

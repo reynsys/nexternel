@@ -3,24 +3,29 @@ import Stack from "@mui/material/Stack";
 import { Outlet } from "react-router-dom";
 import { VisualDiagOverlay } from "../../../diagnostics/VisualDiagOverlay";
 import { useShellAuth } from "../../useShellAuth";
-import { SideMenu } from "./SideMenu";
+import { SideMenu, useSideMenuCollapsed } from "./SideMenu";
 import { AppNavbar } from "./AppNavbar";
 
 /** Free MUI dashboard-style shell: permanent side menu + mobile app bar. */
 export function MuiDashboardLayout() {
-  const { signedIn, user, isAdmin, logout } = useShellAuth();
+  const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
+  const [collapsed, setCollapsed] = useSideMenuCollapsed();
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <SideMenu
         signedIn={signedIn}
         isAdmin={isAdmin}
+        permissions={permissions}
         user={user}
         onLogout={() => void logout()}
+        collapsed={collapsed}
+        onCollapsedChange={setCollapsed}
       />
       <AppNavbar
         signedIn={signedIn}
         isAdmin={isAdmin}
+        permissions={permissions}
         user={user}
         onLogout={() => void logout()}
       />

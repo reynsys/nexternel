@@ -5,26 +5,32 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import {
   filterNav,
   MAIN_NAV,
   SECONDARY_NAV,
   type NavItem,
 } from "../../nav";
+import type { RolePermissions } from "../../../lib/permissions";
 
 type Props = {
   signedIn: boolean;
   isAdmin: boolean;
+  permissions?: RolePermissions | null;
+  collapsed?: boolean;
   onNavigate?: () => void;
 };
 
 function NavList({
   items,
   pathname,
+  collapsed,
   onNavigate,
 }: {
   items: NavItem[];
   pathname: string;
+  collapsed?: boolean;
   onNavigate?: () => void;
 }) {
   return (
@@ -33,21 +39,41 @@ function NavList({
         const Icon = item.icon;
         const selected =
           item.to === "/"
-            ? pathname === "/" || pathname.startsWith("/dashboards")
+            ? pathname === "/" ||
+              pathname.startsWith("/dashboards") ||
+              pathname.startsWith("/manage/dashboards")
             : pathname === item.to || pathname.startsWith(`${item.to}/`);
+        const button = (
+          <ListItemButton
+            component={RouterLink}
+            to={item.to}
+            selected={selected}
+            onClick={onNavigate}
+            sx={{
+              justifyContent: collapsed ? "center" : "flex-start",
+              px: collapsed ? 1 : 2,
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: collapsed ? 0 : 36,
+                justifyContent: "center",
+              }}
+            >
+              <Icon fontSize="small" />
+            </ListItemIcon>
+            {!collapsed && <ListItemText primary={item.label} />}
+          </ListItemButton>
+        );
         return (
           <ListItem key={item.to} disablePadding sx={{ display: "block" }}>
-            <ListItemButton
-              component={RouterLink}
-              to={item.to}
-              selected={selected}
-              onClick={onNavigate}
-            >
-              <ListItemIcon>
-                <Icon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
+            {collapsed ? (
+              <Tooltip title={item.label} placement="right">
+                <span>{button}</span>
+              </Tooltip>
+            ) : (
+              button
+            )}
           </ListItem>
         );
       })}
@@ -55,15 +81,31 @@ function NavList({
   );
 }
 
-export function MenuContent({ signedIn, isAdmin, onNavigate }: Props) {
+export function MenuContent({
+  signedIn,
+  isAdmin,
+  permissions,
+  collapsed = false,
+  onNavigate,
+}: Props) {
   const { pathname } = useLocation();
-  const main = filterNav(MAIN_NAV, { signedIn, isAdmin });
-  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin });
+  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions });
+  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions });
 
   return (
     <Stack sx={{ flexGrow: 1, p: 1, justifyContent: "space-between" }}>
-      <NavList items={main} pathname={pathname} onNavigate={onNavigate} />
-      <NavList items={secondary} pathname={pathname} onNavigate={onNavigate} />
+      <NavList
+        items={main}
+        pathname={pathname}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
+      <NavList
+        items={secondary}
+        pathname={pathname}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
     </Stack>
   );
 }

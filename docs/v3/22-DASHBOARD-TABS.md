@@ -2,10 +2,10 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | V3.1.055 |
+| **Version** | V3.1.061 |
 | **UI** | [`DashboardTabBar.tsx`](../../apps/ui/src/components/DashboardTabBar.tsx) |
-| **Manage** | [`DashboardsPage.tsx`](../../apps/ui/src/pages/DashboardsPage.tsx) |
-| **Home** | [`HomeRedirect.tsx`](../../apps/ui/src/pages/HomeRedirect.tsx) |
+| **Manage** | [`DashboardsPage.tsx`](../../apps/ui/src/pages/DashboardsPage.tsx) at `/manage/dashboards` |
+| **Home** | [`HomeRedirect.tsx`](../../apps/ui/src/pages/HomeRedirect.tsx) for `/` and `/dashboards` |
 
 ## Purpose
 
@@ -13,10 +13,10 @@ Quick switch between dashboards (e.g. Living Room → Garden) without returning 
 
 ## Behaviour
 
-1. After login, `/` opens the **default** dashboard. If none is marked default, the first dashboard is promoted to default automatically, then opened. If there are no dashboards, `/` goes to Manage.
-2. Sidebar **Dashboards** also goes to `/` (same home redirect), not the Manage list.
-3. On `/dashboards/:id`, a top **tab bar** lists all dashboards (icon + optional label).
-4. The **gear** menu (top-right of the tab bar) has **Manage dashboards** and **Edit dashboard**. On Manage, use the **star** to set the default; rename / tab icon are there too.
+1. **`/`** and **`/dashboards`** both hard-redirect to the **default** dashboard (`/dashboards/{id}`).
+2. Top-right **gear** opens **Dashboard options** on the current dashboard (layout edit). **Manage dashboards** (create / default / icons) lives in an accordion inside that mode — not a separate choice menu.
+3. Deep link `/manage/dashboards` still works; prefer the gear.
+4. Sidebar **Dashboards** goes to `/` (home redirect).
 
 ## Data
 
@@ -25,7 +25,7 @@ Stored on the dashboard **document** (JSONB):
 - `tabIcon` — catalog id (see `apps/ui/src/lib/dashboard-icons.ts`)
 - `showTabLabel` — default `true`; when false, tab is icon-only with tooltip
 
-List API DTO exposes `tabIcon` / `showTabLabel` for the tab bar without requiring clients to dig into nested fields only.
+List API DTO exposes `tabIcon` / `showTabLabel` for the tab bar.
 
 ## Related
 
