@@ -202,11 +202,11 @@ export function UsersPage() {
         </Stack>
       </Stack>
       <Typography variant="body2" color="text.secondary">
-        Assign any role from the dropdown (roles are managed under{" "}
+        Create accounts and assign roles. Manage what each role can do under{" "}
         <Button component={RouterLink} to="/admin/roles" size="small" sx={{ px: 0.5 }}>
           Roles
         </Button>
-        — Add / Edit / Delete). Only Administrator-level accounts can change roles.
+        .
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
       <Table size="small">
@@ -301,7 +301,7 @@ export function UsersPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 fullWidth
-                helperText="Shown in the sidebar instead of the username"
+                helperText="Shown in the side menu instead of the username"
               />
               <FormControl fullWidth>
                 <InputLabel id="add-role">Role</InputLabel>
@@ -361,7 +361,7 @@ export function UsersPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 fullWidth
-                helperText="Shown in the sidebar (bottom left)"
+                helperText="Shown in the side menu"
               />
               <FormControl fullWidth>
                 <InputLabel id="edit-role">Role</InputLabel>
@@ -379,8 +379,7 @@ export function UsersPage() {
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary">
-                Current: {editUser ? roleName(editUser.role) : ""} — manage role definitions
-                under Roles.
+                Current role: {editUser ? roleName(editUser.role) : ""}
               </Typography>
               <TextField
                 label="New password"

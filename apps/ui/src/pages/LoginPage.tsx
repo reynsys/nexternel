@@ -46,9 +46,7 @@ export function LoginPage() {
       <Stack spacing={2} component="form" onSubmit={onSubmit}>
         <Typography variant="h5">Sign in</Typography>
         <Typography variant="body2" color="text.secondary">
-          Use your admin credentials from .env (ADMIN_USERNAME / ADMIN_PASSWORD) or an account
-          created under Users. Access sessions expire after about 15 minutes; the app renews
-          them automatically when possible.
+          Sign in with your username and password.
         </Typography>
         {error && <Alert severity="error">{error}</Alert>}
         {cleared && (

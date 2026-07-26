@@ -73,7 +73,7 @@ export function SystemPage() {
         avatarData,
       });
       notifyUserUpdated();
-      setProfileMsg("Profile saved — sidebar updates immediately.");
+      setProfileMsg("Profile saved.");
     } catch (err) {
       setProfileErr(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -106,8 +106,7 @@ export function SystemPage() {
     <Stack spacing={2}>
       <Typography variant="h4">System</Typography>
       <Typography color="text.secondary">
-        Your profile, UI appearance, API host status, network, and Node-RED. This UI (:8080)
-        talks to the API (:4000).
+        Profile, appearance, host status, network, and automations.
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -119,8 +118,8 @@ export function SystemPage() {
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Username <strong>{user.username}</strong> ·{" "}
-              {roleLabel(user.role, user.roleName)}. Role can only be changed by an
-              Administrator under Users / Roles.
+              {roleLabel(user.role, user.roleName)}. An administrator can change your role
+              under Users.
             </Typography>
             <Stack
               component="form"
@@ -138,7 +137,7 @@ export function SystemPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 fullWidth
-                helperText="Shown in the sidebar (bottom left)"
+                helperText="Shown next to your name in the side menu"
               />
               {profileErr && <Alert severity="error">{profileErr}</Alert>}
               {profileMsg && <Alert severity="success">{profileMsg}</Alert>}
@@ -157,8 +156,7 @@ export function SystemPage() {
               Brand logo
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Replaces the blue circle next to Nexternel in the side menu. Saved in this
-              browser.
+              Logo shown next to Nexternel in the side menu.
             </Typography>
             <Stack direction="row" spacing={2} alignItems="center">
               {brandLogo ? (
@@ -278,7 +276,7 @@ export function SystemPage() {
                   Automations
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 1.5 }}>
-                  Node-RED remains the automation runtime (port {info.nodeRedPort}).
+                  Open the automation editor to create and manage flows.
                 </Typography>
                 <Button
                   variant="contained"

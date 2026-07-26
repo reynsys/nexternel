@@ -62,7 +62,7 @@ function RequirePermission({
     return (
       <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }} spacing={2}>
         <Alert severity="warning" sx={{ maxWidth: 480 }}>
-          Your account does not have permission for this page ({permission}).
+          Your account does not have permission to open this page.
         </Alert>
         <Button component={RouterLink} to="/admin/system" variant="contained">
           Open System / profile

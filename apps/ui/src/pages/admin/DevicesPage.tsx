@@ -302,8 +302,7 @@ export function DevicesPage() {
       </Stack>
 
       <Typography color="text.secondary">
-        Register ESP32 / ESPHome devices for dashboards, MQTT, and automations. Flash firmware in
-        ESPHome Builder, then register the same YAML here.
+        Register and manage devices used on dashboards and in automations.
       </Typography>
 
       {error && (
@@ -331,7 +330,7 @@ export function DevicesPage() {
             Found in ESPHome, not registered yet
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            YAML configs on the server that are not in the database yet.
+            Device configs found on the server that are not registered yet.
           </Typography>
           <Stack spacing={1}>
             {unregistered.map((entry) => (
@@ -584,7 +583,7 @@ export function DevicesPage() {
                 }
                 required
                 fullWidth
-                helperText="Must match topic_prefix in the ESPHome YAML"
+                helperText="Must match the device topic prefix in ESPHome"
               />
               <TextField
                 label="ESPHome name"

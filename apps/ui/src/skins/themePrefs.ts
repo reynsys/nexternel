@@ -1,4 +1,4 @@
-/** Browser prefs for Theme Configurator (not Soft UI Pro — our own). */
+/** Browser prefs for theme / appearance. */
 
 export const THEME_PREFS_KEY = "nexternel.themePrefs";
 

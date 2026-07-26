@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.070 — 26/07/2026
+
+- **Copy cleanup:** removed developer-facing notes (ports, Soft UI Pro paths, .env hints, etc.) and replaced with clearer user wording across System, Appearance, Login, Users, Roles, Devices, Live, and Troubleshoot
+
+## V3.1.069 — 26/07/2026
+
+- **Side menu:** brand logo is display-only (edit only under System → Brand logo); collapse control sits on the user row (no extra empty strip); when collapsed, arrow stays below Out
+
 ## V3.1.068 — 26/07/2026
 
 - **Side menu:** Roles removed from nav (still under Users → Edit roles); collapsible icons-only mode; version shown under the logged-in user; brand logo (blue circle) editable via click or System → Brand logo

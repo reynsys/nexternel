@@ -221,9 +221,7 @@ export function RolesPage() {
         </Button>
       </Stack>
       <Typography variant="body2" color="text.secondary">
-        Define what each role can view and change. Viewers by default can browse and
-        control switches, but cannot edit dashboards, devices, areas, users, or roles —
-        only their own profile under System. Assign roles under{" "}
+        Set what each role can view or change. Assign roles to people under{" "}
         <Button component={RouterLink} to="/admin/users" size="small" sx={{ px: 0.5 }}>
           Users
         </Button>
@@ -296,7 +294,7 @@ export function RolesPage() {
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
                 required
                 fullWidth
-                helperText="Lowercase id stored on users (e.g. installer, guest)"
+                helperText="Short id used internally (e.g. installer, guest)"
               />
               <TextField
                 label="Description"
@@ -343,7 +341,7 @@ export function RolesPage() {
                 value={editRole?.slug ?? ""}
                 fullWidth
                 disabled
-                helperText="Slug cannot be changed after create"
+                helperText="Cannot be changed later"
               />
               <TextField
                 label="Description"
@@ -355,8 +353,8 @@ export function RolesPage() {
               />
               <Typography variant="subtitle1">Permissions</Typography>
               <Typography variant="body2" color="text.secondary">
-                Tick what this role may do. Unticked pages are hidden and API changes are
-                blocked.
+                Choose what this role is allowed to do. Disabled items are hidden from the
+                menu.
               </Typography>
               <PermissionEditor
                 value={permissions}

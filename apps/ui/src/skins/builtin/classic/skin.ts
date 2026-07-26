@@ -4,8 +4,8 @@ import { createClassicTheme } from "./theme";
 
 export const classicSkin: UiSkin = {
   id: "classic",
-  label: "Classic",
-  description: "Original V3 flat top navigation.",
+  label: "Top menu",
+  description: "Navigation links across the top",
   createTheme: createClassicTheme,
   Layout: ClassicLayout,
 };

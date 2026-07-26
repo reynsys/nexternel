@@ -98,7 +98,7 @@ export function LivePage() {
     <Stack spacing={2}>
       <Typography variant="h4">Live capabilities</Typography>
       <Typography color="text.secondary">
-        Raw capability feed for diagnostics. Use Dashboards for layouts.
+        Live sensor and switch values. Use Dashboards for arranged layouts.
       </Typography>
       {health && (
         <Chip

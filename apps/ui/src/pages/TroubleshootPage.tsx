@@ -141,8 +141,7 @@ export function TroubleshootPage() {
     <Stack spacing={2}>
       <Typography variant="h4">Troubleshoot</Typography>
       <Typography color="text.secondary">
-        Collect browser, API, and on-screen layout facts into one report. Copy and share it
-        when something breaks — so helpers can work from evidence, not guesses.
+        Build a report of browser and server status to share when something goes wrong.
       </Typography>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>

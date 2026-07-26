@@ -4,9 +4,8 @@ import { createMuiDashboardTheme } from "./theme";
 
 export const muiDashboardSkin: UiSkin = {
   id: "mui-dashboard",
-  label: "MUI Dashboard",
-  description:
-    "Free Material UI dashboard shell (side menu) adapted from MUI getting-started templates.",
+  label: "Side menu",
+  description: "Navigation menu on the left",
   createTheme: createMuiDashboardTheme,
   Layout: MuiDashboardLayout,
 };

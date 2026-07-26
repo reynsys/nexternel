@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Avatar from "@mui/material/Avatar";
 import MuiDrawer, { drawerClasses } from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
@@ -15,11 +15,7 @@ import { APP_VERSION } from "../../../version";
 import { MenuContent } from "./MenuContent";
 import type { User } from "../../../api";
 import type { RolePermissions } from "../../../lib/permissions";
-import {
-  fileToBrandLogoDataUrl,
-  getBrandLogo,
-  setBrandLogo,
-} from "../../brandLogo";
+import { getBrandLogo } from "../../brandLogo";
 import {
   getSideMenuCollapsed,
   setSideMenuCollapsed,
@@ -37,46 +33,27 @@ type Props = {
   onCollapsedChange: (collapsed: boolean) => void;
 };
 
-function BrandMark({
-  logo,
-  canEdit,
-  onLogoChange,
-  size = 28,
-}: {
-  logo: string | null;
-  canEdit: boolean;
-  onLogoChange: (next: string | null) => void;
-  size?: number;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function onPick(file: File | undefined) {
-    if (!file) return;
-    try {
-      const dataUrl = await fileToBrandLogoDataUrl(file);
-      setBrandLogo(dataUrl);
-      onLogoChange(dataUrl);
-    } catch {
-      /* ignore */
-    }
+function BrandMark({ logo, size = 28 }: { logo: string | null; size?: number }) {
+  if (logo) {
+    return (
+      <Box
+        component="img"
+        src={logo}
+        alt="Brand"
+        sx={{
+          width: size,
+          height: size,
+          borderRadius: "999px",
+          objectFit: "cover",
+          border: "1px solid",
+          borderColor: "divider",
+          display: "block",
+          flexShrink: 0,
+        }}
+      />
+    );
   }
-
-  const mark = logo ? (
-    <Box
-      component="img"
-      src={logo}
-      alt="Brand"
-      sx={{
-        width: size,
-        height: size,
-        borderRadius: "999px",
-        objectFit: "cover",
-        border: "1px solid",
-        borderColor: "divider",
-        display: "block",
-      }}
-    />
-  ) : (
+  return (
     <Box
       sx={{
         width: size,
@@ -89,45 +66,6 @@ function BrandMark({
         flexShrink: 0,
       }}
     />
-  );
-
-  if (!canEdit) return mark;
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-        hidden
-        onChange={(e) => {
-          void onPick(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
-      <Tooltip title="Change logo — click to upload, right-click to reset">
-        <Box
-          component="button"
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setBrandLogo(null);
-            onLogoChange(null);
-          }}
-          sx={{
-            p: 0,
-            border: 0,
-            bgcolor: "transparent",
-            cursor: "pointer",
-            lineHeight: 0,
-            borderRadius: "999px",
-          }}
-        >
-          {mark}
-        </Box>
-      </Tooltip>
-    </>
   );
 }
 
@@ -142,7 +80,6 @@ export function SideMenu({
 }: Props) {
   const [logo, setLogo] = useState<string | null>(() => getBrandLogo());
   const width = collapsed ? SIDE_MENU_WIDTH_COLLAPSED : SIDE_MENU_WIDTH_EXPANDED;
-  const canEditLogo = Boolean(isAdmin || permissions?.manageUsers);
 
   useEffect(() => {
     function refresh() {
@@ -151,6 +88,25 @@ export function SideMenu({
     window.addEventListener("nexternel:brand-logo-updated", refresh);
     return () => window.removeEventListener("nexternel:brand-logo-updated", refresh);
   }, []);
+
+  const collapseToggle = (
+    <Tooltip
+      title={collapsed ? "Expand menu" : "Collapse menu (icons only)"}
+      placement={collapsed ? "right" : "top"}
+    >
+      <IconButton
+        size="small"
+        onClick={() => onCollapsedChange(!collapsed)}
+        aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+      >
+        {collapsed ? (
+          <ChevronRightIcon fontSize="small" />
+        ) : (
+          <ChevronLeftIcon fontSize="small" />
+        )}
+      </IconButton>
+    </Tooltip>
+  );
 
   return (
     <MuiDrawer
@@ -182,12 +138,7 @@ export function SideMenu({
           minHeight: 64,
         }}
       >
-        <BrandMark
-          logo={logo}
-          canEdit={canEditLogo}
-          onLogoChange={setLogo}
-          size={collapsed ? 32 : 28}
-        />
+        <BrandMark logo={logo} size={collapsed ? 32 : 28} />
         {!collapsed && (
           <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
             Nexternel
@@ -212,9 +163,9 @@ export function SideMenu({
       </Box>
 
       <Stack
-        spacing={collapsed ? 1 : 0.5}
+        spacing={collapsed ? 1 : 0}
         sx={{
-          p: collapsed ? 1 : 2,
+          p: collapsed ? 1 : 1.5,
           borderTop: "1px solid",
           borderColor: "divider",
           alignItems: collapsed ? "center" : "stretch",
@@ -242,79 +193,61 @@ export function SideMenu({
                   {APP_VERSION.replace(/^V/, "")}
                 </Typography>
               </Tooltip>
-              <Tooltip title="Expand menu" placement="right">
-                <IconButton
-                  size="small"
-                  onClick={() => onCollapsedChange(false)}
-                  aria-label="Expand menu"
-                >
-                  <ChevronRightIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
               <Tooltip title="Sign out" placement="right">
                 <Button size="small" onClick={onLogout} sx={{ minWidth: 0, px: 1 }}>
                   Out
                 </Button>
               </Tooltip>
+              {collapseToggle}
             </>
           ) : (
-            <>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Avatar
-                  src={user?.avatarData ?? undefined}
-                  sx={{ width: 36, height: 36, bgcolor: "primary.dark" }}
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Avatar
+                src={user?.avatarData ?? undefined}
+                sx={{ width: 36, height: 36, bgcolor: "primary.dark", flexShrink: 0 }}
+              >
+                {(user?.displayName || user?.username || "?")
+                  .trim()
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </Avatar>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 500, lineHeight: 1.25 }}
+                  noWrap
                 >
-                  {(user?.displayName || user?.username || "?")
-                    .trim()
-                    .slice(0, 1)
-                    .toUpperCase()}
-                </Avatar>
-                <Box sx={{ mr: "auto", minWidth: 0, flex: 1 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 500, lineHeight: "16px" }}
-                    noWrap
-                  >
-                    {user?.displayName?.trim() || user?.username || "User"}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap>
-                    {user?.roleName ||
-                      (user?.role === "admin"
-                        ? "Administrator"
-                        : user?.role === "viewer"
-                          ? "Viewer"
-                          : (user?.role ?? ""))}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    noWrap
-                  >
-                    {APP_VERSION}
-                  </Typography>
-                </Box>
-                <Button size="small" onClick={onLogout}>
-                  Out
-                </Button>
-              </Stack>
-              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                <Tooltip title="Collapse menu (icons only)">
-                  <IconButton
-                    size="small"
-                    onClick={() => onCollapsedChange(true)}
-                    aria-label="Collapse menu"
-                  >
-                    <ChevronLeftIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                  {user?.displayName?.trim() || user?.username || "User"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap display="block">
+                  {user?.roleName ||
+                    (user?.role === "admin"
+                      ? "Administrator"
+                      : user?.role === "viewer"
+                        ? "Viewer"
+                        : (user?.role ?? ""))}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap display="block">
+                  {APP_VERSION}
+                </Typography>
               </Box>
-            </>
+              <Button size="small" onClick={onLogout} sx={{ flexShrink: 0 }}>
+                Out
+              </Button>
+              {collapseToggle}
+            </Stack>
           )
         ) : (
-          <Button component={RouterLink} to="/login" size="small" fullWidth>
-            {collapsed ? "In" : "Login"}
-          </Button>
+          <Stack
+            direction={collapsed ? "column" : "row"}
+            spacing={1}
+            alignItems="center"
+          >
+            <Button component={RouterLink} to="/login" size="small" fullWidth={!collapsed}>
+              {collapsed ? "In" : "Login"}
+            </Button>
+            {collapseToggle}
+          </Stack>
         )}
       </Stack>
     </MuiDrawer>
