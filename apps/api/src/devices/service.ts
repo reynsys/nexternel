@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
+import { isDeviceSeenRecently } from "./presence.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type DeviceDetail = {
@@ -150,7 +151,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     ipAddress: d.ip_address,
     macAddress: d.mac_address,
     isEnabled: d.is_enabled,
-    isOnline: d.is_online,
+    isOnline: isDeviceSeenRecently(d.last_seen_at),
     lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
     sensors: sensorsByDevice.get(d.id) ?? [],
     relays: relaysByDevice.get(d.id) ?? [],

@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.093 — 28/07/2026
+
+- **History charts:** time axis labels use hours:minutes only (no seconds)
+
+## V3.1.092 — 28/07/2026
+
+- **Devices online:** Offline after ~90s without MQTT traffic (was sticky Online forever once seen)
+
 ## V3.1.091 — 28/07/2026
 
 - **Dashboard after Adopt:** repair stale widget `capabilityId`s (Live worked, Dashboard switches did not); System → **Repair dashboard bindings**; also runs on API startup / after Adopt

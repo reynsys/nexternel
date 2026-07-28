@@ -104,6 +104,13 @@ export function DevicesPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void load();
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const unregistered = useMemo(
     () => catalog.filter((c) => !c.registered),
     [catalog]

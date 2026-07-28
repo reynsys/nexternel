@@ -7,10 +7,12 @@ import {
 } from "../capabilities/store.js";
 import { getLiveState, parseMqttPayload, setLiveState } from "./state-cache.js";
 import { getPool } from "../db.js";
+import { DEVICE_ONLINE_TIMEOUT_MS } from "../devices/presence.js";
 
 let client: MqttClient | null = null;
 let status: "disconnected" | "connecting" | "connected" | "error" = "disconnected";
 let lastError: string | null = null;
+let presenceTimer: ReturnType<typeof setInterval> | null = null;
 
 /** state_topic → capability ids (usually one) */
 const topicIndex = new Map<string, { capabilityId: string; kind: string }[]>();
@@ -69,8 +71,30 @@ function handleMessage(topic: string, payloadBuf: Buffer, packet: { retain?: boo
   }
 }
 
+function startPresenceSweeper() {
+  if (presenceTimer) return;
+  presenceTimer = setInterval(() => {
+    void getPool()
+      .query(
+        `UPDATE devices
+         SET is_online = FALSE
+         WHERE is_online = TRUE
+           AND (
+             last_seen_at IS NULL
+             OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
+           )`,
+        [DEVICE_ONLINE_TIMEOUT_MS / 1000]
+      )
+      .catch(() => {
+        /* ignore */
+      });
+  }, 15_000);
+  presenceTimer.unref?.();
+}
+
 export async function startTelemetry(): Promise<void> {
   await rebuildTopicIndex();
+  startPresenceSweeper();
 
   if (client) {
     try {

@@ -24,7 +24,7 @@ const timeAxisLabel = {
     day: "{d} {MMM}",
     hour: "{HH}:{mm}",
     minute: "{HH}:{mm}",
-    second: "{HH}:{mm}:{ss}",
+    second: "{HH}:{mm}",
   },
 };
 
