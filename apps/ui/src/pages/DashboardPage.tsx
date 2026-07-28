@@ -369,7 +369,12 @@ export function DashboardPage() {
           },
           bindings:
             requiresCapability && effectiveCapId
-              ? { capabilityId: effectiveCapId }
+              ? {
+                  capabilityId: effectiveCapId,
+                  ...(cap?.sourceId
+                    ? { sourceId: cap.sourceId, sourceType: cap.sourceType }
+                    : {}),
+                }
               : {},
           config,
         };

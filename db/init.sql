@@ -24,6 +24,7 @@ CREATE TABLE devices (
     ip_address      INET,
     mac_address     VARCHAR(17),
     firmware_type   VARCHAR(50) NOT NULL DEFAULT 'esphome',
+    is_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
     is_online       BOOLEAN NOT NULL DEFAULT FALSE,
     last_seen_at    TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

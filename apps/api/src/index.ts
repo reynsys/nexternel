@@ -7,6 +7,7 @@ import { attachUser } from "./auth/plugin.js";
 import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
 import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
 import { ensureCameraSchema } from "./cameras/ensure-schema.js";
+import { ensureDevicesSchema } from "./devices/ensure-schema.js";
 import { syncAllCamerasToGo2rtc } from "./cameras/service.js";
 import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
 import { ensureUsersThemeSchema } from "./auth/ensure-users-theme.js";
@@ -27,6 +28,7 @@ import { historyRoutes } from "./routes/history.js";
 import { usersRoutes } from "./routes/users.js";
 import { rolesRoutes } from "./routes/roles.js";
 import { systemRoutes } from "./routes/system.js";
+import { migrateRoutes } from "./migrate/routes.js";
 import { weatherRoutes } from "./routes/weather.js";
 import { wsRoutes } from "./telemetry/ws.js";
 import { APP_VERSION } from "./version.js";
@@ -70,6 +72,7 @@ await app.register(async (api) => {
   await api.register(usersRoutes);
   await api.register(rolesRoutes);
   await api.register(systemRoutes);
+  await api.register(migrateRoutes);
   await api.register(weatherRoutes);
   await api.register(wsRoutes);
 });
@@ -83,6 +86,7 @@ try {
   await ensureUsersThemeSchema();
   await ensureUsersAvatarSchema();
   await ensureRolesSchema();
+  await ensureDevicesSchema();
   await ensureCapabilitySchema();
   await ensureDashboardSchema();
   await ensureCameraSchema();
@@ -90,6 +94,17 @@ try {
   app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
   const synced = await syncCapabilitiesFromLegacy();
   app.log.info(synced, "capabilities synced from sensors/relays");
+  try {
+    const { repairDashboardCapabilityBindings } = await import(
+      "./migrate/repair-dashboard-bindings.js"
+    );
+    const repaired = await repairDashboardCapabilityBindings();
+    if (repaired.bindingsRemapped > 0 || repaired.dashboardsUpdated > 0) {
+      app.log.info(repaired, "dashboard capability bindings repaired");
+    }
+  } catch (err) {
+    app.log.warn({ err }, "dashboard binding repair skipped");
+  }
   try {
     const camSync = await syncAllCamerasToGo2rtc();
     app.log.info(camSync, "cameras synced to go2rtc");

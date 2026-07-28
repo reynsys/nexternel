@@ -19,7 +19,26 @@ function capabilityIdOf(widget: WidgetInstance): string | null {
 
 function findCap(caps: Capability[], widget: WidgetInstance): Capability | undefined {
   const id = capabilityIdOf(widget);
-  return id ? caps.find((c) => c.id === id) : undefined;
+  if (id) {
+    const byId = caps.find((c) => c.id === id);
+    if (byId) return byId;
+  }
+  const sourceId = widget.bindings.sourceId;
+  const sourceType = widget.bindings.sourceType;
+  if (typeof sourceId === "string" && sourceId) {
+    const bySource = caps.find(
+      (c) =>
+        c.sourceId === sourceId &&
+        (typeof sourceType !== "string" || !sourceType || c.sourceType === sourceType)
+    );
+    if (bySource) return bySource;
+  }
+  const title = widget.title?.trim().toLowerCase();
+  if (title) {
+    const named = caps.filter((c) => c.name.trim().toLowerCase() === title);
+    if (named.length === 1) return named[0];
+  }
+  return undefined;
 }
 
 function formatValue(cap: Capability | undefined): string {

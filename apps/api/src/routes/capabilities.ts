@@ -27,6 +27,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           name: c.name,
           unit: c.unit,
           sourceType: c.source_type,
+          sourceId: c.source_id,
           hasCommand: Boolean(c.command_topic),
           state: state
             ? {

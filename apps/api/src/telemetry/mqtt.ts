@@ -15,6 +15,10 @@ let lastError: string | null = null;
 /** state_topic → capability ids (usually one) */
 const topicIndex = new Map<string, { capabilityId: string; kind: string }[]>();
 
+/** Debounce device online touches (prefix → last ms) */
+const lastOnlineTouch = new Map<string, number>();
+let cachedPrefixes: string[] = [];
+
 export function getMqttStatus() {
   return { status, lastError, broker: config.mqttBroker() };
 }
@@ -27,9 +31,32 @@ async function rebuildTopicIndex() {
     list.push({ capabilityId: b.capability_id, kind: b.kind });
     topicIndex.set(b.state_topic, list);
   }
+  cachedPrefixes = await listDevicePrefixes();
+}
+
+function touchDeviceOnlineFromTopic(topic: string) {
+  const prefix = cachedPrefixes.find(
+    (p) => topic === p || topic.startsWith(`${p}/`)
+  );
+  if (!prefix) return;
+  const now = Date.now();
+  const prev = lastOnlineTouch.get(prefix) ?? 0;
+  if (now - prev < 15_000) return;
+  lastOnlineTouch.set(prefix, now);
+  void getPool()
+    .query(
+      `UPDATE devices
+       SET is_online = TRUE, last_seen_at = NOW()
+       WHERE mqtt_topic_prefix = $1`,
+      [prefix]
+    )
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function handleMessage(topic: string, payloadBuf: Buffer, packet: { retain?: boolean }) {
+  touchDeviceOnlineFromTopic(topic);
   const payload = payloadBuf.toString("utf8");
   const entries = topicIndex.get(topic);
   if (!entries?.length) return;
@@ -110,6 +137,7 @@ export async function refreshTelemetrySubscriptions(): Promise<void> {
   await rebuildTopicIndex();
   if (!client?.connected) return;
   const prefixes = await listDevicePrefixes();
+  cachedPrefixes = prefixes;
   for (const prefix of prefixes) {
     client.subscribe(`${prefix}/#`, { qos: 0 });
   }

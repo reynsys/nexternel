@@ -67,7 +67,14 @@ export function CoreWidgetEditor({
   function handleApply() {
     onSave({
       title: persistBoundWidgetTitle(title, widget.type, cap) ?? defaultWidgetTitle(cap, kindLabel),
-      bindings: capabilityId ? { capabilityId } : {},
+      bindings: capabilityId
+        ? {
+            capabilityId,
+            ...(cap?.sourceId
+              ? { sourceId: cap.sourceId, sourceType: cap.sourceType }
+              : {}),
+          }
+        : {},
     });
     onClose();
   }

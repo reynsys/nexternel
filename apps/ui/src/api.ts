@@ -230,6 +230,7 @@ export type Capability = {
   name: string;
   unit: string | null;
   sourceType: string;
+  sourceId?: string;
   hasCommand: boolean;
   state: {
     value: unknown;
@@ -695,6 +696,175 @@ export const api = {
 
   system: () => apiFetch<SystemInfo>("/api/v1/system"),
 
+  configStatus: () =>
+    apiFetch<ConfigStatusResponse>("/api/v1/system/config/status"),
+
+  downloadConfigExport: async () => {
+    const headers = new Headers();
+    const access = getStoredAccessToken();
+    if (access) {
+      headers.set("Authorization", `Bearer ${access}`);
+      headers.set("X-Nexternel-Token", access);
+    }
+    let res = await fetch(apiUrl("/api/v1/system/config/export"), {
+      credentials: "include",
+      headers,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        const next = getStoredAccessToken();
+        const retryHeaders = new Headers();
+        if (next) {
+          retryHeaders.set("Authorization", `Bearer ${next}`);
+          retryHeaders.set("X-Nexternel-Token", next);
+        }
+        res = await fetch(apiUrl("/api/v1/system/config/export"), {
+          credentials: "include",
+          headers: retryHeaders,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] || "nexternel-config.nexcfg";
+    return { blob, filename };
+  },
+
+  adoptConfig: async (opts: {
+    file: File;
+    newBrokerIp: string;
+    newTopicRoot: string;
+    wifiSsid?: string;
+    wifiPassword?: string;
+  }) => {
+    const buildForm = () => {
+      const form = new FormData();
+      form.append("file", opts.file);
+      form.append("newBrokerIp", opts.newBrokerIp);
+      form.append("newTopicRoot", opts.newTopicRoot);
+      if (opts.wifiSsid) form.append("wifiSsid", opts.wifiSsid);
+      if (opts.wifiPassword) form.append("wifiPassword", opts.wifiPassword);
+      form.append("confirm", "ADOPT");
+      return form;
+    };
+
+    const authHeaders = () => {
+      const headers = new Headers();
+      const access = getStoredAccessToken();
+      if (access) {
+        headers.set("Authorization", `Bearer ${access}`);
+        headers.set("X-Nexternel-Token", access);
+      }
+      return headers;
+    };
+
+    let res = await fetch(apiUrl("/api/v1/system/config/adopt"), {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: buildForm(),
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        res = await fetch(apiUrl("/api/v1/system/config/adopt"), {
+          method: "POST",
+          credentials: "include",
+          headers: authHeaders(),
+          body: buildForm(),
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    return res.json() as Promise<AdoptConfigResponse>;
+  },
+
+  downloadEsphomeCutoverPack: async () => {
+    const headers = new Headers();
+    const access = getStoredAccessToken();
+    if (access) {
+      headers.set("Authorization", `Bearer ${access}`);
+      headers.set("X-Nexternel-Token", access);
+    }
+    let res = await fetch(apiUrl("/api/v1/system/config/esphome-pack"), {
+      credentials: "include",
+      headers,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        const next = getStoredAccessToken();
+        const retryHeaders = new Headers();
+        if (next) {
+          retryHeaders.set("Authorization", `Bearer ${next}`);
+          retryHeaders.set("X-Nexternel-Token", next);
+        }
+        res = await fetch(apiUrl("/api/v1/system/config/esphome-pack"), {
+          credentials: "include",
+          headers: retryHeaders,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] || "esphome-flash-ready.zip";
+    return { blob, filename };
+  },
+
+  downloadFlashReadyYaml: async (stem: string) => {
+    const headers = new Headers();
+    const access = getStoredAccessToken();
+    if (access) {
+      headers.set("Authorization", `Bearer ${access}`);
+      headers.set("X-Nexternel-Token", access);
+    }
+    const path = `/api/v1/system/config/flash-yaml/${encodeURIComponent(stem)}`;
+    let res = await fetch(apiUrl(path), {
+      credentials: "include",
+      headers,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        const next = getStoredAccessToken();
+        const retryHeaders = new Headers();
+        if (next) {
+          retryHeaders.set("Authorization", `Bearer ${next}`);
+          retryHeaders.set("X-Nexternel-Token", next);
+        }
+        res = await fetch(apiUrl(path), {
+          credentials: "include",
+          headers: retryHeaders,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] || `${stem}-flash-ready.yaml`;
+    return { blob, filename };
+  },
+
+  repairDashboardBindings: () =>
+    apiFetch<{ ok: boolean; dashboardsUpdated: number; bindingsRemapped: number }>(
+      "/api/v1/system/config/repair-dashboard-bindings",
+      { method: "POST", body: "{}" }
+    ),
+
   weather: (lat: number, lon: number) =>
     apiFetch<WeatherResponse>(
       `/api/v1/weather?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}`
@@ -780,6 +950,43 @@ export type SystemInfo = {
   mqttError: string | null;
   nodeRedUrl: string;
   nodeRedPort: number;
+};
+
+export type ConfigStatusResponse = {
+  currentServerIp: string | null;
+  mqttTopicPrefix?: string;
+  esphomeMounted: boolean;
+  ready: boolean;
+};
+
+export type AdoptConfigResponse = {
+  ok: true;
+  manifest: {
+    format: string;
+    formatVersion: number;
+    appVersion: string;
+    createdAt: string;
+    serverIp: string;
+  };
+  counts: {
+    rooms: number;
+    devices: number;
+    dashboards: number;
+    cameras: number;
+    esphomeFiles: number;
+  };
+  adoptChecklist: {
+    brokerIp: string;
+    topicRoot?: string;
+    esphomeUrl: string;
+    devices: {
+      name: string;
+      slug: string;
+      yamlHint: string | null;
+      topicPrefix?: string;
+    }[];
+    steps: string[];
+  };
 };
 
 export type WeatherForecastDay = {

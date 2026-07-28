@@ -133,7 +133,7 @@ Set every `change_me_*` value. At least:
 |----------|---------|
 | `SERVER_IP` | Server LAN IP |
 | `POSTGRES_PASSWORD` | Postgres password |
-| `DATABASE_URL` | Same password: `postgresql://nexternel:YOUR_PASSWORD@postgres:5432/nexternel` |
+| `DATABASE_URL` | **Must use the same password** as `POSTGRES_PASSWORD`: `postgresql://nexternel:YOUR_PASSWORD@postgres:5432/nexternel` |
 | `INFLUXDB_PASSWORD` / `INFLUXDB_TOKEN` | InfluxDB (save the token for Node-RED) |
 | `MQTT_PASSWORD` | MQTT password (same on ESP32 later) |
 | `NEXTAUTH_SECRET` | Random string (API JWT secret) |
@@ -171,6 +171,23 @@ Check API:
 curl -s http://127.0.0.1:4000/api/v1/health
 ```
 
+If `api` shows **Restarting** and logs say `password authentication failed for user "nexternel"`:
+
+1. Open `.env` and make sure the password in `DATABASE_URL` is **exactly** the same as `POSTGRES_PASSWORD` (same characters, same quotes).
+2. On a **fresh** install (no data to keep), reset the Postgres volume so it re-creates the user with the fixed password:
+
+```bash
+cd ~/nexternel
+docker compose stop api
+docker compose down
+docker volume rm nexternel_postgres_data
+docker compose up -d
+docker compose ps
+docker compose logs api --tail 20
+```
+
+Postgres only reads `POSTGRES_PASSWORD` the **first** time the volume is created. Changing `.env` later does not update an existing database password.
+
 ### 7 — Admin user
 
 No separate seed command. The API creates the first admin from `ADMIN_USERNAME` / `ADMIN_PASSWORD` on startup.
@@ -193,6 +210,8 @@ If login fails: confirm those values in `.env`, then `docker compose restart api
 `http://YOUR_SERVER_IP:8080` — log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
 
 Side menu includes Dashboards, Live, System, Areas, Devices, **Cameras**, Users, Troubleshoot.
+
+**Export / adopt:** System → **Export & adopt** (admins). On the old server, **Export configuration** (`.nexcfg`). On the new server, **Adopt configuration** with the new MQTT broker IP. This imports areas, devices, dashboards, and cameras without changing passwords. Then OTA each ESP32 from ESPHome on the new server so devices publish to the new IP.
 
 ### 10 — ESP32 (optional)
 

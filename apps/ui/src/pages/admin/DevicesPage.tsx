@@ -33,6 +33,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import SyncRoundedIcon from "@mui/icons-material/SyncRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
+import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import {
   api,
   type DeviceRecord,
@@ -247,6 +248,32 @@ export function DevicesPage() {
     }
   }
 
+  async function downloadFlashYaml(device: DeviceRecord) {
+    const stem = (device.esphomeName || device.slug || "").trim();
+    if (!stem) {
+      setError("Device has no ESPHome name / slug — cannot build flash YAML");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { blob, filename } = await api.downloadFlashReadyYaml(stem);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setInfo(
+        `Downloaded ${filename} — open it and you should see the broker IP under mqtt:. Flash via USB / web.esphome.io.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Flash YAML download failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function renameEntity(
     kind: "sensor" | "relay",
     deviceId: string,
@@ -429,6 +456,14 @@ export function DevicesPage() {
                       onClick={() => void syncEsphome(d)}
                     >
                       Sync from YAML
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<DownloadRoundedIcon />}
+                      disabled={busy}
+                      onClick={() => void downloadFlashYaml(d)}
+                    >
+                      Flash YAML
                     </Button>
                     <Button
                       size="small"

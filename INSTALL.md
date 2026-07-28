@@ -362,6 +362,9 @@ In `nano`, update **all** `change_me_*` values. Example (use your own values):
 | `SERVER_IP` | Your server IP, e.g. `192.168.1.100` |
 | `POSTGRES_PASSWORD` | Random string from openssl |
 | `DATABASE_URL` | Must match: `postgresql://nexternel:YOUR_POSTGRES_PASSWORD@postgres:5432/nexternel` |
+
+**Critical:** The password inside `DATABASE_URL` must be **identical** to `POSTGRES_PASSWORD`. If they differ, the API will crash-loop with `password authentication failed for user "nexternel"`.
+
 | `INFLUXDB_PASSWORD` | Random string |
 | `INFLUXDB_TOKEN` | Random string (32+ characters) — **save this, needed for Node-RED** |
 | `MQTT_PASSWORD` | Random string — **same password goes in ESP32 config later** |
@@ -496,6 +499,20 @@ nexternel-api         Up
 nexternel-ui          Up
 nexternel-go2rtc      Up
 ```
+
+If **api** shows **Restarting** and `docker compose logs api --tail 20` says `password authentication failed for user "nexternel"`:
+
+1. Fix `.env` so the password in `DATABASE_URL` matches `POSTGRES_PASSWORD` exactly.
+2. On a fresh install (OK to wipe DB), recreate the Postgres volume:
+
+```bash
+cd ~/nexternel   # or ~/damn-home — your project folder
+docker compose down
+docker volume rm nexternel_postgres_data
+docker compose up -d
+```
+
+Postgres only applies `POSTGRES_PASSWORD` the **first** time its volume is created.
 
 ## Step E5 — Create dashboard admin user
 

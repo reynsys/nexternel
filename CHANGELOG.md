@@ -14,6 +14,58 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.091 — 28/07/2026
+
+- **Dashboard after Adopt:** repair stale widget `capabilityId`s (Live worked, Dashboard switches did not); System → **Repair dashboard bindings**; also runs on API startup / after Adopt
+- **Devices online:** mark device online + `last_seen_at` when MQTT traffic arrives for its topic prefix (Devices page was stuck Offline)
+
+## V3.1.090 — 28/07/2026
+
+- **Flash YAML:** do not overwrite `wifi.ap` ssid/password when inlining home Wi‑Fi — fallback AP stays distinct from station credentials
+
+## V3.1.089 — 28/07/2026
+
+- **Flash-ready YAML:** Admin → Devices → **Flash YAML** (or System pack) builds a self-contained file with broker IP, Wi‑Fi, and MQTT credentials **inlined** from this server — no `!secret`, IP is visible; for USB / web.esphome.io
+
+## V3.1.088 — 28/07/2026
+
+- **Adopt:** primary firmware path is USB / web.esphome.io from the **new** server’s YAML (old server not required). Cutover-via-old-ESPHome is optional only if that server still exists
+
+## V3.1.087 — 28/07/2026
+
+- **Adopt (working cutover):** remap MQTT topic root (`damnhome/…` → `nexternel/…`) in DB + YAML; optional new Wi‑Fi in secrets; **Download ESPHome cutover pack** to OTA from the *old* ESPHome while devices are still online (new-server ESPHome cannot reach other networks)
+- System UI explains config adopt vs firmware cutover for many devices
+
+## V3.1.086 — 28/07/2026
+
+- **Adopt:** auto-align each device YAML `mqtt:` block — new broker + new server MQTT user/pass + `topic_prefix` from the adopted device (so different .env credentials still work after OTA without hand-editing)
+
+## V3.1.085 — 28/07/2026
+
+- **Adopt:** write only ESPHome `.yaml` / secrets (skip `.device-builder-preferences.json` and cache); requires API `esphome` mount **read-write** in `docker-compose.yml`
+
+## V3.1.084 — 28/07/2026
+
+- **DB:** API ensures `devices.is_enabled` on startup (fresh installs from `init.sql` missed migration 003) — fixes Adopt error on Garden Relays / other devices
+
+## V3.1.083 — 28/07/2026
+
+- **Adopt:** if an area name already exists on the new server (e.g. "Living Room") with a different id, merge into that area and remap devices/cameras — no more `rooms_name_key` failure
+
+## V3.1.082 — 28/07/2026
+
+- **Export & Adopt (System):** replace full-stack `.nexbak` restore with `.nexcfg` configuration export/adopt — areas, devices, dashboards, cameras + ESPHome YAML rewrite for the new MQTT broker IP; does not overwrite .env / Mosquitto / Postgres passwords
+- Devices stay offline until ESP32 OTA/reflash to the new broker (checklist shown after Adopt)
+
+## V3.1.081 — 28/07/2026
+
+- **Backup / Restore (System):** admin UI downloads a `.nexbak` archive (`pg_dump` SQL + ESPHome + Node-RED + Mosquitto + go2rtc + env snapshot) and can restore with new server IP remap; not a JSON API export
+- API image includes `postgresql-client`; compose mounts config paths into the API for backup/restore
+
+## V3.1.080 — 28/07/2026
+
+- **Install docs:** fix for API crash-loop `password authentication failed for user "nexternel"` — `DATABASE_URL` must match `POSTGRES_PASSWORD`; how to reset `nexternel_postgres_data` on a fresh install
+
 ## V3.1.079 — 28/07/2026
 
 - **Install docs:** clearer “log out after adding docker group” note; `generate-mqtt-passwd.sh` explains Docker socket permission denied and how to fix with `newgrp docker` / new PuTTY session
