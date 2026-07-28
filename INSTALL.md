@@ -139,6 +139,16 @@ exit
 
 Then open PuTTY again and log back in.
 
+If you continue in the **same** session without logging out, Docker commands fail with:
+
+`permission denied while trying to connect to the Docker API at unix:///var/run/docker.sock`
+
+Quick fix in the current session (then re-run your command):
+
+```bash
+newgrp docker
+```
+
 ## Step B3 — Verify Docker works
 
 ```bash

@@ -35,6 +35,21 @@ fi
 
 echo "Generating mosquitto/config/passwd for user: $MQTT_USERNAME"
 
+if ! docker info >/dev/null 2>&1; then
+  echo ""
+  echo "Error: cannot talk to Docker (permission denied on /var/run/docker.sock)."
+  echo "Your user was added to the 'docker' group, but this SSH session is still old."
+  echo ""
+  echo "Fix — pick one:"
+  echo "  1) Log out of PuTTY completely, open a new session, then run this script again."
+  echo "  2) Or in this session run:  newgrp docker"
+  echo "     then:  ./scripts/generate-mqtt-passwd.sh"
+  echo ""
+  echo "Check group membership:  groups"
+  echo "You should see 'docker' in the list."
+  exit 1
+fi
+
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/mosquitto/config:/mosquitto/config" \

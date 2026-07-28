@@ -92,6 +92,10 @@ docker --version
 docker compose version
 ```
 
+**Important:** After `usermod -aG docker $USER`, you **must** open a **new** PuTTY session (or run `newgrp docker`). If you skip that, later steps fail with:
+
+`permission denied while trying to connect to the Docker API at unix:///var/run/docker.sock`
+
 ### 2 — Get the project on the server
 
 **Option A — git clone** (server has internet):

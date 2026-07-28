@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.079 — 28/07/2026
+
+- **Install docs:** clearer “log out after adding docker group” note; `generate-mqtt-passwd.sh` explains Docker socket permission denied and how to fix with `newgrp docker` / new PuTTY session
+
 ## V3.1.078 — 28/07/2026
 
 - **Docs / GitHub install:** README rewritten for V3 (UI `:8080`, API `:4000`, go2rtc/cameras); `INSTALL.md` now published on export; fixed Postgres/`nexternel` examples and go2rtc firewall notes; stale V2 `:3000` / `web` install steps removed from GitHub README template
