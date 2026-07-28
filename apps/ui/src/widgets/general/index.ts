@@ -4,4 +4,5 @@ export { CalendarWidget } from "./CalendarWidget";
 export { WeatherWidget } from "./WeatherWidget";
 export { SystemInfoWidget } from "./SystemInfoWidget";
 export { DeviceStatusWidget } from "./DeviceStatusWidget";
+export { CameraWidget } from "./CameraWidget";
 export { GeneralWidgetBody } from "./GeneralWidgetBody";

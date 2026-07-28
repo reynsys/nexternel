@@ -113,6 +113,8 @@ services:
       INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
       INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
       SERVER_IP: ${SERVER_IP}
+      GO2RTC_URL: ${GO2RTC_URL:-http://go2rtc:1984}
+      GO2RTC_PUBLIC_URL: ${GO2RTC_PUBLIC_URL:-}
     volumes:
       - ./esphome:/esphome:ro
       # Host CPU thermal zones for System Information widget (read-only)
@@ -126,6 +128,8 @@ services:
         condition: service_started
       influxdb:
         condition: service_healthy
+      go2rtc:
+        condition: service_started
 
   ui:
     build:
@@ -139,6 +143,18 @@ services:
       - "${UI_PORT:-8080}:80"
     depends_on:
       - api
+
+  # RTSP → browser-friendly live streams (HLS / MSE / WebRTC)
+  go2rtc:
+    image: alexxit/go2rtc:1.9.9
+    container_name: nexternel-go2rtc
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./go2rtc:/config
+    ports:
+      - "${GO2RTC_PORT:-1984}:1984"
 
 volumes:
   postgres_data:

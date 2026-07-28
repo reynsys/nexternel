@@ -183,6 +183,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
 
@@ -558,6 +562,58 @@ export const api = {
   deleteDevice: (id: string) =>
     apiFetch<{ ok: boolean }>(`/api/v1/devices/${id}`, { method: "DELETE" }),
 
+  cameras: () => apiFetch<{ cameras: CameraRecord[] }>("/api/v1/cameras"),
+
+  getCamera: (id: string) =>
+    apiFetch<{ camera: CameraRecord }>(`/api/v1/cameras/${id}`),
+
+  cameraPresets: () =>
+    apiFetch<{ presets: CameraBrandPreset[] }>("/api/v1/cameras/presets"),
+
+  createCamera: (body: {
+    name: string;
+    streamId: string;
+    rtspUrl: string;
+    areaId?: string | null;
+    enabled?: boolean;
+    sortOrder?: number;
+  }) =>
+    apiFetch<{ camera: CameraRecord }>("/api/v1/cameras", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateCamera: (
+    id: string,
+    body: {
+      name?: string;
+      streamId?: string;
+      rtspUrl?: string;
+      areaId?: string | null;
+      enabled?: boolean;
+      sortOrder?: number;
+    }
+  ) =>
+    apiFetch<{ camera: CameraRecord }>(`/api/v1/cameras/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteCamera: (id: string) =>
+    apiFetch<void>(`/api/v1/cameras/${id}`, { method: "DELETE" }),
+
+  cameraPlay: (id: string) =>
+    apiFetch<{
+      play: {
+        id: string;
+        name: string;
+        streamId: string;
+        hlsUrl: string;
+        mseUrl: string;
+        enabled: boolean;
+      };
+    }>(`/api/v1/cameras/${id}/play`),
+
   esphomeCatalog: () =>
     apiFetch<{
       configs: EsphomeCatalogEntry[];
@@ -803,6 +859,26 @@ export type EsphomeCatalogEntry = {
   sensorCount: number;
   relayCount: number;
   suggestion: EsphomeImportSuggestion | null;
+};
+
+export type CameraRecord = {
+  id: string;
+  name: string;
+  streamId: string;
+  areaId: string | null;
+  areaName: string | null;
+  enabled: boolean;
+  sortOrder: number;
+  hasRtspUrl: boolean;
+  /** Included for users who can edit devices (Cameras admin). */
+  rtspUrl?: string;
+};
+
+export type CameraBrandPreset = {
+  id: string;
+  label: string;
+  pathTemplate: string;
+  hint: string;
 };
 
 export type DeviceRecord = {

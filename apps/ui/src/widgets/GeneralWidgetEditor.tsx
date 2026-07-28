@@ -2,16 +2,21 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Drawer,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
-import type { WidgetInstance } from "../api";
+import { api, type CameraRecord, type WidgetInstance } from "../api";
 import {
   generalWidgetHeading,
   isGeneralWidgetType,
+  parseCameraConfig,
   parseDeviceStatusConfig,
   parseWeatherConfig,
   widgetTitleOr,
@@ -30,6 +35,7 @@ const TYPE_LABELS: Record<GeneralWidgetType, string> = {
   weather: "Weather",
   system_info: "System",
   device_status: "Devices",
+  camera: "Camera",
 };
 
 export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
@@ -38,6 +44,8 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
   const [weatherLat, setWeatherLat] = useState("51.5074");
   const [weatherLon, setWeatherLon] = useState("-0.1278");
   const [offlineOnly, setOfflineOnly] = useState(false);
+  const [cameraId, setCameraId] = useState("");
+  const [cameras, setCameras] = useState<CameraRecord[]>([]);
 
   useEffect(() => {
     if (!open || !widget || !isGeneralWidgetType(widget.type)) return;
@@ -49,14 +57,22 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
       setWeatherLocation(loc);
       setWeatherLat(String(w.weatherLat));
       setWeatherLon(String(w.weatherLon));
-      // Title field shows custom override; location is the default heading
       setTitle(widgetTitleOr(widget, "Weather") ?? "");
     } else {
       const custom = widgetTitleOr(widget, label);
       setTitle(custom ?? "");
     }
     setOfflineOnly(parseDeviceStatusConfig(widget.config).offlineOnly);
+    setCameraId(parseCameraConfig(widget.config).cameraId);
   }, [open, widget?.id]);
+
+  useEffect(() => {
+    if (!open || widget?.type !== "camera") return;
+    void api
+      .cameras()
+      .then((r) => setCameras(r.cameras.filter((c) => c.enabled)))
+      .catch(() => setCameras([]));
+  }, [open, widget?.type]);
 
   if (!widget || !isGeneralWidgetType(widget.type)) return null;
 
@@ -75,6 +91,9 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
     if (type === "device_status") {
       config.offlineOnly = offlineOnly;
     }
+    if (type === "camera") {
+      config.cameraId = cameraId;
+    }
     const trimmed = title.trim();
     const isPlaceholder =
       !trimmed ||
@@ -83,7 +102,9 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
       trimmed === "System information" ||
       trimmed === "Device status" ||
       trimmed === "Calendar" ||
-      trimmed === "Weather";
+      trimmed === "Weather" ||
+      trimmed === "Camera" ||
+      trimmed === "Camera live stream";
     onSave({
       title: isPlaceholder ? undefined : trimmed,
       config,
@@ -105,7 +126,9 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
             ? "Location label is the heading. Optional Title overrides it."
             : type === "device_status"
               ? "Optional title (default: Devices) and offline-only list."
-              : `Optional title (default: ${label}). Data refreshes automatically.`}
+              : type === "camera"
+                ? "Choose a camera registered under Cameras. Stream plays via go2rtc."
+                : `Optional title (default: ${label}). Data refreshes automatically.`}
         </Typography>
 
         <TextField
@@ -165,6 +188,28 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
             }
             label="Show offline devices only"
           />
+        )}
+
+        {type === "camera" && (
+          <FormControl fullWidth size="small">
+            <InputLabel id="camera-pick">Camera</InputLabel>
+            <Select
+              labelId="camera-pick"
+              label="Camera"
+              value={cameraId}
+              onChange={(e) => setCameraId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>Select…</em>
+              </MenuItem>
+              {cameras.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                  {c.areaName ? ` · ${c.areaName}` : ""}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         )}
 
         <Stack direction="row" spacing={1} sx={{ mt: "auto", pt: 2 }}>

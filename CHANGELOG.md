@@ -14,6 +14,24 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.078 — 28/07/2026
+
+- **Docs / GitHub install:** README rewritten for V3 (UI `:8080`, API `:4000`, go2rtc/cameras); `INSTALL.md` now published on export; fixed Postgres/`nexternel` examples and go2rtc firewall notes; stale V2 `:3000` / `web` install steps removed from GitHub README template
+
+## V3.1.077 — 27/07/2026
+
+- **Cameras edit:** RTSP URL is shown again when editing (for users with edit-devices permission) so you can review and change it; viewers still do not receive the URL
+
+## V3.1.076 — 27/07/2026
+
+- **Fix go2rtc camera add:** empty `streams: {}` in `go2rtc.yaml` caused `yaml: did not find expected key` on first camera; config fixed and API falls back to PATCH config / accepts live stream if YAML patch fails
+
+## V3.1.075 — 27/07/2026
+
+- **Cameras / live CCTV:** new Cameras admin page (RTSP URL, brand presets for Reolink / Hikvision / Dahua / Axis); streams registered with **go2rtc**; RTSP secrets never sent to the browser
+- **Dashboard widget:** Media → Camera live stream (HLS via go2rtc; hls.js in Chrome)
+- **Stack:** `go2rtc` service in docker-compose (port 1984); `GO2RTC_URL` / `GO2RTC_PUBLIC_URL` env; `cameras` table
+
 ## V3.1.074 — 26/07/2026
 
 - **Content panels:** Users, Areas, Roles, Live, and Troubleshoot wrap main content in Cards so they follow Appearance → Solid light / dark panels (same as System)

@@ -5,6 +5,7 @@ export const GENERAL_WIDGET_TYPES = [
   "weather",
   "system_info",
   "device_status",
+  "camera",
 ] as const;
 
 export type GeneralWidgetType = (typeof GENERAL_WIDGET_TYPES)[number];
@@ -21,6 +22,10 @@ export type WeatherConfig = {
 
 export type DeviceStatusConfig = {
   offlineOnly?: boolean;
+};
+
+export type CameraConfig = {
+  cameraId?: string;
 };
 
 export function parseWeatherConfig(config: Record<string, unknown> | undefined): {
@@ -49,6 +54,16 @@ export function parseDeviceStatusConfig(
   return { offlineOnly: config?.offlineOnly === true };
 }
 
+export function parseCameraConfig(
+  config: Record<string, unknown> | undefined
+): { cameraId: string } {
+  const cameraId =
+    typeof config?.cameraId === "string" && config.cameraId.trim()
+      ? config.cameraId.trim()
+      : "";
+  return { cameraId };
+}
+
 export function generalDefaultSize(type: GeneralWidgetType): { w: number; h: number } {
   switch (type) {
     case "calendar":
@@ -59,6 +74,8 @@ export function generalDefaultSize(type: GeneralWidgetType): { w: number; h: num
       return { w: 4, h: 3 };
     case "device_status":
       return { w: 4, h: 4 };
+    case "camera":
+      return { w: 6, h: 4 };
     default:
       return { w: 4, h: 3 };
   }
@@ -74,6 +91,8 @@ export function generalDefaultConfig(type: GeneralWidgetType): Record<string, un
       };
     case "device_status":
       return { offlineOnly: false };
+    case "camera":
+      return { cameraId: "" };
     default:
       return {};
   }
@@ -86,21 +105,21 @@ export function widgetTitleOr(
   const t = widget.title?.trim();
   if (!t) return undefined;
   if (t === fallback || t === widget.type) return undefined;
-  // Catalog labels from older saves
   if (
     t === "Calendar" ||
     t === "Weather" ||
     t === "System information" ||
     t === "System" ||
     t === "Device status" ||
-    t === "Devices"
+    t === "Devices" ||
+    t === "Camera" ||
+    t === "Camera live stream"
   ) {
     return undefined;
   }
   return t;
 }
 
-/** Heading shown inside general widgets (custom title or sensible default). */
 export function generalWidgetHeading(
   widget: WidgetInstance,
   fallback: string

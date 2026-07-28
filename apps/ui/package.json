@@ -1,6 +1,6 @@
 {
   "name": "@nexternel/ui",
-  "version": "3.1.74",
+  "version": "3.1.78",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,6 +17,7 @@
     "@nexternel/plugin-sdk": "file:../../packages/plugin-sdk",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
+    "hls.js": "^1.5.20",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-grid-layout": "^1.5.0",

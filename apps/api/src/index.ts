@@ -6,6 +6,8 @@ import { config } from "./config.js";
 import { attachUser } from "./auth/plugin.js";
 import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
 import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
+import { ensureCameraSchema } from "./cameras/ensure-schema.js";
+import { syncAllCamerasToGo2rtc } from "./cameras/service.js";
 import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
 import { ensureUsersThemeSchema } from "./auth/ensure-users-theme.js";
 import { ensureUsersAvatarSchema } from "./auth/ensure-users-avatar.js";
@@ -18,6 +20,7 @@ import { diagnosticsRoutes } from "./routes/diagnostics.js";
 import { authRoutes } from "./routes/auth.js";
 import { roomsRoutes } from "./routes/rooms.js";
 import { devicesRoutes } from "./routes/devices.js";
+import { camerasRoutes } from "./routes/cameras.js";
 import { capabilitiesRoutes } from "./routes/capabilities.js";
 import { dashboardsRoutes } from "./dashboards/routes.js";
 import { historyRoutes } from "./routes/history.js";
@@ -60,6 +63,7 @@ await app.register(async (api) => {
   await api.register(authRoutes);
   await api.register(roomsRoutes);
   await api.register(devicesRoutes);
+  await api.register(camerasRoutes);
   await api.register(capabilitiesRoutes);
   await api.register(dashboardsRoutes);
   await api.register(historyRoutes);
@@ -81,10 +85,17 @@ try {
   await ensureRolesSchema();
   await ensureCapabilitySchema();
   await ensureDashboardSchema();
+  await ensureCameraSchema();
   const adminSeed = await ensureAdminFromEnv();
   app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
   const synced = await syncCapabilitiesFromLegacy();
   app.log.info(synced, "capabilities synced from sensors/relays");
+  try {
+    const camSync = await syncAllCamerasToGo2rtc();
+    app.log.info(camSync, "cameras synced to go2rtc");
+  } catch (err) {
+    app.log.warn({ err }, "go2rtc camera sync skipped (is go2rtc up?)");
+  }
   await startTelemetry();
   app.log.info(getMqttLogSafe(), "telemetry started");
 

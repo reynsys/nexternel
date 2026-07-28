@@ -12,6 +12,7 @@ import { UsersPage } from "./pages/admin/UsersPage";
 import { RolesPage } from "./pages/admin/RolesPage";
 import { AreasPage } from "./pages/admin/AreasPage";
 import { DevicesPage } from "./pages/admin/DevicesPage";
+import { CamerasPage } from "./pages/admin/CamerasPage";
 import { HomeRedirect } from "./pages/HomeRedirect";
 import { api, getStoredAccessToken, type User } from "./api";
 import {
@@ -179,6 +180,16 @@ export function App() {
             <RequireAuth>
               <RequirePermission permission="viewDevices">
                 <DevicesPage />
+              </RequirePermission>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/cameras"
+          element={
+            <RequireAuth>
+              <RequirePermission permission="viewDevices">
+                <CamerasPage />
               </RequirePermission>
             </RequireAuth>
           }

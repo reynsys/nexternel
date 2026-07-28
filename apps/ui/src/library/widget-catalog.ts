@@ -119,6 +119,14 @@ const CORE_CATALOG: CatalogEntry[] = [
     needsCapability: false,
     defaultConfig: { offlineOnly: false },
   },
+  {
+    type: "camera",
+    label: "Camera live stream",
+    description: "CCTV live view via go2rtc (HLS)",
+    category: "media",
+    needsCapability: false,
+    defaultConfig: { cameraId: "" },
+  },
 ];
 
 function echartsCatalogEntries(): CatalogEntry[] {

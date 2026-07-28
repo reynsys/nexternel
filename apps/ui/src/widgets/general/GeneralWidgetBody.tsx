@@ -3,6 +3,7 @@ import { CalendarWidget } from "./CalendarWidget";
 import { WeatherWidget } from "./WeatherWidget";
 import { SystemInfoWidget } from "./SystemInfoWidget";
 import { DeviceStatusWidget } from "./DeviceStatusWidget";
+import { CameraWidget } from "./CameraWidget";
 import { isGeneralWidgetType } from "./config";
 
 export function GeneralWidgetBody({ widget }: { widget: WidgetInstance }) {
@@ -16,6 +17,8 @@ export function GeneralWidgetBody({ widget }: { widget: WidgetInstance }) {
       return <SystemInfoWidget widget={widget} />;
     case "device_status":
       return <DeviceStatusWidget widget={widget} />;
+    case "camera":
+      return <CameraWidget widget={widget} />;
     default:
       return null;
   }

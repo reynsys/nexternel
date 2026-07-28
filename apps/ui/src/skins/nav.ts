@@ -4,6 +4,7 @@ import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
+import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import BugReportRoundedIcon from "@mui/icons-material/BugReportRounded";
 import type { PermissionKey, RolePermissions } from "../lib/permissions";
@@ -52,6 +53,13 @@ export const MAIN_NAV: NavItem[] = [
     label: "Devices",
     to: "/admin/devices",
     icon: DevicesRoundedIcon,
+    auth: true,
+    permission: "viewDevices",
+  },
+  {
+    label: "Cameras",
+    to: "/admin/cameras",
+    icon: VideocamRoundedIcon,
     auth: true,
     permission: "viewDevices",
   },
