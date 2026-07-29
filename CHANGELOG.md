@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.112 — 29/07/2026
+
+- **Weather:** removed lat/lon from the widget display; UK/Ireland forecasts use Met Office `ukmo_seamless` (~2 km) instead of the coarse global grid that showed centres like 52.25, −0.75 when you entered 52.29, −0.85
+
 ## V3.1.111 — 29/07/2026
 
 - **Weather widget:** fixed silent fallback to London when lat/lon were stored as strings; widget shows the coordinates actually used; Edit → **Look up place** fills lat/lon from a place name; clearer editor help (label ≠ location); weekday labels no longer shift in some timezones

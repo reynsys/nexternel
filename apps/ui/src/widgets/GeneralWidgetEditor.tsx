@@ -215,7 +215,7 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               value={weatherLat}
               onChange={(e) => setWeatherLat(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
-              helperText="North/south (−90 to 90). Invalid values fall back to London."
+              helperText="North/south (−90 to 90). Your exact coords are sent; the forecast model picks the nearest grid cell."
             />
             <TextField
               label="Longitude"
@@ -224,12 +224,11 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               value={weatherLon}
               onChange={(e) => setWeatherLon(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
-              helperText="East/west (−180 to 180). UK values are typically negative (e.g. −0.1)."
+              helperText="East/west (−180 to 180). UK values are typically negative (e.g. −0.85)."
             />
             <Typography variant="caption" color="text.secondary">
-              After Apply, save the dashboard so coordinates persist. Phone apps often use a
-              different weather model — small differences are normal; large ones usually mean
-              wrong coordinates.
+              After Apply, save the dashboard so coordinates persist. UK locations use the Met
+              Office model (~2 km). Phone apps may still differ slightly.
             </Typography>
           </>
         )}

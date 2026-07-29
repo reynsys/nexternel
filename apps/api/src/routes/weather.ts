@@ -132,6 +132,13 @@ export const weatherRoutes: FastifyPluginAsync = async (app) => {
     url.searchParams.set("temperature_unit", "celsius");
     // Local calendar days for the coordinates (not the browser/server TZ)
     url.searchParams.set("timezone", "auto");
+    // UK/Ireland: Met Office seamless (~2 km UKV) — default global model snaps to ~0.25°
+    // and returns coarse grid centres (e.g. 52.25, −0.75 for 52.29, −0.85).
+    if (lat >= 49.5 && lat <= 61 && lon >= -11 && lon <= 2.5) {
+      url.searchParams.set("models", "ukmo_seamless");
+    } else {
+      url.searchParams.set("models", "best_match");
+    }
 
     try {
       const res = await fetch(url.toString(), {
