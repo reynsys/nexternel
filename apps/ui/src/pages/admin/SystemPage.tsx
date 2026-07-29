@@ -145,9 +145,9 @@ export function SystemPage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      setExportMsg(`Downloaded ${filename}`);
+      setExportMsg(`Backup saved as ${filename}`);
     } catch (err) {
-      setExportErr(err instanceof Error ? err.message : "Export failed");
+      setExportErr(err instanceof Error ? err.message : "Backup failed");
     } finally {
       setExportBusy(false);
     }
@@ -155,22 +155,24 @@ export function SystemPage() {
 
   async function onAdopt() {
     if (!adoptFile) {
-      setAdoptErr("Choose a .nexcfg file first.");
+      setAdoptErr("Choose a backup file (.nexcfg) first.");
       return;
     }
     if (!newBrokerIp.trim()) {
-      setAdoptErr("Enter the new MQTT broker IP (this server’s LAN IP).");
+      setAdoptErr("Enter this server’s LAN IP (MQTT broker address).");
       return;
     }
     if (!newTopicRoot.trim()) {
-      setAdoptErr("Enter the new MQTT topic root (e.g. nexternel).");
+      setAdoptErr("Enter the MQTT topic root (e.g. nexternel).");
       return;
     }
     const ok = window.confirm(
-      "Adopt will import areas, devices, dashboards, and cameras.\n\n" +
-        "MQTT topics will be remapped to your new topic root.\n" +
-        "ESPHome YAML will be rewritten for this broker/user/pass.\n\n" +
-        "Devices on another network will NOT appear in ESPHome here until you OTA them from the OLD server (cutover pack) or USB.\n\nContinue?"
+      "Restore will load areas, devices, dashboards, and cameras from the backup.\n\n" +
+        "MQTT topics will be updated to the topic root you entered.\n" +
+        "ESPHome YAML will be updated for this server’s broker and MQTT login.\n\n" +
+        "Server passwords (.env, Postgres, Mosquitto) are not changed.\n" +
+        "ESP32 boards still need a USB flash afterward if they are not already on this network.\n\n" +
+        "Continue?"
     );
     if (!ok) return;
 
@@ -189,12 +191,12 @@ export function SystemPage() {
       setAdoptResult(result);
       const c = result.counts;
       setAdoptMsg(
-        `Adopted ${c.rooms} areas, ${c.devices} devices, ${c.dashboards} dashboards, ${c.cameras} cameras` +
+        `Restored ${c.rooms} areas, ${c.devices} devices, ${c.dashboards} dashboards, ${c.cameras} cameras` +
           (c.esphomeFiles ? `, ${c.esphomeFiles} ESPHome files` : "") +
           `. Topic root: ${result.adoptChecklist.topicRoot ?? newTopicRoot}.`
       );
     } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Adopt failed");
+      setAdoptErr(err instanceof Error ? err.message : "Restore failed");
     } finally {
       setAdoptBusy(false);
     }
@@ -211,9 +213,11 @@ export function SystemPage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      setAdoptMsg(`Downloaded ${filename} — open flash-ready/*.yaml; broker IP is written in the file. Flash via USB or web.esphome.io.`);
+      setAdoptMsg(
+        `Downloaded ${filename}. Open the flash-ready YAML files — broker IP and Wi‑Fi are filled in. Install via USB in ESPHome or web.esphome.io.`
+      );
     } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Cutover pack failed");
+      setAdoptErr(err instanceof Error ? err.message : "YAML pack download failed");
     } finally {
       setPackBusy(false);
     }
@@ -225,10 +229,10 @@ export function SystemPage() {
     try {
       const res = await api.repairDashboardBindings();
       setAdoptMsg(
-        `Repaired dashboard bindings: ${res.bindingsRemapped} widget(s) remapped across ${res.dashboardsUpdated} dashboard(s). Reload the Dashboard tab.`
+        `Dashboard widgets updated (${res.bindingsRemapped} fixed on ${res.dashboardsUpdated} dashboard(s)). Reload the Dashboard page.`
       );
     } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Repair failed");
+      setAdoptErr(err instanceof Error ? err.message : "Could not fix dashboard widgets");
     } finally {
       setRepairBusy(false);
     }
@@ -238,7 +242,7 @@ export function SystemPage() {
     <Stack spacing={2}>
       <Typography variant="h4">System</Typography>
       <Typography color="text.secondary">
-        Profile, appearance, host status, export/adopt configuration, and automations.
+        Profile, appearance, host status, backup/restore, and automations.
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -362,47 +366,30 @@ export function SystemPage() {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Export &amp; adopt
+              Backup / Restore
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              <strong>1 — Adopt</strong> imports areas/devices/dashboards into this
-              database and writes ready-to-flash ESPHome YAML here (new broker, user/pass,
-              topic root
-              {wifiSsid ? ", Wi‑Fi" : ""}).
-              <br />
-              <strong>2 — Flash</strong> each ESP32 with a USB cable from{" "}
-              <em>this</em> server&apos;s ESPHome (or web.esphome.io). You do{" "}
-              <strong>not</strong> need the old server. Wireless OTA from here only works
-              after a device is already on this network.
+              Save areas, devices, dashboards, cameras, and ESPHome YAML to a backup
+              file, or restore that file onto this server. This does not replace server
+              passwords or Node-RED/Influx. After restore, ESP32 boards may still need a
+              USB flash so they use this broker and Wi‑Fi.
             </Typography>
 
             <Stack spacing={2}>
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Fix dashboard switches after Adopt
+                  1. Backup
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  If Live controls work but Dashboard switches do nothing, widget bindings
-                  still point at old IDs. Run this once, then reload the Dashboard.
-                </Typography>
-                <Button
-                  variant="outlined"
-                  disabled={repairBusy}
-                  onClick={() => void onRepairDashboardBindings()}
-                >
-                  {repairBusy ? "Repairing…" : "Repair dashboard bindings"}
-                </Button>
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  1. Export (on the old server)
+                  Download a <code>.nexcfg</code> file you can keep or move to another
+                  Nexternel server.
                 </Typography>
                 <Button
                   variant="contained"
                   onClick={() => void onExportConfig()}
                   disabled={exportBusy}
                 >
-                  {exportBusy ? "Exporting…" : "Export configuration"}
+                  {exportBusy ? "Creating backup…" : "Create backup"}
                 </Button>
                 {exportMsg && (
                   <Alert severity="success" sx={{ mt: 1 }}>
@@ -417,11 +404,12 @@ export function SystemPage() {
               </Box>
 
               <Typography variant="subtitle2" sx={{ pt: 1 }}>
-                2. Adopt (on the new server)
+                2. Restore
               </Typography>
               <Alert severity="info">
-                Does not overwrite .env, Mosquitto, Postgres, Influx, or Node-RED.
-                Users/roles on this server stay as they are.
+                Restore updates areas, devices, dashboards, cameras, and ESPHome YAML.
+                It does not change .env, Mosquitto, Postgres, Influx, Node-RED, or user
+                accounts on this server.
               </Alert>
               <input
                 ref={adoptFileRef}
@@ -435,35 +423,35 @@ export function SystemPage() {
               />
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
                 <Button variant="outlined" onClick={() => adoptFileRef.current?.click()}>
-                  Choose .nexcfg file
+                  Choose backup file
                 </Button>
                 <Typography variant="body2" color="text.secondary" sx={{ pt: 1 }}>
                   {adoptFile ? adoptFile.name : "No file selected"}
                 </Typography>
               </Stack>
               <TextField
-                label="New MQTT broker IP"
+                label="MQTT broker IP"
                 value={newBrokerIp}
                 onChange={(e) => setNewBrokerIp(e.target.value)}
                 fullWidth
-                helperText="This server’s LAN IP (e.g. 192.168.3.101)"
+                helperText="This server’s LAN IP (devices will use this as the MQTT broker)"
               />
               <TextField
-                label="New MQTT topic root"
+                label="MQTT topic root"
                 value={newTopicRoot}
                 onChange={(e) => setNewTopicRoot(e.target.value)}
                 fullWidth
-                helperText='Replaces the first segment of all topics, e.g. damnhome/garden-relays → nexternel/garden-relays'
+                helperText="First part of every device topic, e.g. nexternel"
               />
               <TextField
-                label="New Wi‑Fi SSID (optional, for cutover pack)"
+                label="Wi‑Fi SSID (optional)"
                 value={wifiSsid}
                 onChange={(e) => setWifiSsid(e.target.value)}
                 fullWidth
-                helperText="If devices must join a different Wi‑Fi, set this before Adopt so the cutover YAML includes it"
+                helperText="Only if devices must join a different Wi‑Fi after flashing"
               />
               <TextField
-                label="New Wi‑Fi password (optional)"
+                label="Wi‑Fi password (optional)"
                 type="password"
                 value={wifiPassword}
                 onChange={(e) => setWifiPassword(e.target.value)}
@@ -476,14 +464,14 @@ export function SystemPage() {
                 onClick={() => void onAdopt()}
                 sx={{ alignSelf: "flex-start" }}
               >
-                {adoptBusy ? "Adopting…" : "Adopt configuration"}
+                {adoptBusy ? "Restoring…" : "Restore backup"}
               </Button>
               {adoptMsg && <Alert severity="success">{adoptMsg}</Alert>}
               {adoptErr && <Alert severity="error">{adoptErr}</Alert>}
               {adoptResult && (
                 <Alert severity="warning">
                   <Typography variant="subtitle2" gutterBottom>
-                    Flash devices with the new config (USB — no old server)
+                    Next: flash ESP32 devices (USB)
                   </Typography>
                   <Box component="ul" sx={{ m: 0, pl: 2, mb: 1 }}>
                     {adoptResult.adoptChecklist.steps.map((s) => (
@@ -499,28 +487,27 @@ export function SystemPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Open ESPHome on this server
+                      Open ESPHome
                     </Button>
                     <Button
                       variant="outlined"
                       disabled={packBusy}
                       onClick={() => void onDownloadCutoverPack()}
                     >
-                      {packBusy ? "Preparing…" : "Download flash-ready YAML pack"}
+                      {packBusy ? "Preparing…" : "Download device YAML pack"}
                     </Button>
                   </Stack>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    The pack contains YAML with <strong>broker IP, Wi‑Fi, and MQTT
-                    password filled in</strong> (you will see the IP in the file).
-                    Flash each device: USB → ESPHome Install →{" "}
-                    <strong>Plug into this computer</strong>, or use web.esphome.io.
-                    After flash it uses broker {adoptResult.adoptChecklist.brokerIp} and
-                    topics under {adoptResult.adoptChecklist.topicRoot ?? "…"}/.
+                    The YAML pack has broker IP, Wi‑Fi, and MQTT password filled in.
+                    For each device: USB cable → ESPHome → Install → Plug into this
+                    computer (or use web.esphome.io). Broker:{" "}
+                    {adoptResult.adoptChecklist.brokerIp}; topics under{" "}
+                    {adoptResult.adoptChecklist.topicRoot ?? "…"}/.
                   </Typography>
                   {adoptResult.adoptChecklist.devices.length > 0 && (
                     <>
                       <Typography variant="subtitle2" gutterBottom>
-                        Devices to flash
+                        Devices in this backup
                       </Typography>
                       <Box component="ul" sx={{ m: 0, pl: 2 }}>
                         {adoptResult.adoptChecklist.devices.map((d) => (
@@ -537,6 +524,24 @@ export function SystemPage() {
                   )}
                 </Alert>
               )}
+
+              <Box sx={{ pt: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Fix dashboard widgets
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  After a restore, some dashboard switches or charts may not respond even
+                  though Live works. This reconnects those widgets to the correct devices.
+                  Use once if needed, then reload the Dashboard.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  disabled={repairBusy}
+                  onClick={() => void onRepairDashboardBindings()}
+                >
+                  {repairBusy ? "Fixing…" : "Fix dashboard widgets"}
+                </Button>
+              </Box>
             </Stack>
           </CardContent>
         </Card>

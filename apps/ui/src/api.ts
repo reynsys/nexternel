@@ -533,6 +533,10 @@ export const api = {
     roomId?: string | null;
     mqttTopicPrefix: string;
     esphomeName?: string | null;
+    firmwareType?: "esphome" | "shelly";
+    shellyChannel?: number;
+    shellySwitchCount?: number;
+    shellyModelId?: string;
     ipAddress?: string | null;
     macAddress?: string | null;
     sensors?: EsphomeSensorInput[];
@@ -541,6 +545,36 @@ export const api = {
     apiFetch<{ device: DeviceRecord }>("/api/v1/devices", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+
+  shellyModels: () =>
+    apiFetch<{
+      models: {
+        id: string;
+        label: string;
+        switchCount: number;
+        hint: string;
+      }[];
+    }>("/api/v1/shelly/models"),
+
+  shellyDiscover: (body?: { timeoutMs?: number }) =>
+    apiFetch<{
+      devices: {
+        topicPrefix: string;
+        model: string | null;
+        app: string | null;
+        mac: string | null;
+        gen: number | null;
+        version: string | null;
+        ip: string | null;
+        suggestedSwitchCount: number;
+        suggestedModelId: string;
+        switchCountProbed: boolean;
+        alreadyRegistered: boolean;
+      }[];
+    }>("/api/v1/shelly/discover", {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
     }),
 
   updateDevice: (
@@ -1096,6 +1130,7 @@ export type DeviceRecord = {
   slug: string;
   mqttTopicPrefix: string;
   esphomeName: string | null;
+  firmwareType?: string;
   ipAddress: string | null;
   macAddress: string | null;
   isEnabled: boolean;

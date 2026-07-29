@@ -169,6 +169,25 @@ export function DashboardPage() {
     })();
   }, [id]);
 
+  /** Reload capabilities when opening Add widget (picks up devices added after page load). */
+  useEffect(() => {
+    if (!addOpen) return;
+    void (async () => {
+      try {
+        const caps = await api.capabilities();
+        setCapabilities(caps.capabilities);
+        const switches = caps.capabilities.filter((c) => c.kind === "switch");
+        if (addType === "switch" || addCategory === "controls") {
+          setAddCapId((prev) =>
+            switches.some((c) => c.id === prev) ? prev : switches[0]?.id ?? ""
+          );
+        }
+      } catch {
+        /* keep existing list */
+      }
+    })();
+  }, [addOpen]);
+
   useEffect(() => {
     return connectLiveSocket((ev) => {
       if (ev.type === "hello" && ev.states) {
@@ -464,6 +483,8 @@ export function DashboardPage() {
                 variant="outlined"
                 onClick={() => {
                   if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
+                  setAddCategory("controls");
+                  setAddType("switch");
                   setAddOpen(true);
                 }}
               >
@@ -682,6 +703,8 @@ export function DashboardPage() {
                         size="small"
                         onClick={() => {
                           setAddSectionId(section.id);
+                          setAddCategory("controls");
+                          setAddType("switch");
                           setAddOpen(true);
                         }}
                       >
@@ -874,8 +897,8 @@ export function DashboardPage() {
             )}
             {addType === "switch" && addCapabilityOptions.length === 0 && (
               <Typography variant="caption" color="warning.main">
-                No switch capabilities found — register relays on the Devices page and sync
-                capabilities.
+                No switches found. Add a device under Devices (ESPHome or Shelly), then
+                open Add widget again.
               </Typography>
             )}
             {selectedEntry?.needsCapability !== false &&

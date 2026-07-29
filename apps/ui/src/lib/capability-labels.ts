@@ -1,16 +1,106 @@
 import type { Capability } from "../api";
 
-/** Short label for dropdowns: Area · Device · Entity */
-export function capabilityPickerLabel(cap: Capability): string {
-  const area = cap.roomName?.trim() || "No area";
-  return `${area} · ${cap.deviceName} · ${cap.name}`;
+/** Entity names that are channel placeholders, not useful titles on their own. */
+function isGenericEntityName(name: string): boolean {
+  const n = name.trim();
+  if (!n) return true;
+  return /^(switch|relay)([_\s-]?\d+)?$/i.test(n);
 }
 
-/** Secondary line under a widget: Device · Area */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Drop redundant area suffixes from device names, e.g.
+ * "Lights - Living Room" + area "Living Room" → "Lights".
+ */
+export function tidyDeviceName(
+  deviceName: string,
+  roomName?: string | null
+): string {
+  const device = deviceName.trim();
+  const area = roomName?.trim();
+  if (!device || !area) return device;
+
+  const dashSuffix = new RegExp(
+    `\\s*[-–—]\\s*${escapeRegExp(area)}\\s*$`,
+    "i"
+  );
+  const trimmed = device.replace(dashSuffix, "").trim();
+  if (trimmed && trimmed.toLowerCase() !== area.toLowerCase()) {
+    return trimmed;
+  }
+  return device;
+}
+
+/** True when the device label already contains the area (e.g. "Garden Relays"). */
+function deviceMentionsArea(device: string, area: string): boolean {
+  return device.toLowerCase().includes(area.toLowerCase());
+}
+
+/**
+ * Main name shown on the widget (and as the first half of picker labels).
+ * Prefers a meaningful entity name; falls back to the device name for
+ * generic "Switch" / bare channel labels. Keeps "Relay 1" so multi-channel
+ * boards stay distinguishable.
+ */
+export function capabilityWidgetTitle(
+  cap: Capability | undefined,
+  fallback = "Widget"
+): string {
+  if (!cap) return fallback;
+  const entity = cap.name?.trim() || "";
+  const device = tidyDeviceName(cap.deviceName, cap.roomName);
+  if (!entity) return device || fallback;
+  if (!isGenericEntityName(entity)) return entity;
+  if (/^relay/i.test(entity)) return entity;
+  return device || entity || fallback;
+}
+
+/**
+ * Secondary line under a widget: where this control lives.
+ *
+ * Named relays (Waterfall, Sprinklers, …) → area only: "Garden"
+ *   (not "Garden Relays · Garden" — the board name is noise on the dashboard)
+ * Generic Relay N / Switch → device (± area if not already in the device name)
+ */
 export function capabilityLocationLabel(cap: Capability | undefined): string {
   if (!cap) return "No capability bound";
-  const area = cap.roomName?.trim();
-  return area ? `${cap.deviceName} · ${area}` : cap.deviceName;
+  const area = cap.roomName?.trim() || "";
+  const device = tidyDeviceName(cap.deviceName, cap.roomName);
+  const entity = cap.name?.trim() || "";
+  const title = capabilityWidgetTitle(cap);
+
+  const needsBoardContext =
+    isGenericEntityName(entity) ||
+    title.toLowerCase() === device.toLowerCase();
+
+  if (!needsBoardContext) {
+    // Meaningful name like "Waterfall" — room is enough.
+    if (area) return area;
+    return device && device.toLowerCase() !== title.toLowerCase() ? device : "";
+  }
+
+  // Generic channel / title is the device itself — show board + room carefully.
+  const parts: string[] = [];
+  if (device && device.toLowerCase() !== title.toLowerCase()) {
+    parts.push(device);
+  }
+  if (area && (!device || !deviceMentionsArea(device, area))) {
+    parts.push(area);
+  }
+  if (parts.length > 0) return parts.join(" · ");
+  return area || (device !== title ? device : "") || "";
+}
+
+/** Dropdown label: Title — location (skips empty / duplicate bits). */
+export function capabilityPickerLabel(cap: Capability): string {
+  const title = capabilityWidgetTitle(cap);
+  const loc = capabilityLocationLabel(cap);
+  if (!loc) return title;
+  if (loc.toLowerCase() === title.toLowerCase()) return title;
+  return `${title} — ${loc}`;
 }
 
 /** Default widget title from the bound entity (not the catalog type name). */
@@ -18,6 +108,5 @@ export function defaultWidgetTitle(
   cap: Capability | undefined,
   fallbackTypeLabel: string
 ): string {
-  if (cap?.name?.trim()) return cap.name.trim();
-  return fallbackTypeLabel;
+  return capabilityWidgetTitle(cap, fallbackTypeLabel);
 }

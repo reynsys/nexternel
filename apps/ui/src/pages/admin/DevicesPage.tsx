@@ -59,6 +59,34 @@ const emptyForm = {
   ipAddress: "",
 };
 
+const emptyShellyForm = {
+  name: "",
+  roomId: "",
+  mqttTopicPrefix: "",
+  shellyModelId: "switch_1",
+};
+
+type ShellyModelOption = {
+  id: string;
+  label: string;
+  switchCount: number;
+  hint: string;
+};
+
+type DiscoveredShellyRow = {
+  topicPrefix: string;
+  model: string | null;
+  app: string | null;
+  mac: string | null;
+  gen: number | null;
+  version: string | null;
+  ip: string | null;
+  suggestedSwitchCount: number;
+  suggestedModelId: string;
+  switchCountProbed: boolean;
+  alreadyRegistered: boolean;
+};
+
 export function DevicesPage() {
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [areas, setAreas] = useState<AreaOption[]>([]);
@@ -72,8 +100,15 @@ export function DevicesPage() {
   const contentSurface = useContentSurfaceSx();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [shellyDialogOpen, setShellyDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DeviceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [shellyForm, setShellyForm] = useState(emptyShellyForm);
+  const [shellyModels, setShellyModels] = useState<ShellyModelOption[]>([]);
+  const [discoveredShellies, setDiscoveredShellies] = useState<DiscoveredShellyRow[]>(
+    []
+  );
+  const [discoverBusy, setDiscoverBusy] = useState(false);
   const [imported, setImported] = useState<EsphomeImportSuggestion | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRecord | null>(null);
 
@@ -122,6 +157,79 @@ export function DevicesPage() {
     setImported(null);
     setDialogOpen(true);
     if (fileName) void applyEsphomeImport(fileName);
+  }
+
+  function openShellyCreate() {
+    setShellyForm(emptyShellyForm);
+    setDiscoveredShellies([]);
+    setShellyDialogOpen(true);
+    void api
+      .shellyModels()
+      .then((res) => setShellyModels(res.models))
+      .catch(() => setShellyModels([]));
+  }
+
+  async function onDiscoverShellies() {
+    setDiscoverBusy(true);
+    setError(null);
+    try {
+      const res = await api.shellyDiscover({ timeoutMs: 5000 });
+      setDiscoveredShellies(res.devices);
+      if (res.devices.length === 0) {
+        setInfo(
+          "No Shelly devices answered. Check MQTT is enabled on the Shelly and pointed at this server."
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Discovery failed");
+    } finally {
+      setDiscoverBusy(false);
+    }
+  }
+
+  function adoptDiscoveredShelly(d: DiscoveredShellyRow) {
+    const label =
+      d.app || d.model || d.topicPrefix.replace(/^shelly/i, "Shelly ");
+    setShellyForm((f) => ({
+      ...f,
+      name: f.name.trim() || label,
+      mqttTopicPrefix: d.topicPrefix,
+      shellyModelId: d.suggestedModelId || "switch_1",
+    }));
+  }
+
+  async function onSaveShelly(e: FormEvent) {
+    e.preventDefault();
+    if (!shellyForm.name.trim() || !shellyForm.mqttTopicPrefix.trim()) {
+      setError("Name and device ID are required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const model = shellyModels.find((m) => m.id === shellyForm.shellyModelId);
+      await api.createDevice({
+        name: shellyForm.name.trim(),
+        roomId: shellyForm.roomId || null,
+        mqttTopicPrefix: shellyForm.mqttTopicPrefix.trim().replace(/\/+$/, ""),
+        firmwareType: "shelly",
+        shellyModelId: shellyForm.shellyModelId,
+        shellySwitchCount: model?.switchCount ?? 1,
+      });
+      setShellyDialogOpen(false);
+      setShellyForm(emptyShellyForm);
+      setDiscoveredShellies([]);
+      const channels = model?.switchCount ?? 1;
+      setInfo(
+        channels > 1
+          ? `Shelly added with ${channels} switches. Open Live or add Switch widgets on the Dashboard.`
+          : "Shelly added. Open Live to control it, or Dashboard → Edit → Add widget → Controls → Switch."
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function openEdit(device: DeviceRecord) {
@@ -329,6 +437,9 @@ export function DevicesPage() {
               >
                 Sync capabilities
               </Button>
+              <Button variant="outlined" onClick={() => openShellyCreate()}>
+                Add Shelly
+              </Button>
               <Button variant="contained" onClick={() => openCreate()}>
                 Add device
               </Button>
@@ -338,7 +449,7 @@ export function DevicesPage() {
       </Stack>
 
       <Typography color="text.secondary">
-        Register and manage devices used on dashboards and in automations.
+        Register ESPHome boards and Shelly switches for Live and dashboards.
       </Typography>
 
       {error && (
@@ -426,6 +537,13 @@ export function DevicesPage() {
                   label={d.isOnline ? "Online" : "Offline"}
                   color={d.isOnline ? "success" : "default"}
                 />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={
+                    (d.firmwareType || "esphome") === "shelly" ? "Shelly" : "ESPHome"
+                  }
+                />
                 {!d.isEnabled && <Chip size="small" label="Disabled" color="warning" />}
                 <Chip size="small" variant="outlined" label={d.roomName ?? `No ${AREA.singular}`} />
                 <Typography variant="caption" color="text.secondary">
@@ -456,31 +574,35 @@ export function DevicesPage() {
                     <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEdit(d)}>
                       Edit
                     </Button>
-                    <Button
-                      size="small"
-                      startIcon={<SyncRoundedIcon />}
-                      disabled={busy}
-                      onClick={() => void syncEsphome(d)}
-                    >
-                      Sync from YAML
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<DownloadRoundedIcon />}
-                      disabled={busy}
-                      onClick={() => void downloadFlashYaml(d)}
-                    >
-                      Flash YAML
-                    </Button>
-                    <Button
-                      size="small"
-                      href={esphomeDashboardUrl(hostname, d.esphomeName || d.slug)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      endIcon={<OpenInNewRoundedIcon />}
-                    >
-                      ESPHome
-                    </Button>
+                    {(d.firmwareType || "esphome") === "esphome" && (
+                      <>
+                        <Button
+                          size="small"
+                          startIcon={<SyncRoundedIcon />}
+                          disabled={busy}
+                          onClick={() => void syncEsphome(d)}
+                        >
+                          Sync from YAML
+                        </Button>
+                        <Button
+                          size="small"
+                          startIcon={<DownloadRoundedIcon />}
+                          disabled={busy}
+                          onClick={() => void downloadFlashYaml(d)}
+                        >
+                          Flash YAML
+                        </Button>
+                        <Button
+                          size="small"
+                          href={esphomeDashboardUrl(hostname, d.esphomeName || d.slug)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          endIcon={<OpenInNewRoundedIcon />}
+                        >
+                          ESPHome
+                        </Button>
+                      </>
+                    )}
                     <IconButton
                       size="small"
                       color="error"
@@ -629,14 +751,20 @@ export function DevicesPage() {
                 }
                 required
                 fullWidth
-                helperText="Must match the device topic prefix in ESPHome"
+                helperText={
+                  editing?.firmwareType === "shelly"
+                    ? "Shelly MQTT topic prefix from the device"
+                    : "Must match the device topic prefix in ESPHome"
+                }
               />
-              <TextField
-                label="ESPHome name"
-                value={form.esphomeName}
-                onChange={(e) => setForm((f) => ({ ...f, esphomeName: e.target.value }))}
-                fullWidth
-              />
+              {editing?.firmwareType !== "shelly" && (
+                <TextField
+                  label="ESPHome name"
+                  value={form.esphomeName}
+                  onChange={(e) => setForm((f) => ({ ...f, esphomeName: e.target.value }))}
+                  fullWidth
+                />
+              )}
               <TextField
                 label="IP address"
                 value={form.ipAddress}
@@ -649,9 +777,11 @@ export function DevicesPage() {
                   (optional).
                 </Typography>
               )}
-              <Link href={esphomeUrl} target="_blank" rel="noopener noreferrer" variant="body2">
-                Open ESPHome Builder
-              </Link>
+              {editing?.firmwareType !== "shelly" && (
+                <Link href={esphomeUrl} target="_blank" rel="noopener noreferrer" variant="body2">
+                  Open ESPHome Builder
+                </Link>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
@@ -660,6 +790,181 @@ export function DevicesPage() {
             </Button>
             <Button type="submit" variant="contained" disabled={busy}>
               {busy ? "Saving…" : "Save"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={shellyDialogOpen}
+        onClose={() => !busy && setShellyDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <form onSubmit={(e) => void onSaveShelly(e)}>
+          <DialogTitle>Add Shelly</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Alert severity="info">
+                Shellies must use this server’s MQTT (same user/password as Nexternel).
+                Use <strong>Find on MQTT</strong> to list devices that announce themselves, or
+                paste the device ID manually.
+              </Alert>
+
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button
+                  variant="outlined"
+                  disabled={busy || discoverBusy}
+                  onClick={() => void onDiscoverShellies()}
+                >
+                  {discoverBusy ? "Scanning…" : "Find on MQTT"}
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Takes a few seconds
+                </Typography>
+              </Stack>
+
+              {discoveredShellies.length > 0 && (
+                <Box
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    maxHeight: 200,
+                    overflow: "auto",
+                  }}
+                >
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Device</TableCell>
+                        <TableCell>Channels</TableCell>
+                        <TableCell align="right" />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {discoveredShellies.map((d) => (
+                        <TableRow key={d.topicPrefix} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={600}>
+                              {d.app || d.model || d.topicPrefix}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {d.topicPrefix}
+                              {d.alreadyRegistered ? " · already added" : ""}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {d.suggestedSwitchCount}
+                            {d.switchCountProbed ? "" : " (guess)"}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button
+                              size="small"
+                              disabled={d.alreadyRegistered || busy}
+                              onClick={() => adoptDiscoveredShelly(d)}
+                            >
+                              Use
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+
+              <TextField
+                label="Display name"
+                value={shellyForm.name}
+                onChange={(e) => setShellyForm((f) => ({ ...f, name: e.target.value }))}
+                required
+                fullWidth
+                placeholder="Living room light"
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel id="shelly-area">{AREA.singular}</InputLabel>
+                <Select
+                  labelId="shelly-area"
+                  label={AREA.singular}
+                  value={shellyForm.roomId}
+                  onChange={(e) =>
+                    setShellyForm((f) => ({ ...f, roomId: e.target.value }))
+                  }
+                >
+                  <MenuItem value="">— None —</MenuItem>
+                  {areas.map((a) => (
+                    <MenuItem key={a.id} value={a.id}>
+                      {a.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                label="Shelly device ID"
+                value={shellyForm.mqttTopicPrefix}
+                onChange={(e) =>
+                  setShellyForm((f) => ({ ...f, mqttTopicPrefix: e.target.value }))
+                }
+                required
+                fullWidth
+                placeholder="shelly1minig3-xxxxxxxxxxxx"
+                helperText="MQTT topic prefix from the Shelly — or pick one from Find on MQTT"
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel id="shelly-model">Switches on this device</InputLabel>
+                <Select
+                  labelId="shelly-model"
+                  label="Switches on this device"
+                  value={shellyForm.shellyModelId}
+                  onChange={(e) =>
+                    setShellyForm((f) => ({ ...f, shellyModelId: e.target.value }))
+                  }
+                >
+                  {(shellyModels.length
+                    ? shellyModels
+                    : [
+                        {
+                          id: "switch_1",
+                          label: "1 switch",
+                          switchCount: 1,
+                          hint: "",
+                        },
+                        {
+                          id: "switch_2",
+                          label: "2 switches",
+                          switchCount: 2,
+                          hint: "",
+                        },
+                        {
+                          id: "switch_3",
+                          label: "3 switches",
+                          switchCount: 3,
+                          hint: "",
+                        },
+                        {
+                          id: "switch_4",
+                          label: "4 switches",
+                          switchCount: 4,
+                          hint: "",
+                        },
+                      ]
+                  ).map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.label}
+                      {m.hint ? ` — ${m.hint}` : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShellyDialogOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" disabled={busy || discoverBusy}>
+              {busy ? "Saving…" : "Add Shelly"}
             </Button>
           </DialogActions>
         </form>

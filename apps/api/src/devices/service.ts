@@ -1,8 +1,16 @@
 import type { PoolClient } from "pg";
 import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
+import { buildShellySwitchTopics } from "../shelly/topics.js";
+import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
 import { isDeviceSeenRecently } from "./presence.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
+
+export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
+  /** Absolute topics (Shelly); when set, ESPHome path templates are not used. */
+  mqttCommandTopic?: string;
+  mqttStateTopic?: string;
+};
 
 export type DeviceDetail = {
   id: string;
@@ -12,6 +20,7 @@ export type DeviceDetail = {
   slug: string;
   mqttTopicPrefix: string;
   esphomeName: string | null;
+  firmwareType: string;
   ipAddress: string | null;
   macAddress: string | null;
   isEnabled: boolean;
@@ -47,6 +56,7 @@ type DeviceRow = {
   slug: string;
   mqtt_topic_prefix: string;
   esphome_name: string | null;
+  firmware_type: string;
   ip_address: string | null;
   mac_address: string | null;
   is_enabled: boolean;
@@ -59,6 +69,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
   const devices = await pool.query<DeviceRow>(
     `SELECT d.id, d.room_id, r.name AS room_name, d.name, d.slug,
             d.mqtt_topic_prefix, d.esphome_name,
+            COALESCE(d.firmware_type, 'esphome') AS firmware_type,
             host(d.ip_address)::text AS ip_address, d.mac_address,
             COALESCE(d.is_enabled, TRUE) AS is_enabled,
             d.is_online, d.last_seen_at
@@ -148,6 +159,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     slug: d.slug,
     mqttTopicPrefix: d.mqtt_topic_prefix,
     esphomeName: d.esphome_name,
+    firmwareType: d.firmware_type || "esphome",
     ipAddress: d.ip_address,
     macAddress: d.mac_address,
     isEnabled: d.is_enabled,
@@ -168,7 +180,8 @@ async function insertSensorsAndRelays(
   deviceId: string,
   mqttTopicPrefix: string,
   sensors: EsphomeImportSuggestion["sensors"],
-  relays: EsphomeImportSuggestion["relays"]
+  relays: RelayInsert[],
+  firmwareType = "esphome"
 ) {
   for (const s of sensors) {
     await client.query(
@@ -195,6 +208,17 @@ async function insertSensorsAndRelays(
   }
 
   for (const r of relays) {
+    const useAbsolute =
+      firmwareType === "shelly" ||
+      (typeof r.mqttCommandTopic === "string" &&
+        typeof r.mqttStateTopic === "string");
+    const commandTopic = useAbsolute
+      ? (r.mqttCommandTopic as string)
+      : `${mqttTopicPrefix}/switch/${r.esphomeEntityId}/command`;
+    const stateTopic = useAbsolute
+      ? (r.mqttStateTopic as string)
+      : `${mqttTopicPrefix}/switch/${r.esphomeEntityId}/state`;
+
     await client.query(
       `INSERT INTO relays (
          device_id, name, slug, mqtt_command_topic, mqtt_state_topic,
@@ -211,8 +235,8 @@ async function insertSensorsAndRelays(
         deviceId,
         r.name,
         r.slug,
-        `${mqttTopicPrefix}/switch/${r.esphomeEntityId}/command`,
-        `${mqttTopicPrefix}/switch/${r.esphomeEntityId}/state`,
+        commandTopic,
+        stateTopic,
         r.esphomeEntityId,
         r.gpioPin ?? null,
       ]
@@ -225,14 +249,60 @@ export async function createDevice(input: {
   roomId?: string | null;
   mqttTopicPrefix: string;
   esphomeName?: string | null;
+  firmwareType?: string;
+  shellyChannel?: number;
+  /** Phase 3: number of switch outputs (overrides single-channel default). */
+  shellySwitchCount?: number;
+  shellyModelId?: string | null;
   ipAddress?: string | null;
   macAddress?: string | null;
   sensors?: EsphomeImportSuggestion["sensors"];
-  relays?: EsphomeImportSuggestion["relays"];
+  relays?: RelayInsert[];
 }): Promise<DeviceDetail> {
   const mqttTopicPrefix = input.mqttTopicPrefix.trim().replace(/\/+$/, "");
+  const firmwareType = (input.firmwareType || "esphome").trim().toLowerCase();
   const slug = deviceSlugFromTopicPrefix(mqttTopicPrefix) || slugify(input.name);
-  const esphomeName = (input.esphomeName || slug).trim();
+  const esphomeName =
+    firmwareType === "shelly"
+      ? null
+      : (input.esphomeName || slug).trim();
+
+  let sensors = input.sensors ?? [];
+  let relays = input.relays ?? [];
+
+  if (firmwareType === "shelly" && relays.length === 0) {
+    const switchCount = resolveShellySwitchCount({
+      shellyModelId: input.shellyModelId,
+      shellySwitchCount: input.shellySwitchCount,
+      shellyChannel: input.shellyChannel,
+    });
+    // Legacy: shellyChannel > 0 with no count → single relay on that channel index.
+    if (
+      switchCount === 1 &&
+      typeof input.shellyChannel === "number" &&
+      input.shellyChannel > 0 &&
+      !input.shellyModelId &&
+      input.shellySwitchCount == null
+    ) {
+      const topics = buildShellySwitchTopics(mqttTopicPrefix, input.shellyChannel);
+      relays = [
+        {
+          name: input.name.trim() || "Switch",
+          slug: topics.slug,
+          esphomeEntityId: topics.entityId,
+          mqttCommandTopic: topics.commandTopic,
+          mqttStateTopic: topics.stateTopic,
+        },
+      ];
+    } else {
+      relays = buildShellyRelays({
+        deviceName: input.name.trim() || "Shelly",
+        topicPrefix: mqttTopicPrefix,
+        switchCount,
+      });
+    }
+  }
+
   const pool = getPool();
   const client = await pool.connect();
   let deviceId = "";
@@ -240,11 +310,12 @@ export async function createDevice(input: {
     await client.query("BEGIN");
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO devices (
-         name, slug, room_id, mqtt_topic_prefix, esphome_name, ip_address, mac_address
+         name, slug, room_id, mqtt_topic_prefix, esphome_name, firmware_type,
+         ip_address, mac_address
        ) VALUES (
-         $1, $2, $3, $4, $5,
-         NULLIF($6, '')::inet,
-         NULLIF($7, '')
+         $1, $2, $3, $4, $5, $6,
+         NULLIF($7, '')::inet,
+         NULLIF($8, '')
        )
        RETURNING id`,
       [
@@ -253,6 +324,7 @@ export async function createDevice(input: {
         input.roomId || null,
         mqttTopicPrefix,
         esphomeName,
+        firmwareType,
         input.ipAddress?.trim() || "",
         input.macAddress?.trim() || "",
       ]
@@ -262,8 +334,9 @@ export async function createDevice(input: {
       client,
       deviceId,
       mqttTopicPrefix,
-      input.sensors ?? [],
-      input.relays ?? []
+      sensors,
+      relays,
+      firmwareType
     );
     await client.query("COMMIT");
   } catch (err) {
@@ -296,11 +369,13 @@ export async function updateDevice(
     room_id: string | null;
     mqtt_topic_prefix: string;
     esphome_name: string | null;
+    firmware_type: string;
     ip_address: string | null;
     mac_address: string | null;
     is_enabled: boolean;
   }>(
     `SELECT id, name, room_id, mqtt_topic_prefix, esphome_name,
+            COALESCE(firmware_type, 'esphome') AS firmware_type,
             host(ip_address)::text AS ip_address, mac_address,
             COALESCE(is_enabled, TRUE) AS is_enabled
      FROM devices WHERE id = $1`,
@@ -356,21 +431,41 @@ export async function updateDevice(
   );
 
   if (prefixChanged) {
-    await getPool().query(
-      `UPDATE sensors SET
-         mqtt_state_topic = $2 || '/sensor/' || COALESCE(esphome_entity_id, slug) || '/state',
-         updated_at = NOW()
-       WHERE device_id = $1`,
-      [id, mqttTopicPrefix]
-    );
-    await getPool().query(
-      `UPDATE relays SET
-         mqtt_state_topic = $2 || '/switch/' || COALESCE(esphome_entity_id, slug) || '/state',
-         mqtt_command_topic = $2 || '/switch/' || COALESCE(esphome_entity_id, slug) || '/command',
-         updated_at = NOW()
-       WHERE device_id = $1`,
-      [id, mqttTopicPrefix]
-    );
+    if (cur.firmware_type === "shelly") {
+      const relays = await getPool().query<{
+        id: string;
+        esphome_entity_id: string | null;
+      }>(`SELECT id, esphome_entity_id FROM relays WHERE device_id = $1`, [id]);
+      for (const r of relays.rows) {
+        const m = /^switch:(\d+)$/i.exec(r.esphome_entity_id || "");
+        const channel = m ? Number(m[1]) : 0;
+        const topics = buildShellySwitchTopics(mqttTopicPrefix, channel);
+        await getPool().query(
+          `UPDATE relays SET
+             mqtt_state_topic = $2,
+             mqtt_command_topic = $3,
+             updated_at = NOW()
+           WHERE id = $1`,
+          [r.id, topics.stateTopic, topics.commandTopic]
+        );
+      }
+    } else {
+      await getPool().query(
+        `UPDATE sensors SET
+           mqtt_state_topic = $2 || '/sensor/' || COALESCE(esphome_entity_id, slug) || '/state',
+           updated_at = NOW()
+         WHERE device_id = $1`,
+        [id, mqttTopicPrefix]
+      );
+      await getPool().query(
+        `UPDATE relays SET
+           mqtt_state_topic = $2 || '/switch/' || COALESCE(esphome_entity_id, slug) || '/state',
+           mqtt_command_topic = $2 || '/switch/' || COALESCE(esphome_entity_id, slug) || '/command',
+           updated_at = NOW()
+         WHERE device_id = $1`,
+        [id, mqttTopicPrefix]
+      );
+    }
   }
 
   return getDeviceDetailed(id);
@@ -389,6 +484,9 @@ export async function syncDeviceFromEsphomeSuggestion(
 ): Promise<{ addedRelays: number; updatedRelays: number; totalRelays: number }> {
   const device = await getDeviceDetailed(id);
   if (!device) throw new Error("Device not found");
+  if (device.firmwareType === "shelly") {
+    throw new Error("ESPHome sync is not available for Shelly devices");
+  }
 
   const mqttTopicPrefix = suggestion.mqttTopicPrefix || device.mqttTopicPrefix;
   const pool = getPool();

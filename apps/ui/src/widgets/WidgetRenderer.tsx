@@ -79,6 +79,7 @@ export function WidgetRenderer({
   const solidContentPanels = useSolidContentPanels();
   const cap = findCap(capabilities, widget);
   const title = resolveWidgetTitle(widget, cap);
+  const location = cap ? capabilityLocationLabel(cap) : "";
   const plugin = getWidgetContribution(rawWidget.type);
   const PluginComponent = plugin?.Component;
   const isClock = rawWidget.type === "plugin.clock";
@@ -109,15 +110,15 @@ export function WidgetRenderer({
           >
             {title}
           </Typography>
-          {(widget.type === "switch" || widget.type === "stat" || cap) && (
+          {Boolean(location) && (
             <Typography
               variant="caption"
               color="text.secondary"
               noWrap
-              title={capabilityLocationLabel(cap)}
+              title={location}
               sx={{ lineHeight: 1.2 }}
             >
-              {capabilityLocationLabel(cap)}
+              {location}
             </Typography>
           )}
         </Stack>

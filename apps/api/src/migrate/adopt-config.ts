@@ -54,7 +54,7 @@ function parseManifest(raw: string): ConfigManifest {
   const m = JSON.parse(raw) as ConfigManifest;
   if (m.format !== CONFIG_FORMAT) {
     throw new Error(
-      "Not a Nexternel configuration export (.nexcfg). Full-stack .nexbak files are no longer used for Adopt."
+      "Not a Nexternel configuration backup (.nexcfg)."
     );
   }
   if (m.formatVersion > CONFIG_FORMAT_VERSION) {
@@ -503,12 +503,11 @@ export async function adoptConfigArchive(
       topicPrefix: d.mqttTopicPrefix,
     })),
     steps: [
-      `CONFIG DONE on this server: areas/devices/dashboards/cameras are in the database. Topics use root "${newTopicRoot}/…". Broker ${newBrokerIp}; MQTT user/pass = this .env.`,
-      `FIRMWARE (no old server needed): After Adopt, YAML already lives in this server's esphome/ folder. Flash each ESP32 from HERE — you do not need the old server.`,
-      `How to flash: open ${esphomeUrl} → pick the device → Install → "Plug into this computer" (USB data cable). Or use https://web.esphome.io with the downloaded YAML/bin.`,
-      `Optional: Download the ESPHome pack below onto a laptop for web.esphome.io / USB flashing away from the server.`,
-      `Only if the OLD server still exists AND devices are still Online there: you may OTA from the old ESPHome instead — that is optional, not required.`,
-      `Different Wi‑Fi: set New Wi‑Fi SSID/password on Adopt before flashing so one USB install joins the new network and new MQTT together.`,
+      `Configuration is on this server (areas, devices, dashboards, cameras). MQTT topics use "${newTopicRoot}/…" and broker ${newBrokerIp}.`,
+      `ESP32 boards still need a firmware install so they use this broker and Wi‑Fi. YAML is ready under ESPHome on this server.`,
+      `Flash each device: open ${esphomeUrl} → select the device → Install → Plug into this computer (USB). Or use https://web.esphome.io with the YAML pack below.`,
+      `Optional: download the flash-ready YAML pack to install from a laptop.`,
+      `If devices must join a different Wi‑Fi, set Wi‑Fi SSID/password before Restore so the YAML includes it, then flash once.`,
     ],
   };
 

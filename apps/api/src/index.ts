@@ -30,6 +30,7 @@ import { rolesRoutes } from "./routes/roles.js";
 import { systemRoutes } from "./routes/system.js";
 import { migrateRoutes } from "./migrate/routes.js";
 import { weatherRoutes } from "./routes/weather.js";
+import { shellyRoutes } from "./routes/shelly.js";
 import { wsRoutes } from "./telemetry/ws.js";
 import { APP_VERSION } from "./version.js";
 
@@ -74,6 +75,7 @@ await app.register(async (api) => {
   await api.register(systemRoutes);
   await api.register(migrateRoutes);
   await api.register(weatherRoutes);
+  await api.register(shellyRoutes);
   await api.register(wsRoutes);
 });
 

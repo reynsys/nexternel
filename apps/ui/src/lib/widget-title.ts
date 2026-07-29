@@ -27,6 +27,7 @@ export function isPlaceholderWidgetTitle(
   if (!t) return true;
   if (t === type) return true;
   if (CORE_PLACEHOLDERS.has(t)) return true;
+  if (/^(switch|relay)([_\s-]?\d+)?$/i.test(t)) return true;
   const extras = GENERAL_PLACEHOLDERS[type];
   if (extras?.includes(t)) return true;
   return false;

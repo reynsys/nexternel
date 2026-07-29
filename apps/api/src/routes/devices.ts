@@ -108,6 +108,10 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       roomId?: unknown;
       mqttTopicPrefix?: unknown;
       esphomeName?: unknown;
+      firmwareType?: unknown;
+      shellyChannel?: unknown;
+      shellySwitchCount?: unknown;
+      shellyModelId?: unknown;
       ipAddress?: unknown;
       macAddress?: unknown;
       sensors?: EsphomeImportSuggestion["sensors"];
@@ -126,12 +130,48 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
+    const firmwareType =
+      typeof body.firmwareType === "string"
+        ? body.firmwareType.trim().toLowerCase()
+        : "esphome";
+    if (firmwareType !== "esphome" && firmwareType !== "shelly") {
+      return reply.code(400).send({
+        error: {
+          code: "validation_error",
+          message: "firmwareType must be esphome or shelly",
+        },
+      });
+    }
+
+    const shellyChannel =
+      typeof body.shellyChannel === "number"
+        ? body.shellyChannel
+        : typeof body.shellyChannel === "string"
+          ? Number(body.shellyChannel)
+          : 0;
+
+    const shellySwitchCount =
+      typeof body.shellySwitchCount === "number"
+        ? body.shellySwitchCount
+        : typeof body.shellySwitchCount === "string"
+          ? Number(body.shellySwitchCount)
+          : undefined;
+
+    const shellyModelId =
+      typeof body.shellyModelId === "string" ? body.shellyModelId.trim() : null;
+
     try {
       const device = await createDevice({
         name,
         roomId: typeof body.roomId === "string" ? body.roomId : null,
         mqttTopicPrefix,
         esphomeName: typeof body.esphomeName === "string" ? body.esphomeName : null,
+        firmwareType,
+        shellyChannel: Number.isFinite(shellyChannel) ? shellyChannel : 0,
+        shellySwitchCount: Number.isFinite(shellySwitchCount as number)
+          ? (shellySwitchCount as number)
+          : undefined,
+        shellyModelId,
         ipAddress: typeof body.ipAddress === "string" ? body.ipAddress : null,
         macAddress: typeof body.macAddress === "string" ? body.macAddress : null,
         sensors: Array.isArray(body.sensors) ? body.sensors : [],

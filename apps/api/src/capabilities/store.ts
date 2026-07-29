@@ -14,13 +14,15 @@ export type CapabilityRow = {
   is_enabled: boolean;
   state_topic: string | null;
   command_topic: string | null;
+  firmware_type: string;
 };
 
 export async function listCapabilities(): Promise<CapabilityRow[]> {
   const result = await getPool().query<CapabilityRow>(
     `SELECT c.id, c.device_id, d.name AS device_name, d.room_id, r.name AS room_name,
             c.kind, c.name, c.unit, c.source_type, c.source_id, c.is_enabled,
-            b.state_topic, b.command_topic
+            b.state_topic, b.command_topic,
+            COALESCE(d.firmware_type, 'esphome') AS firmware_type
      FROM capabilities c
      JOIN devices d ON d.id = c.device_id
      LEFT JOIN rooms r ON r.id = d.room_id
@@ -35,7 +37,8 @@ export async function getCapabilityById(id: string): Promise<CapabilityRow | nul
   const result = await getPool().query<CapabilityRow>(
     `SELECT c.id, c.device_id, d.name AS device_name, d.room_id, r.name AS room_name,
             c.kind, c.name, c.unit, c.source_type, c.source_id, c.is_enabled,
-            b.state_topic, b.command_topic
+            b.state_topic, b.command_topic,
+            COALESCE(d.firmware_type, 'esphome') AS firmware_type
      FROM capabilities c
      JOIN devices d ON d.id = c.device_id
      LEFT JOIN rooms r ON r.id = d.room_id
@@ -70,4 +73,27 @@ export async function listDevicePrefixes(): Promise<string[]> {
      WHERE mqtt_topic_prefix IS NOT NULL AND mqtt_topic_prefix <> ''`
   );
   return result.rows.map((r) => r.mqtt_topic_prefix);
+}
+
+/** Shelly relays: prefix + switch:N → capability id (for events/rpc ingest). */
+export async function listShellySwitchBindings(): Promise<
+  { capability_id: string; mqtt_topic_prefix: string; component_key: string }[]
+> {
+  const result = await getPool().query<{
+    capability_id: string;
+    mqtt_topic_prefix: string;
+    component_key: string;
+  }>(
+    `SELECT c.id AS capability_id,
+            d.mqtt_topic_prefix,
+            lower(r.esphome_entity_id) AS component_key
+     FROM capabilities c
+     JOIN devices d ON d.id = c.device_id
+     JOIN relays r ON r.id = c.source_id AND c.source_type = 'relay'
+     WHERE COALESCE(d.firmware_type, 'esphome') = 'shelly'
+       AND c.is_enabled = TRUE
+       AND d.mqtt_topic_prefix IS NOT NULL AND d.mqtt_topic_prefix <> ''
+       AND r.esphome_entity_id ~* '^switch:[0-9]+$'`
+  );
+  return result.rows;
 }

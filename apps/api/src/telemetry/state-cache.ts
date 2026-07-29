@@ -68,6 +68,15 @@ export function subscribeLive(listener: Listener): () => void {
 export function parseMqttPayload(kind: string, payload: string): unknown {
   const raw = payload.trim();
   if (kind === "switch") {
+    // Shelly Gen2/Gen3 status JSON: {"id":0,"output":true,...}
+    if (raw.startsWith("{")) {
+      try {
+        const obj = JSON.parse(raw) as { output?: unknown };
+        if (typeof obj.output === "boolean") return obj.output;
+      } catch {
+        /* fall through */
+      }
+    }
     const u = raw.toUpperCase();
     if (u === "ON" || u === "TRUE" || u === "1") return true;
     if (u === "OFF" || u === "FALSE" || u === "0") return false;

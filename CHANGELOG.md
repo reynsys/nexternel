@@ -14,6 +14,42 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.101 — 29/07/2026
+
+- **Build fix:** Shelly routes import `requirePermission` from `auth/rbac` (was wrong module — API image failed to compile)
+
+## V3.1.100 — 29/07/2026
+
+- **Shelly Phase 3 (MQTT):** Admin → Devices → **Add Shelly** → **Find on MQTT** discovers devices via `shellies/command` announce; pick **1–4 switches** for multi-channel models (2PM, Pro 4PM, …). Still no Phase 2 LAN RPC/WebSocket — discovery and control stay on Mosquitto
+
+## V3.1.099 — 29/07/2026
+
+- **Shelly live state:** sync ON/OFF from the Shelly app and physical wall switches — ingest `NotifyStatus` on `{prefix}/events/rpc` (Shelly’s default MQTT path; `status/switch:N` is off by default). On API connect, request `status_update` so the dashboard starts with the real output
+
+## V3.1.098 — 29/07/2026
+
+- **Dashboard switch chrome:** named relays (e.g. Waterfall, Sprinklers) show **title + area only** — drop the board name so you no longer see `Waterfall` / `Garden Relays · Garden`; it becomes `Waterfall` / `Garden`. Picker uses the same rule (`Waterfall — Garden`)
+
+## V3.1.097 — 29/07/2026
+
+- **Widget naming:** clearer switch labels in Add widget and on the dashboard — title is the useful name (entity, or device when the entity is just “Switch”); subtitle is location (`Device · Area`) without repeating the title; drops redundant area suffixes like “Lights - Living Room”
+- **Shelly:** new devices name the relay after the device (not generic “Switch”)
+
+## V3.1.096 — 29/07/2026
+
+- **Add Shelly:** clearer form (device ID, no jargon helper text); channel field removed for Mini Gen 3
+- **Dashboard:** refresh capabilities when opening Add widget; default to Controls → Switch so Shelly/ESP32 relays appear
+
+## V3.1.095 — 29/07/2026
+
+- **Shelly Phase 1 (MQTT):** Admin → Devices → **Add Shelly** — Gen2/Gen3 local MQTT (`command/switch:N`, `status/switch:N` JSON); Live/Dashboard switches; ESPHome sync/flash hidden for Shelly devices
+- Operator: enable MQTT on the Shelly (broker = server LAN IP, same MQTT user/pass as `.env`), copy topic prefix into Add Shelly
+
+## V3.1.094 — 29/07/2026
+
+- **System UI:** rename section back to **Backup / Restore**; plain-language labels and help text; **Fix dashboard widgets** (was “Repair dashboard bindings”)
+- **Cleanup:** remove leftover `apps/api/src/backup/` path module (helpers live under migrate)
+
 ## V3.1.093 — 28/07/2026
 
 - **History charts:** time axis labels use hours:minutes only (no seconds)
