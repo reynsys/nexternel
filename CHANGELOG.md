@@ -14,6 +14,20 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.104 — 29/07/2026
+
+- **CCTV reliability:** dashboard camera tiles play through the UI proxy (`/go2rtc/…` on port 8080) instead of requiring the browser to open go2rtc on :1984 — fixes blank/intermittent widgets when the firewall, CORS, or `SERVER_IP` blocked direct access. Leave `GO2RTC_PUBLIC_URL` empty (default). Restart go2rtc after config upload so `origin: "*"` applies
+
+## V3.1.103 — 29/07/2026
+
+- **CCTV (MotionEye-style):** cameras store **host, port, path, username, password** separately; API builds an encoded RTSP URL only for go2rtc. Password is write-only on edit (leave blank to keep). Existing full-URL cameras are migrated automatically on API start. Admin form no longer pastes `user:pass@…` strings
+- Includes prior player/encoding hardening from V3.1.102
+
+## V3.1.102 — 29/07/2026
+
+- **CCTV:** auto-encode RTSP passwords with `@` / `()` etc. on save and on API startup sync (fixes blank widgets when URL was pasted raw); camera player retries HLS network errors and falls back to MSE; prefer NVR sub-stream `/chXX/1` for dashboard tiles (`/0` = main/HD)
+- **Cameras admin:** Generic NVR `/ch01/0` and `/ch01/1` presets; clearer RTSP help text
+
 ## V3.1.101 — 29/07/2026
 
 - **Build fix:** Shelly routes import `requirePermission` from `auth/rbac` (was wrong module — API image failed to compile)

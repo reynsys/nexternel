@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Box, Typography } from "@mui/material";
+import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import Hls from "hls.js";
 import { api, type WidgetInstance } from "../../api";
 import { generalWidgetHeading, parseCameraConfig } from "./config";
+
+type PlayUrls = { hlsUrl: string; mseUrl: string; name: string };
 
 export function CameraWidget({ widget }: { widget: WidgetInstance }) {
   const { cameraId } = parseCameraConfig(widget.config);
@@ -10,6 +12,7 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
   const [title, setTitle] = useState(generalWidgetHeading(widget, "Camera"));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     setTitle(generalWidgetHeading(widget, "Camera"));
@@ -25,39 +28,107 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
 
     let hls: Hls | null = null;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let networkRetries = 0;
 
     setLoading(true);
     setError(null);
+
+    function clearMedia() {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+      if (video) {
+        video.removeAttribute("src");
+        video.load();
+      }
+    }
+
+    function attachMse(play: PlayUrls) {
+      if (!video || cancelled) return;
+      video.src = play.mseUrl;
+      void video.play().catch(() => {
+        /* muted autoplay */
+      });
+      if (!cancelled) setLoading(false);
+    }
+
+    function attachHls(play: PlayUrls) {
+      if (!video || cancelled) return;
+
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = play.hlsUrl;
+        void video.play().catch(() => {
+          /* muted autoplay */
+        });
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      if (!Hls.isSupported()) {
+        attachMse(play);
+        return;
+      }
+
+      hls = new Hls({
+        enableWorker: true,
+        // Low-latency mode is flaky with many NVRs / multi-widget dashboards
+        lowLatencyMode: false,
+        maxBufferLength: 20,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
+        fragLoadingMaxRetry: 6,
+      });
+      hls.loadSource(play.hlsUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (cancelled) return;
+        networkRetries = 0;
+        void video.play().catch(() => {
+          /* muted autoplay */
+        });
+        setLoading(false);
+        setError(null);
+      });
+
+      hls.on(Hls.Events.ERROR, (_ev, data) => {
+        if (cancelled || !data.fatal || !hls) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries < 4) {
+          networkRetries += 1;
+          setLoading(true);
+          setError(null);
+          retryTimer = setTimeout(() => {
+            if (cancelled || !hls) return;
+            hls.startLoad();
+          }, 800 * networkRetries);
+          return;
+        }
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          try {
+            hls.recoverMediaError();
+            return;
+          } catch {
+            /* fall through */
+          }
+        }
+
+        // Last resort: MSE endpoint
+        clearMedia();
+        attachMse(play);
+        setError(null);
+      });
+    }
 
     void (async () => {
       try {
         const { play } = await api.cameraPlay(cameraId);
         if (cancelled) return;
         setTitle(generalWidgetHeading(widget, play.name));
-
-        const src = play.hlsUrl;
-        if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = src;
-        } else if (Hls.isSupported()) {
-          hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-          });
-          hls.loadSource(src);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.ERROR, (_ev, data) => {
-            if (data.fatal) {
-              setError("Stream unavailable — check go2rtc and the camera RTSP URL");
-            }
-          });
-        } else {
-          // Fallback: try MSE mp4 endpoint
-          video.src = play.mseUrl;
-        }
-        await video.play().catch(() => {
-          /* autoplay may be blocked until muted — we are muted */
-        });
-        if (!cancelled) setLoading(false);
+        attachHls(play);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load stream");
@@ -68,16 +139,10 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
 
     return () => {
       cancelled = true;
-      if (hls) {
-        hls.destroy();
-        hls = null;
-      }
-      if (video) {
-        video.removeAttribute("src");
-        video.load();
-      }
+      if (retryTimer) clearTimeout(retryTimer);
+      clearMedia();
     };
-  }, [cameraId, widget.id]);
+  }, [cameraId, widget.id, retryToken]);
 
   return (
     <Box
@@ -93,9 +158,22 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
         {title}
       </Typography>
       {error ? (
-        <Alert severity="warning" sx={{ py: 0.5 }}>
-          {error}
-        </Alert>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Alert severity="warning" sx={{ py: 0.5, flex: 1 }}>
+            {error}
+          </Alert>
+          {cameraId ? (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setRetryToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          ) : null}
+        </Stack>
       ) : null}
       <Box
         sx={{
@@ -117,6 +195,7 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              zIndex: 1,
             }}
           >
             Connecting…

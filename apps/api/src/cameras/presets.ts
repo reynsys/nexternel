@@ -3,7 +3,7 @@
 export type CameraBrandPreset = {
   id: string;
   label: string;
-  /** Path after rtsp://user:pass@host:554 — may include query string */
+  /** Path after host:port — may include query string */
   pathTemplate: string;
   hint: string;
 };
@@ -13,61 +13,59 @@ export const CAMERA_BRAND_PRESETS: CameraBrandPreset[] = [
     id: "reolink-sub",
     label: "Reolink (sub)",
     pathTemplate: "/h264Preview_01_sub",
-    hint: "rtsp://USER:PASS@IP:554/h264Preview_01_sub",
+    hint: "Path /h264Preview_01_sub — enter host, username, password separately",
   },
   {
     id: "reolink-main",
     label: "Reolink (main)",
     pathTemplate: "/h264Preview_01_main",
-    hint: "rtsp://USER:PASS@IP:554/h264Preview_01_main",
+    hint: "Path /h264Preview_01_main",
   },
   {
     id: "hikvision-sub",
     label: "Hikvision (sub ch1)",
     pathTemplate: "/Streaming/Channels/102",
-    hint: "rtsp://USER:PASS@IP:554/Streaming/Channels/102",
+    hint: "Path /Streaming/Channels/102 (sub)",
   },
   {
     id: "hikvision-main",
     label: "Hikvision (main ch1)",
     pathTemplate: "/Streaming/Channels/101",
-    hint: "rtsp://USER:PASS@IP:554/Streaming/Channels/101",
+    hint: "Path /Streaming/Channels/101 (main)",
   },
   {
     id: "dahua-sub",
     label: "Dahua / Amcrest (sub)",
     pathTemplate: "/cam/realmonitor?channel=1&subtype=1",
-    hint: "rtsp://USER:PASS@IP:554/cam/realmonitor?channel=1&subtype=1",
+    hint: "subtype=1 is sub-stream",
   },
   {
     id: "dahua-main",
     label: "Dahua / Amcrest (main)",
     pathTemplate: "/cam/realmonitor?channel=1&subtype=0",
-    hint: "rtsp://USER:PASS@IP:554/cam/realmonitor?channel=1&subtype=0",
+    hint: "subtype=0 is main stream",
+  },
+  {
+    id: "generic-ch-main",
+    label: "Generic NVR /chXX/0 (main)",
+    pathTemplate: "/ch01/0",
+    hint: "/ch01/0 = camera 1 main (HD); use ch02/ch03 for other cams",
+  },
+  {
+    id: "generic-ch-sub",
+    label: "Generic NVR /chXX/1 (sub)",
+    pathTemplate: "/ch01/1",
+    hint: "/ch01/1 = camera 1 sub-stream (better for dashboard tiles)",
   },
   {
     id: "axis",
     label: "Axis",
     pathTemplate: "/axis-media/media.amp",
-    hint: "rtsp://USER:PASS@IP/axis-media/media.amp",
+    hint: "Path /axis-media/media.amp",
   },
 ];
 
-export function buildRtspUrl(opts: {
-  user: string;
-  password: string;
-  host: string;
-  port?: number;
-  pathTemplate: string;
-}): string {
-  const user = encodeURIComponent(opts.user);
-  const password = encodeURIComponent(opts.password);
-  const port = opts.port && opts.port !== 554 ? `:${opts.port}` : "";
-  const path = opts.pathTemplate.startsWith("/")
-    ? opts.pathTemplate
-    : `/${opts.pathTemplate}`;
-  return `rtsp://${user}:${password}@${opts.host}${port}${path}`;
-}
+export { buildRtspUrl, normalizeRtspUrl } from "./connection.js";
 
 export function normalizeStreamId(raw: string): string {
   return raw

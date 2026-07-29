@@ -5,6 +5,7 @@ import { getPool } from "../db.js";
 import { config } from "../config.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
 import { syncAllCamerasToGo2rtc } from "../cameras/service.js";
+import { composeRtspUrl, parseRtspUrl } from "../cameras/connection.js";
 import { refreshTelemetrySubscriptions } from "../telemetry/mqtt.js";
 import { repairDashboardCapabilityBindings } from "./repair-dashboard-bindings.js";
 import {
@@ -285,17 +286,56 @@ async function upsertCameras(
       ]);
     }
 
+    let host = cam.host?.trim() || "";
+    let port = cam.port && cam.port > 0 ? Math.trunc(cam.port) : 554;
+    let rtspPath = (cam.path || "/").trim() || "/";
+    let username = cam.username ?? "";
+    let password = cam.password ?? "";
+
+    if (!host && cam.rtspUrl) {
+      const parsed = parseRtspUrl(cam.rtspUrl);
+      if (parsed) {
+        host = parsed.host;
+        port = parsed.port;
+        rtspPath = parsed.path;
+        username = parsed.username;
+        password = parsed.password;
+      }
+    }
+
+    if (!host) {
+      throw new Error(
+        `Camera "${cam.name}" has no host (and RTSP URL could not be parsed).`
+      );
+    }
+
+    const rtspUrl = composeRtspUrl({
+      host,
+      port,
+      path: rtspPath,
+      username,
+      password,
+    });
+
     try {
       await client.query(
         `INSERT INTO cameras (
-           id, name, stream_id, rtsp_url, area_id, enabled, sort_order
+           id, name, stream_id, rtsp_url,
+           rtsp_host, rtsp_port, rtsp_path, rtsp_username, rtsp_password,
+           area_id, enabled, sort_order
          ) VALUES (
-           $1::uuid, $2, $3, $4, $5::uuid, COALESCE($6, TRUE), COALESCE($7, 0)
+           $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9,
+           $10::uuid, COALESCE($11, TRUE), COALESCE($12, 0)
          )
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name,
            stream_id = EXCLUDED.stream_id,
            rtsp_url = EXCLUDED.rtsp_url,
+           rtsp_host = EXCLUDED.rtsp_host,
+           rtsp_port = EXCLUDED.rtsp_port,
+           rtsp_path = EXCLUDED.rtsp_path,
+           rtsp_username = EXCLUDED.rtsp_username,
+           rtsp_password = EXCLUDED.rtsp_password,
            area_id = EXCLUDED.area_id,
            enabled = EXCLUDED.enabled,
            sort_order = EXCLUDED.sort_order,
@@ -304,7 +344,12 @@ async function upsertCameras(
           cam.id,
           cam.name,
           cam.streamId,
-          cam.rtspUrl,
+          rtspUrl,
+          host,
+          port,
+          rtspPath,
+          username,
+          password,
           areaId,
           cam.enabled,
           cam.sortOrder,

@@ -39,13 +39,14 @@ type AreaOption = { id: string; name: string };
 const emptyForm = {
   name: "",
   streamId: "",
-  rtspUrl: "",
   areaId: "",
   enabled: true,
   sortOrder: "0",
   brandPreset: "",
   host: "",
-  user: "",
+  port: "554",
+  path: "/ch01/1",
+  username: "",
   password: "",
 };
 
@@ -106,32 +107,31 @@ export function CamerasPage() {
     setDialogOpen(true);
   }
 
-  function openEdit(cam: CameraRecord) {
-    setEditing(cam);
+  function fillFormFromCamera(cam: CameraRecord) {
     setForm({
       ...emptyForm,
       name: cam.name,
       streamId: cam.streamId,
-      rtspUrl: cam.rtspUrl ?? "",
       areaId: cam.areaId ?? "",
       enabled: cam.enabled,
       sortOrder: String(cam.sortOrder),
+      host: cam.host ?? "",
+      port: String(cam.port ?? 554),
+      path: cam.path ?? "/ch01/1",
+      username: cam.username ?? "",
+      password: "",
     });
+  }
+
+  function openEdit(cam: CameraRecord) {
+    setEditing(cam);
+    fillFormFromCamera(cam);
     setDialogOpen(true);
-    // Refresh full record so RTSP URL is populated for editors
     void api
       .getCamera(cam.id)
       .then((r) => {
         setEditing(r.camera);
-        setForm((f) => ({
-          ...f,
-          name: r.camera.name,
-          streamId: r.camera.streamId,
-          rtspUrl: r.camera.rtspUrl ?? f.rtspUrl,
-          areaId: r.camera.areaId ?? "",
-          enabled: r.camera.enabled,
-          sortOrder: String(r.camera.sortOrder),
-        }));
+        fillFormFromCamera(r.camera);
       })
       .catch(() => {
         /* keep list row data */
@@ -139,16 +139,12 @@ export function CamerasPage() {
   }
 
   function applyPresetPath() {
-    if (!selectedPreset || !form.host.trim()) return;
-    const user = encodeURIComponent(form.user.trim() || "user");
-    const password = encodeURIComponent(form.password || "password");
-    const host = form.host.trim();
-    const path = selectedPreset.pathTemplate.startsWith("/")
-      ? selectedPreset.pathTemplate
-      : `/${selectedPreset.pathTemplate}`;
+    if (!selectedPreset) return;
     setForm((f) => ({
       ...f,
-      rtspUrl: `rtsp://${user}:${password}@${host}:554${path}`,
+      path: selectedPreset.pathTemplate.startsWith("/")
+        ? selectedPreset.pathTemplate
+        : `/${selectedPreset.pathTemplate}`,
     }));
   }
 
@@ -159,29 +155,35 @@ export function CamerasPage() {
     try {
       const streamId = form.streamId.trim() || slugFromName(form.name);
       const sortOrder = Number(form.sortOrder);
+      const port = Number(form.port);
+      if (!form.host.trim()) {
+        setError("Camera IP / host is required");
+        setBusy(false);
+        return;
+      }
+
+      const body = {
+        name: form.name.trim(),
+        streamId,
+        host: form.host.trim(),
+        port: Number.isFinite(port) && port > 0 ? Math.trunc(port) : 554,
+        path: form.path.trim() || "/",
+        username: form.username.trim(),
+        areaId: form.areaId.trim() || null,
+        enabled: form.enabled,
+        sortOrder: Number.isFinite(sortOrder) ? Math.trunc(sortOrder) : 0,
+      };
+
       if (editing) {
         await api.updateCamera(editing.id, {
-          name: form.name.trim(),
-          streamId,
-          rtspUrl: form.rtspUrl.trim() || undefined,
-          areaId: form.areaId.trim() || null,
-          enabled: form.enabled,
-          sortOrder: Number.isFinite(sortOrder) ? Math.trunc(sortOrder) : 0,
+          ...body,
+          ...(form.password ? { password: form.password } : {}),
         });
         setInfo(`Updated ${form.name.trim()}.`);
       } else {
-        if (!form.rtspUrl.trim()) {
-          setError("RTSP URL is required");
-          setBusy(false);
-          return;
-        }
         await api.createCamera({
-          name: form.name.trim(),
-          streamId,
-          rtspUrl: form.rtspUrl.trim(),
-          areaId: form.areaId.trim() || null,
-          enabled: form.enabled,
-          sortOrder: Number.isFinite(sortOrder) ? Math.trunc(sortOrder) : 0,
+          ...body,
+          password: form.password,
         });
         setInfo(`Added ${form.name.trim()}.`);
       }
@@ -229,8 +231,9 @@ export function CamerasPage() {
         )}
       </Stack>
       <Typography color="text.secondary">
-        Register CCTV cameras by RTSP URL. Live streams are converted for the dashboard by
-        go2rtc (port 1984). Prefer a sub-stream for tiles.
+        Enter host, path, username and password separately (like MotionEye). Nexternel builds
+        the RTSP URL for go2rtc so special characters in passwords never break the link. Prefer
+        sub-streams (/ch01/1) for dashboard tiles — /0 is usually the heavy main stream.
       </Typography>
       {error && (
         <Alert severity="error" onClose={() => setError(null)}>
@@ -249,7 +252,7 @@ export function CamerasPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
-                <TableCell>Stream id</TableCell>
+                <TableCell>Host / path</TableCell>
                 <TableCell>{AREA.singular}</TableCell>
                 <TableCell>Enabled</TableCell>
                 {canEdit && <TableCell align="right">Actions</TableCell>}
@@ -261,7 +264,7 @@ export function CamerasPage() {
                   <TableCell colSpan={canEdit ? 5 : 4}>
                     <Typography color="text.secondary">
                       No cameras yet.
-                      {canEdit ? " Use “Add camera” with an RTSP URL from your CCTV." : ""}
+                      {canEdit ? " Use “Add camera” with host, path, and credentials." : ""}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -271,7 +274,10 @@ export function CamerasPage() {
                     <TableCell>{c.name}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontFamily="monospace">
-                        {c.streamId}
+                        {c.connectionPreview ||
+                          (c.host
+                            ? `${c.host}${c.path ? c.path : ""}`
+                            : c.streamId)}
                       </Typography>
                     </TableCell>
                     <TableCell>{c.areaName ?? "—"}</TableCell>
@@ -359,88 +365,109 @@ export function CamerasPage() {
                 </Select>
               </FormControl>
 
-              {!editing && (
-                <>
-                  <Typography variant="subtitle2">Optional brand helper</Typography>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="cam-brand">Brand preset</InputLabel>
-                    <Select
-                      labelId="cam-brand"
-                      label="Brand preset"
-                      value={form.brandPreset}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, brandPreset: e.target.value }))
-                      }
-                    >
-                      <MenuItem value="">
-                        <em>None — paste full RTSP URL</em>
-                      </MenuItem>
-                      {presets.map((p) => (
-                        <MenuItem key={p.id} value={p.id}>
-                          {p.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  {selectedPreset && (
-                    <Stack spacing={1}>
-                      <Typography variant="caption" color="text.secondary">
-                        {selectedPreset.hint}
-                      </Typography>
-                      <TextField
-                        label="Camera IP / host"
-                        size="small"
-                        value={form.host}
-                        onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
-                        fullWidth
-                      />
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                        <TextField
-                          label="Username"
-                          size="small"
-                          value={form.user}
-                          onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
-                          fullWidth
-                        />
-                        <TextField
-                          label="Password"
-                          size="small"
-                          type="password"
-                          value={form.password}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, password: e.target.value }))
-                          }
-                          fullWidth
-                        />
-                      </Stack>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={applyPresetPath}
-                        sx={{ alignSelf: "flex-start" }}
-                      >
-                        Build RTSP URL
-                      </Button>
-                    </Stack>
-                  )}
-                </>
+              <Typography variant="subtitle2">Connection</Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel id="cam-brand">Path preset (optional)</InputLabel>
+                <Select
+                  labelId="cam-brand"
+                  label="Path preset (optional)"
+                  value={form.brandPreset}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const p = presets.find((x) => x.id === id);
+                    setForm((f) => ({
+                      ...f,
+                      brandPreset: id,
+                      path: p
+                        ? p.pathTemplate.startsWith("/")
+                          ? p.pathTemplate
+                          : `/${p.pathTemplate}`
+                        : f.path,
+                    }));
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>None — type path yourself</em>
+                  </MenuItem>
+                  {presets.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {selectedPreset && (
+                <Typography variant="caption" color="text.secondary">
+                  {selectedPreset.hint}
+                </Typography>
+              )}
+              {selectedPreset && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={applyPresetPath}
+                  sx={{ alignSelf: "flex-start" }}
+                >
+                  Apply preset path
+                </Button>
               )}
 
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  label="Camera IP / host"
+                  value={form.host}
+                  onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+                  required
+                  fullWidth
+                  placeholder="192.168.3.30"
+                />
+                <TextField
+                  label="Port"
+                  value={form.port}
+                  onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
+                  sx={{ width: { sm: 120 } }}
+                />
+              </Stack>
               <TextField
-                label="RTSP URL"
-                value={form.rtspUrl}
-                onChange={(e) => setForm((f) => ({ ...f, rtspUrl: e.target.value }))}
-                required={!editing}
+                label="RTSP path"
+                value={form.path}
+                onChange={(e) => setForm((f) => ({ ...f, path: e.target.value }))}
+                required
                 fullWidth
-                multiline
-                minRows={2}
-                placeholder="rtsp://user:pass@192.168.1.50:554/…"
-                helperText={
-                  editing
-                    ? "Shown for editors so you can review or change it. Leave unchanged to keep the same stream."
-                    : "Stored on the server. Prefer a sub-stream URL for dashboard tiles."
-                }
+                placeholder="/ch01/1"
+                helperText="e.g. /ch01/1 (sub), /ch02/1, /ch03/1 — not including rtsp:// or password"
               />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  label="Username"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  fullWidth
+                  autoComplete="off"
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  fullWidth
+                  autoComplete="new-password"
+                  required={false}
+                  helperText={
+                    editing
+                      ? editing.hasPassword
+                        ? "Leave blank to keep the current password"
+                        : "No password stored yet"
+                      : "Any characters allowed — not put into a URL field"
+                  }
+                />
+              </Stack>
+              {editing?.connectionPreview && (
+                <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                  Preview: {editing.connectionPreview}
+                </Typography>
+              )}
+
               <TextField
                 label="Sort order"
                 type="number"

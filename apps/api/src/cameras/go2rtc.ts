@@ -96,7 +96,10 @@ export function playUrlsForStream(streamId: string): {
   hlsUrl: string;
   mseUrl: string;
 } {
-  const base = config.go2rtcPublicUrl().replace(/\/$/, "");
+  // Prefer same-origin /go2rtc (UI nginx → go2rtc). Absolute GO2RTC_PUBLIC_URL
+  // only when explicitly configured for direct browser → :1984 access.
+  const explicit = config.go2rtcPublicUrl();
+  const base = explicit || "/go2rtc";
   const q = `src=${encodeURIComponent(streamId)}`;
   return {
     streamId,

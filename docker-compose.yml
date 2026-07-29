@@ -144,6 +144,7 @@ services:
       - "${UI_PORT:-8080}:80"
     depends_on:
       - api
+      - go2rtc
 
   # RTSP → browser-friendly live streams (HLS / MSE / WebRTC)
   go2rtc:

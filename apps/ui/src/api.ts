@@ -608,7 +608,11 @@ export const api = {
   createCamera: (body: {
     name: string;
     streamId: string;
-    rtspUrl: string;
+    host: string;
+    port?: number;
+    path: string;
+    username?: string;
+    password?: string;
     areaId?: string | null;
     enabled?: boolean;
     sortOrder?: number;
@@ -623,7 +627,11 @@ export const api = {
     body: {
       name?: string;
       streamId?: string;
-      rtspUrl?: string;
+      host?: string;
+      port?: number;
+      path?: string;
+      username?: string;
+      password?: string;
       areaId?: string | null;
       enabled?: boolean;
       sortOrder?: number;
@@ -1111,8 +1119,13 @@ export type CameraRecord = {
   enabled: boolean;
   sortOrder: number;
   hasRtspUrl: boolean;
-  /** Included for users who can edit devices (Cameras admin). */
-  rtspUrl?: string;
+  /** Editors only — never includes the password value. */
+  host?: string;
+  port?: number;
+  path?: string;
+  username?: string;
+  hasPassword?: boolean;
+  connectionPreview?: string;
 };
 
 export type CameraBrandPreset = {

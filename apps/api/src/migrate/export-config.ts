@@ -159,11 +159,18 @@ async function loadCameras(): Promise<ExportedCamera[]> {
     name: string;
     stream_id: string;
     rtsp_url: string;
+    rtsp_host: string | null;
+    rtsp_port: number | null;
+    rtsp_path: string | null;
+    rtsp_username: string | null;
+    rtsp_password: string | null;
     area_id: string | null;
     enabled: boolean;
     sort_order: number;
   }>(
-    `SELECT id, name, stream_id, rtsp_url, area_id, enabled, sort_order
+    `SELECT id, name, stream_id, rtsp_url,
+            rtsp_host, rtsp_port, rtsp_path, rtsp_username, rtsp_password,
+            area_id, enabled, sort_order
      FROM cameras ORDER BY sort_order, name`
   );
   return r.rows.map((row) => ({
@@ -171,6 +178,11 @@ async function loadCameras(): Promise<ExportedCamera[]> {
     name: row.name,
     streamId: row.stream_id,
     rtspUrl: row.rtsp_url,
+    host: row.rtsp_host ?? undefined,
+    port: row.rtsp_port ?? undefined,
+    path: row.rtsp_path ?? undefined,
+    username: row.rtsp_username ?? undefined,
+    password: row.rtsp_password ?? undefined,
     areaId: row.area_id,
     enabled: row.enabled,
     sortOrder: row.sort_order,

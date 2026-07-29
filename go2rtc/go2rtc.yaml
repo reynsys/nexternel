@@ -5,3 +5,5 @@
 
 api:
   listen: ":1984"
+  # Allow browser / proxy access to HLS & stream APIs
+  origin: "*"

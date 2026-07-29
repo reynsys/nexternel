@@ -43,15 +43,14 @@ export const config = {
   /** Internal go2rtc base URL (API → go2rtc container). */
   go2rtcUrl: () => process.env.GO2RTC_URL || "http://go2rtc:1984",
   /**
-   * Browser-facing go2rtc base URL for HLS/MSE play links.
-   * Defaults to http://$SERVER_IP:1984 when unset.
+   * Browser-facing go2rtc base for HLS/MSE.
+   * Empty / unset → same-origin `/go2rtc` (UI nginx proxy — preferred).
+   * Set GO2RTC_PUBLIC_URL only if you intentionally expose go2rtc directly.
    */
   go2rtcPublicUrl: () => {
     const explicit = (process.env.GO2RTC_PUBLIC_URL || "").trim();
     if (explicit) return explicit.replace(/\/$/, "");
-    const ip = (process.env.SERVER_IP || "").trim();
-    if (ip) return `http://${ip}:1984`;
-    return "http://127.0.0.1:1984";
+    return "";
   },
 };
 

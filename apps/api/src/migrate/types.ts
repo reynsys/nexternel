@@ -67,7 +67,13 @@ export type ExportedCamera = {
   id: string;
   name: string;
   streamId: string;
+  /** Composed RTSP (always encoded) — kept for older adopt clients. */
   rtspUrl: string;
+  host?: string;
+  port?: number;
+  path?: string;
+  username?: string;
+  password?: string;
   areaId: string | null;
   enabled: boolean;
   sortOrder: number;

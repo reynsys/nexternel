@@ -18,8 +18,8 @@ function pgErrorCode(err: unknown): string {
   return "";
 }
 
-/** Editors may see RTSP URLs (needed to review/change them in Cameras admin). */
-function canSeeRtspUrl(request: FastifyRequest): boolean {
+/** Editors get host/path/username (never the raw password). */
+function canSeeConnection(request: FastifyRequest): boolean {
   const u = request.user;
   if (!u) return false;
   if (u.isAdmin || u.role === "admin") return true;
@@ -27,6 +27,18 @@ function canSeeRtspUrl(request: FastifyRequest): boolean {
   return typeof fromToken === "boolean"
     ? fromToken
     : VIEWER_PERMISSIONS.editDevices;
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+function num(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) {
+    return Number(v);
+  }
+  return undefined;
 }
 
 export const camerasRoutes: FastifyPluginAsync = async (app) => {
@@ -37,14 +49,14 @@ export const camerasRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/api/v1/cameras", async (request, reply) => {
     if (!requirePermission(request, reply, "viewDevices")) return;
-    const cameras = await listCameras(canSeeRtspUrl(request));
+    const cameras = await listCameras(canSeeConnection(request));
     return { cameras };
   });
 
   app.get("/api/v1/cameras/:id", async (request, reply) => {
     if (!requirePermission(request, reply, "viewDevices")) return;
     const { id } = request.params as { id: string };
-    const camera = await getCamera(id, canSeeRtspUrl(request));
+    const camera = await getCamera(id, canSeeConnection(request));
     if (!camera) {
       return reply.code(404).send({
         error: { code: "not_found", message: "Camera not found" },
@@ -72,26 +84,23 @@ export const camerasRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/api/v1/cameras", async (request, reply) => {
     if (!requirePermission(request, reply, "editDevices")) return;
-    const body = (request.body ?? {}) as {
-      name?: unknown;
-      streamId?: unknown;
-      rtspUrl?: unknown;
-      areaId?: unknown;
-      enabled?: unknown;
-      sortOrder?: unknown;
-    };
+    const body = (request.body ?? {}) as Record<string, unknown>;
     try {
       const camera = await createCamera({
-        name: typeof body.name === "string" ? body.name : "",
-        streamId: typeof body.streamId === "string" ? body.streamId : "",
-        rtspUrl: typeof body.rtspUrl === "string" ? body.rtspUrl : "",
+        name: str(body.name) ?? "",
+        streamId: str(body.streamId) ?? "",
+        host: str(body.host),
+        port: num(body.port),
+        path: str(body.path),
+        username: str(body.username),
+        password: str(body.password),
+        rtspUrl: str(body.rtspUrl),
         areaId:
           typeof body.areaId === "string" && body.areaId.trim()
             ? body.areaId.trim()
             : null,
         enabled: body.enabled !== false,
-        sortOrder:
-          typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+        sortOrder: num(body.sortOrder),
       });
       return reply.code(201).send({ camera });
     } catch (err: unknown) {
@@ -130,19 +139,22 @@ export const camerasRoutes: FastifyPluginAsync = async (app) => {
   app.patch("/api/v1/cameras/:id", async (request, reply) => {
     if (!requirePermission(request, reply, "editDevices")) return;
     const { id } = request.params as { id: string };
-    const body = (request.body ?? {}) as {
-      name?: unknown;
-      streamId?: unknown;
-      rtspUrl?: unknown;
-      areaId?: unknown;
-      enabled?: unknown;
-      sortOrder?: unknown;
-    };
+    const body = (request.body ?? {}) as Record<string, unknown>;
     try {
       const camera = await updateCamera(id, {
-        name: typeof body.name === "string" ? body.name : undefined,
-        streamId: typeof body.streamId === "string" ? body.streamId : undefined,
-        rtspUrl: typeof body.rtspUrl === "string" ? body.rtspUrl : undefined,
+        name: str(body.name),
+        streamId: str(body.streamId),
+        host: str(body.host),
+        port: num(body.port),
+        path: str(body.path),
+        username: str(body.username),
+        password:
+          body.password === undefined
+            ? undefined
+            : typeof body.password === "string"
+              ? body.password
+              : undefined,
+        rtspUrl: str(body.rtspUrl),
         areaId:
           body.areaId === null
             ? null
@@ -150,8 +162,7 @@ export const camerasRoutes: FastifyPluginAsync = async (app) => {
               ? body.areaId.trim() || null
               : undefined,
         enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
-        sortOrder:
-          typeof body.sortOrder === "number" ? body.sortOrder : undefined,
+        sortOrder: num(body.sortOrder),
       });
       if (!camera) {
         return reply.code(404).send({
