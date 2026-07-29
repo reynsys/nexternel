@@ -29,7 +29,7 @@ export function createMuiDashboardTheme(prefs: ThemePrefs): Theme {
       mode,
       primary: {
         main: primary,
-        contrastText: mode === "dark" ? "#fff" : undefined,
+        // Let MUI pick readable ink (dark on bright orange, light on deep accents)
       },
       secondary: {
         main: mode === "dark" ? alpha(primary, 0.85) : primary,
@@ -42,6 +42,7 @@ export function createMuiDashboardTheme(prefs: ThemePrefs): Theme {
       },
       action: {
         hover: alpha(primary, 0.08),
+        // Keep soft for generic lists; nav uses solid primary (see MuiListItemButton)
         selected: alpha(primary, 0.16),
       },
     },
@@ -85,10 +86,70 @@ export function createMuiDashboardTheme(prefs: ThemePrefs): Theme {
       },
       MuiListItemButton: {
         styleOverrides: {
-          root: {
+          root: ({ theme }) => ({
             borderRadius: 8,
+            // Match DashboardTabBar active tab: solid accent + contrast ink
             "&.Mui-selected": {
-              backgroundColor: alpha(primary, 0.16),
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              "& .MuiListItemIcon-root": {
+                color: theme.palette.primary.contrastText,
+              },
+              "& .MuiListItemText-primary": {
+                color: theme.palette.primary.contrastText,
+                fontWeight: 600,
+              },
+              "&:hover": {
+                backgroundColor: theme.palette.primary.dark,
+              },
+            },
+            "&.Mui-selected.Mui-focusVisible": {
+              backgroundColor: theme.palette.primary.dark,
+            },
+          }),
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            "&.Mui-selected": {
+              color: primary,
+              fontWeight: 600,
+            },
+          },
+        },
+      },
+      MuiSwitch: {
+        styleOverrides: {
+          switchBase: {
+            "&.Mui-checked": {
+              color: primary,
+            },
+            "&.Mui-checked + .MuiSwitch-track": {
+              backgroundColor: primary,
+            },
+          },
+        },
+      },
+      MuiCheckbox: {
+        styleOverrides: {
+          root: {
+            "&.Mui-checked": { color: primary },
+          },
+        },
+      },
+      MuiRadio: {
+        styleOverrides: {
+          root: {
+            "&.Mui-checked": { color: primary },
+          },
+        },
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: {
+            "&.MuiLink-underlineHover:hover": {
+              color: primary,
             },
           },
         },

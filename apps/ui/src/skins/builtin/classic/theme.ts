@@ -38,6 +38,43 @@ export function createClassicTheme(prefs: ThemePrefs): Theme {
           }),
         },
       },
+      MuiButton: {
+        styleOverrides: {
+          root: { textTransform: "none" },
+        },
+      },
+      MuiLink: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            "&.nexternel-nav-active": {
+              color: theme.palette.primary.main,
+              fontWeight: 700,
+            },
+          }),
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            "&.Mui-selected": {
+              color: theme.palette.primary.main,
+              fontWeight: 600,
+            },
+          }),
+        },
+      },
+      MuiSwitch: {
+        styleOverrides: {
+          switchBase: ({ theme }) => ({
+            "&.Mui-checked": {
+              color: theme.palette.primary.main,
+            },
+            "&.Mui-checked + .MuiSwitch-track": {
+              backgroundColor: theme.palette.primary.main,
+            },
+          }),
+        },
+      },
     },
   });
 }

@@ -14,6 +14,22 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.108 — 29/07/2026
+
+- **Accent colour:** left-menu active item uses the same solid accent fill as dashboard tabs (no translucent wash that looked olive on the gradient); icon/label use contrast ink
+
+## V3.1.107 — 29/07/2026
+
+- **CCTV multi-camera:** keep go2rtc RTSP producers warm after open (API keepalive) so tiles no longer go black after “Opening stream…”; open cameras one-at-a-time on client and server; prefer MSE live play; wait for real video frames before clearing the loading overlay; RTSP uses TCP + video-only; HLS uses fMP4
+
+## V3.1.106 — 29/07/2026
+
+- **Accent colour:** active left-menu item uses the accent for icon, label, stronger highlight, and a left accent bar; switches/checkboxes/radios/tabs follow accent; classic top-nav marks the current page in accent
+
+## V3.1.105 — 29/07/2026
+
+- **CCTV multi-camera:** open streams one-at-a-time (API warmup queue) so the NVR is not hit by two RTSP sessions at once; force RTSP-over-TCP; dashboard tiles stagger start and auto-retry if a tile stays blank
+
 ## V3.1.104 — 29/07/2026
 
 - **CCTV reliability:** dashboard camera tiles play through the UI proxy (`/go2rtc/…` on port 8080) instead of requiring the browser to open go2rtc on :1984 — fixes blank/intermittent widgets when the firewall, CORS, or `SERVER_IP` blocked direct access. Leave `GO2RTC_PUBLIC_URL` empty (default). Restart go2rtc after config upload so `origin: "*"` applies

@@ -8,6 +8,8 @@ import {
 import {
   go2rtcDeleteStream,
   go2rtcPutStream,
+  go2rtcWarmupStream,
+  go2rtcStreamHasProducer,
   playUrlsForStream,
 } from "./go2rtc.js";
 import { normalizeStreamId } from "./presets.js";
@@ -394,14 +396,41 @@ export async function getCameraPlay(id: string): Promise<{
   hlsUrl: string;
   mseUrl: string;
   enabled: boolean;
+  warmedUp: boolean;
 } | null> {
   const row = await getCameraRow(id);
   if (!row) return null;
+  if (!row.enabled) {
+    const urls = playUrlsForStream(row.stream_id);
+    return {
+      id: row.id,
+      name: row.name,
+      enabled: false,
+      warmedUp: false,
+      ...urls,
+    };
+  }
+
+  // Register only if go2rtc does not already have a live producer — re-PUT on
+  // every play was tearing down RTSP and causing blank multi-camera tiles.
+  try {
+    const conn = connectionFromRow(row);
+    if (conn.host) {
+      const live = await go2rtcStreamHasProducer(row.stream_id);
+      if (!live) {
+        await go2rtcPutStream(row.stream_id, composeRtspUrl(conn));
+      }
+    }
+  } catch {
+    /* still try warmup / play */
+  }
+  const warmedUp = await go2rtcWarmupStream(row.stream_id);
   const urls = playUrlsForStream(row.stream_id);
   return {
     id: row.id,
     name: row.name,
     enabled: row.enabled,
+    warmedUp,
     ...urls,
   };
 }

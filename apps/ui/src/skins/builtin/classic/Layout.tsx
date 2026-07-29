@@ -1,4 +1,4 @@
-import { Link as RouterLink, Outlet } from "react-router-dom";
+import { Link as RouterLink, Outlet, useLocation } from "react-router-dom";
 import {
   AppBar,
   Box,
@@ -16,10 +16,22 @@ import { useShellAuth } from "../../useShellAuth";
 import { useSkin } from "../../SkinProvider";
 import { gradientCss } from "../../gradientPalettes";
 
+function navItemActive(pathname: string, to: string): boolean {
+  if (to === "/") {
+    return (
+      pathname === "/" ||
+      pathname.startsWith("/dashboards") ||
+      pathname.startsWith("/manage/dashboards")
+    );
+  }
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
 /** Flat top-nav shell (original V3 look). */
 export function ClassicLayout() {
   const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
   const { themePrefs } = useSkin();
+  const { pathname } = useLocation();
   const hasGradient = Boolean(gradientCss(themePrefs.gradientId));
   const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions });
   const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions });
@@ -46,17 +58,27 @@ export function ClassicLayout() {
             flexWrap="wrap"
             useFlexGap
           >
-            {[...main, ...secondary].map((item) => (
-              <Link
-                key={item.to}
-                component={RouterLink}
-                to={item.to}
-                color="inherit"
-                underline="hover"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {[...main, ...secondary].map((item) => {
+              const active = navItemActive(pathname, item.to);
+              return (
+                <Link
+                  key={item.to}
+                  component={RouterLink}
+                  to={item.to}
+                  underline={active ? "always" : "hover"}
+                  className={active ? "nexternel-nav-active" : undefined}
+                  color={active ? "primary" : "inherit"}
+                  sx={{
+                    fontWeight: active ? 700 : 500,
+                    borderBottom: active ? "2px solid" : "2px solid transparent",
+                    borderColor: active ? "primary.main" : "transparent",
+                    pb: 0.25,
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </Stack>
           {signedIn ? (
             <Button color="inherit" size="small" onClick={() => void logout()}>

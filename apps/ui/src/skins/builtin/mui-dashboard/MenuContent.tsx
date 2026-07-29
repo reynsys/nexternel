@@ -52,17 +52,29 @@ function NavList({
             sx={{
               justifyContent: collapsed ? "center" : "flex-start",
               px: collapsed ? 1 : 2,
+              "&.Mui-selected": {
+                color: "primary.contrastText",
+              },
             }}
           >
             <ListItemIcon
               sx={{
                 minWidth: collapsed ? 0 : 36,
                 justifyContent: "center",
+                color: selected ? "primary.contrastText" : "inherit",
               }}
             >
               <Icon fontSize="small" />
             </ListItemIcon>
-            {!collapsed && <ListItemText primary={item.label} />}
+            {!collapsed && (
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{
+                  fontWeight: selected ? 600 : 400,
+                  color: selected ? "primary.contrastText" : undefined,
+                }}
+              />
+            )}
           </ListItemButton>
         );
         return (
