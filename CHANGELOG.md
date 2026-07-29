@@ -14,6 +14,19 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.111 — 29/07/2026
+
+- **Weather widget:** fixed silent fallback to London when lat/lon were stored as strings; widget shows the coordinates actually used; Edit → **Look up place** fills lat/lon from a place name; clearer editor help (label ≠ location); weekday labels no longer shift in some timezones
+
+## V3.1.110 — 29/07/2026
+
+- **Appearance accents:** larger solid accent palette (24 colours); custom hex + colour picker; when a page gradient is on, **Match accent** Start / Mid / End copies a solid colour from that gradient (no heavy gradient-on-buttons)
+
+## V3.1.109 — 29/07/2026
+
+- **Dashboard tab rename:** renaming a tab (e.g. Living Room → CCTV) no longer reverts — tab name/icon sync into Dashboard options so the main Save cannot overwrite with the old name; clearer “This tab” name/icon fields
+- **Tab icons:** much larger icon set including CCTV/camera, security, rooms, outdoor, climate, power, media
+
 ## V3.1.108 — 29/07/2026
 
 - **Accent colour:** left-menu active item uses the same solid accent fill as dashboard tabs (no translucent wash that looked olive on the gradient); icon/label use contrast ink

@@ -28,6 +28,21 @@ export type CameraConfig = {
   cameraId?: string;
 };
 
+/** Coerce number | numeric string — string coords used to fall back to London silently. */
+export function coerceCoord(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  let n: number;
+  if (typeof value === "number") n = value;
+  else if (typeof value === "string" && value.trim()) n = Number(value.trim());
+  else return fallback;
+  if (!Number.isFinite(n) || n < min || n > max) return fallback;
+  return n;
+}
+
 export function parseWeatherConfig(config: Record<string, unknown> | undefined): {
   weatherLocation: string;
   weatherLat: number;
@@ -37,14 +52,8 @@ export function parseWeatherConfig(config: Record<string, unknown> | undefined):
     typeof config?.weatherLocation === "string" && config.weatherLocation.trim()
       ? config.weatherLocation.trim()
       : "Weather";
-  const weatherLat =
-    typeof config?.weatherLat === "number" && Number.isFinite(config.weatherLat)
-      ? config.weatherLat
-      : 51.5074;
-  const weatherLon =
-    typeof config?.weatherLon === "number" && Number.isFinite(config.weatherLon)
-      ? config.weatherLon
-      : -0.1278;
+  const weatherLat = coerceCoord(config?.weatherLat, 51.5074, -90, 90);
+  const weatherLon = coerceCoord(config?.weatherLon, -0.1278, -180, 180);
   return { weatherLocation, weatherLat, weatherLon };
 }
 

@@ -912,6 +912,19 @@ export const api = {
       `/api/v1/weather?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}`
     ),
 
+  weatherGeocode: (q: string) =>
+    apiFetch<{
+      results: Array<{
+        name: string;
+        latitude: number;
+        longitude: number;
+        country: string;
+        admin1: string;
+        timezone: string;
+        label: string;
+      }>;
+    }>(`/api/v1/weather/geocode?q=${encodeURIComponent(q)}`),
+
   users: () => apiFetch<{ users: AdminUser[] }>("/api/v1/users"),
 
   createUser: (body: {
@@ -1037,6 +1050,7 @@ export type WeatherForecastDay = {
   description: string;
   tempMax?: number;
   tempMin?: number;
+  precipProbability?: number;
 };
 
 export type WeatherResponse = {
@@ -1046,8 +1060,11 @@ export type WeatherResponse = {
   weatherCode?: number;
   description?: string;
   time?: string;
+  requestedLatitude?: number;
+  requestedLongitude?: number;
   latitude?: number;
   longitude?: number;
+  timezone?: string;
   forecast: WeatherForecastDay[];
 };
 

@@ -34,12 +34,25 @@ import { normalizeDocument } from "../lib/dashboard-document";
 type Props = {
   /** Shorter chrome when embedded under Dashboard options */
   compact?: boolean;
+  /** Dashboard currently open on the page (so rename syncs into the page Save state) */
+  currentDashboardId?: string;
   /** Called after create / delete / default / tab edit so the tab bar can refresh */
   onDashboardsChanged?: () => void;
+  /** When the open dashboard’s tab meta is edited here, push it into DashboardPage state */
+  onCurrentTabMeta?: (meta: {
+    name: string;
+    tabIcon: string;
+    showTabLabel: boolean;
+  }) => void;
 };
 
 /** Create, default, tab icons — used inside Dashboard options and on /manage/dashboards. */
-export function ManageDashboardsPanel({ compact, onDashboardsChanged }: Props) {
+export function ManageDashboardsPanel({
+  compact,
+  currentDashboardId,
+  onDashboardsChanged,
+  onCurrentTabMeta,
+}: Props) {
   const navigate = useNavigate();
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [name, setName] = useState("Home");
@@ -108,9 +121,10 @@ export function ManageDashboardsPanel({ compact, onDashboardsChanged }: Props) {
     setError(null);
     try {
       const res = await api.getDashboard(d.id);
+      // Row name is authoritative for the tab label (keeps list + tabs in sync).
       const doc = normalizeDocument(res.dashboard.document, res.dashboard.name);
       setEditId(d.id);
-      setEditName(doc.name);
+      setEditName(res.dashboard.name || doc.name);
       setEditIcon(doc.tabIcon ?? "dashboard");
       setEditShowLabel(doc.showTabLabel !== false);
     } catch (err) {
@@ -123,17 +137,26 @@ export function ManageDashboardsPanel({ compact, onDashboardsChanged }: Props) {
     setEditSaving(true);
     setError(null);
     try {
+      const nextName = editName.trim() || "Dashboard";
       const res = await api.getDashboard(editId);
-      const doc = normalizeDocument(res.dashboard.document, editName.trim() || "Dashboard");
+      const doc = normalizeDocument(res.dashboard.document, nextName);
       await api.saveDashboard(editId, {
-        name: editName.trim() || "Dashboard",
+        name: nextName,
         document: {
           ...doc,
-          name: editName.trim() || "Dashboard",
+          name: nextName,
           tabIcon: editIcon,
           showTabLabel: editShowLabel,
         },
       });
+      // Prevent DashboardPage’s stale name from overwriting this on the next page Save.
+      if (editId === currentDashboardId) {
+        onCurrentTabMeta?.({
+          name: nextName,
+          tabIcon: editIcon,
+          showTabLabel: editShowLabel,
+        });
+      }
       setEditId(null);
       await load();
       notifyChanged();

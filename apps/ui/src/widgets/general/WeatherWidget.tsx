@@ -4,6 +4,21 @@ import { api, type WeatherResponse, type WidgetInstance } from "../../api";
 import { parseWeatherConfig, widgetTitleOr } from "./config";
 import { weatherEmojiForCode } from "./weather-icons";
 
+/** Parse Open-Meteo daily `YYYY-MM-DD` as local calendar day (avoid UTC shift). */
+function weekdayShort(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!m) {
+    return new Date(isoDate).toLocaleDateString(undefined, { weekday: "short" });
+  }
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  return d.toLocaleDateString(undefined, { weekday: "short" });
+}
+
+function fmtCoord(n: number | undefined, digits = 2): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toFixed(digits);
+}
+
 export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
   const cfg = parseWeatherConfig(widget.config);
   const [data, setData] = useState<WeatherResponse | null>(null);
@@ -44,6 +59,9 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
   const todayMin =
     todayForecast?.tempMin != null ? `${Math.round(todayForecast.tempMin)}°` : null;
 
+  const resolvedLat = data?.latitude ?? cfg.weatherLat;
+  const resolvedLon = data?.longitude ?? cfg.weatherLon;
+
   return (
     <Box
       sx={{
@@ -54,8 +72,20 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
         minHeight: 0,
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
+      <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ flexShrink: 0 }}>
         {title}
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        noWrap
+        title={`${fmtCoord(resolvedLat, 4)}, ${fmtCoord(resolvedLon, 4)}${
+          data?.timezone ? ` · ${data.timezone}` : ""
+        }`}
+        sx={{ mb: 0.5, flexShrink: 0, fontSize: "0.65rem" }}
+      >
+        {fmtCoord(resolvedLat)}, {fmtCoord(resolvedLon)}
+        {data?.description ? ` · ${data.description}` : ""}
       </Typography>
       {error && (
         <Typography variant="caption" color="error">
@@ -110,9 +140,7 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
           }}
         >
           {upcoming.map((day) => {
-            const label = new Date(day.date).toLocaleDateString(undefined, {
-              weekday: "short",
-            });
+            const label = weekdayShort(day.date);
             const max = day.tempMax != null ? `${Math.round(day.tempMax)}°` : "—";
             const min = day.tempMin != null ? `${Math.round(day.tempMin)}°` : "—";
             return (

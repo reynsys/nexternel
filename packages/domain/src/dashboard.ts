@@ -46,7 +46,7 @@ export const DashboardSectionSchema = z.object({
   title: z.string().min(1),
   order: z.number().int().nonnegative().default(0),
   collapsed: z.boolean().optional().default(false),
-  roomId: z.string().uuid().nullable().optional(),
+  roomId: z.string().nullable().optional(),
   /** Catalog icon id (see UI dashboard-icons). */
   icon: z.string().optional(),
   /** Width on 12-col section grid: 12 full, 6 half, 4 third, 3 quarter. */

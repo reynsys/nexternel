@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   IconButton,
   InputLabel,
   ListSubheader,
@@ -21,6 +22,7 @@ import {
   Popover,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
   useMediaQuery,
@@ -509,6 +511,38 @@ export function DashboardPage() {
             </Stack>
           </Stack>
 
+          <Stack
+            spacing={1.5}
+            sx={{
+              p: 2,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              This tab (horizontal menu)
+            </Typography>
+            <TextField
+              size="small"
+              label="Tab name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              helperText="Shown on the top dashboard tabs — Save to keep the rename"
+              sx={{ maxWidth: 360 }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showTabLabel}
+                  onChange={(e) => setShowTabLabel(e.target.checked)}
+                />
+              }
+              label="Show name on tab (off = icon only)"
+            />
+            <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
+          </Stack>
+
           <Accordion
             expanded={manageExpanded}
             onChange={(_e, exp) => setManageExpanded(exp)}
@@ -526,14 +560,23 @@ export function DashboardPage() {
                 <FolderOpenIcon fontSize="small" color="action" />
                 <Typography fontWeight={600}>Manage dashboards</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Create · default · tab icons
+                  Create · default · other tabs
                 </Typography>
               </Stack>
             </AccordionSummary>
             <AccordionDetails sx={{ pt: 0 }}>
               <ManageDashboardsPanel
                 compact
-                onDashboardsChanged={() => setTabRefreshKey((k) => k + 1)}
+                currentDashboardId={id}
+                onDashboardsChanged={() => {
+                  setTabRefreshKey((k) => k + 1);
+                }}
+                onCurrentTabMeta={(meta) => {
+                  setName(meta.name);
+                  setTabIcon(meta.tabIcon);
+                  setShowTabLabel(meta.showTabLabel);
+                  setTabRefreshKey((k) => k + 1);
+                }}
               />
             </AccordionDetails>
           </Accordion>

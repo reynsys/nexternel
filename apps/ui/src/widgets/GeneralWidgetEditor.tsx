@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Button,
   Drawer,
   FormControl,
@@ -43,6 +44,9 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
   const [weatherLocation, setWeatherLocation] = useState("London");
   const [weatherLat, setWeatherLat] = useState("51.5074");
   const [weatherLon, setWeatherLon] = useState("-0.1278");
+  const [geocodeBusy, setGeocodeBusy] = useState(false);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [geocodeHint, setGeocodeHint] = useState<string | null>(null);
   const [offlineOnly, setOfflineOnly] = useState(false);
   const [cameraId, setCameraId] = useState("");
   const [cameras, setCameras] = useState<CameraRecord[]>([]);
@@ -51,6 +55,8 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
     if (!open || !widget || !isGeneralWidgetType(widget.type)) return;
     const type = widget.type as GeneralWidgetType;
     const label = TYPE_LABELS[type];
+    setGeocodeError(null);
+    setGeocodeHint(null);
     if (type === "weather") {
       const w = parseWeatherConfig(widget.config);
       const loc = w.weatherLocation === "Weather" ? "London" : w.weatherLocation;
@@ -78,6 +84,37 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
 
   const type = widget.type;
   const label = TYPE_LABELS[type];
+
+  async function lookupPlace() {
+    const q = weatherLocation.trim();
+    if (q.length < 2) {
+      setGeocodeError("Enter a place name first (e.g. town or postcode area)");
+      return;
+    }
+    setGeocodeBusy(true);
+    setGeocodeError(null);
+    setGeocodeHint(null);
+    try {
+      const { results } = await api.weatherGeocode(q);
+      const best = results[0];
+      if (!best) {
+        setGeocodeError(
+          "No matches — try a clearer place name or enter lat/lon manually"
+        );
+        return;
+      }
+      setWeatherLat(String(best.latitude));
+      setWeatherLon(String(best.longitude));
+      setWeatherLocation(best.name);
+      setGeocodeHint(
+        `Using ${best.label} → ${best.latitude.toFixed(4)}, ${best.longitude.toFixed(4)}`
+      );
+    } catch (err) {
+      setGeocodeError(err instanceof Error ? err.message : "Lookup failed");
+    } finally {
+      setGeocodeBusy(false);
+    }
+  }
 
   function handleApply() {
     const config: Record<string, unknown> = { ...(widget.config ?? {}) };
@@ -123,7 +160,7 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
         <Typography variant="h6">Edit {label.toLowerCase()}</Typography>
         <Typography variant="caption" color="text.secondary">
           {type === "weather"
-            ? "Location label is the heading. Optional Title overrides it."
+            ? "Forecast uses Latitude / Longitude (Open-Meteo). The location label is only the heading — use Look up to fill coordinates from a place name."
             : type === "device_status"
               ? "Optional title (default: Devices) and offline-only list."
               : type === "camera"
@@ -152,13 +189,25 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
         {type === "weather" && (
           <>
             <TextField
-              label="Location label"
+              label="Location / place name"
               size="small"
               fullWidth
               value={weatherLocation}
-              onChange={(e) => setWeatherLocation(e.target.value)}
-              helperText="Default heading when Title is empty"
+              onChange={(e) => {
+                setWeatherLocation(e.target.value);
+                setGeocodeHint(null);
+              }}
+              helperText="Heading text — does not change weather until you Look up or set lat/lon"
             />
+            <Button
+              variant="outlined"
+              disabled={geocodeBusy}
+              onClick={() => void lookupPlace()}
+            >
+              {geocodeBusy ? "Looking up…" : "Look up place → fill lat/lon"}
+            </Button>
+            {geocodeError && <Alert severity="error">{geocodeError}</Alert>}
+            {geocodeHint && <Alert severity="success">{geocodeHint}</Alert>}
             <TextField
               label="Latitude"
               size="small"
@@ -166,6 +215,7 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               value={weatherLat}
               onChange={(e) => setWeatherLat(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
+              helperText="North/south (−90 to 90). Invalid values fall back to London."
             />
             <TextField
               label="Longitude"
@@ -174,7 +224,13 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               value={weatherLon}
               onChange={(e) => setWeatherLon(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
+              helperText="East/west (−180 to 180). UK values are typically negative (e.g. −0.1)."
             />
+            <Typography variant="caption" color="text.secondary">
+              After Apply, save the dashboard so coordinates persist. Phone apps often use a
+              different weather model — small differences are normal; large ones usually mean
+              wrong coordinates.
+            </Typography>
           </>
         )}
 

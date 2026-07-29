@@ -69,8 +69,11 @@ function normalizeSection(s: DashboardSection, i: number): DashboardSection {
 export function normalizeDocument(raw: unknown, fallbackName = "Dashboard"): DashboardDocument {
   if (!raw || typeof raw !== "object") return emptyDocument(fallbackName);
   const doc = raw as Record<string, unknown>;
-  const name =
-    typeof doc.name === "string" && doc.name.trim() ? doc.name.trim() : fallbackName;
+  const fromDoc =
+    typeof doc.name === "string" && doc.name.trim() ? doc.name.trim() : "";
+  const fromFallback = typeof fallbackName === "string" ? fallbackName.trim() : "";
+  // Prefer the DB/dashboard row name (tab bar source of truth) when provided.
+  const name = fromFallback || fromDoc || "Dashboard";
   const tabIcon =
     typeof doc.tabIcon === "string" && doc.tabIcon.trim()
       ? doc.tabIcon.trim()

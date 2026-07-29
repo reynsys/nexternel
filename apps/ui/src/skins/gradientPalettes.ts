@@ -57,6 +57,30 @@ export function getGradientPalette(id: string | null | undefined): GradientPalet
   return BY_ID.get(id) ?? null;
 }
 
+/** Midpoint blend of two #RRGGBB colours (for “match gradient → accent”). */
+export function mixHexColors(a: string, b: string): string {
+  const parse = (h: string): [number, number, number] | null => {
+    const m = /^#?([0-9A-Fa-f]{6})$/.exec(h.trim());
+    if (!m) return null;
+    const hex = m[1]!;
+    return [
+      parseInt(hex.slice(0, 2), 16),
+      parseInt(hex.slice(2, 4), 16),
+      parseInt(hex.slice(4, 6), 16),
+    ];
+  };
+  const ca = parse(a);
+  const cb = parse(b);
+  if (!ca || !cb) return a.startsWith("#") ? a : `#${a}`;
+  const toHex = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toHex((ca[0] + cb[0]) / 2)}${toHex((ca[1] + cb[1]) / 2)}${toHex(
+    (ca[2] + cb[2]) / 2
+  )}`;
+}
+
 /** CSS `background-image` value, or null for solid theme background. */
 export function gradientCss(id: string | null | undefined): string | null {
   const p = getGradientPalette(id);
