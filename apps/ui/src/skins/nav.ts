@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
@@ -27,13 +26,6 @@ export const MAIN_NAV: NavItem[] = [
     icon: DashboardRoundedIcon,
     auth: true,
     permission: "viewDashboards",
-  },
-  {
-    label: "Live",
-    to: "/live",
-    icon: SensorsRoundedIcon,
-    auth: true,
-    permission: "viewLive",
   },
   {
     label: "System",

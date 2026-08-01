@@ -1,5 +1,6 @@
 import type { WidgetCategoryId } from "@nexternel/plugin-sdk";
 import type { HistoryRange } from "../../api";
+import type { EchartsThemePalette } from "./chart-theme";
 
 export type EchartsDataMode = "live" | "history" | "none";
 
@@ -15,6 +16,8 @@ export type EchartsBuildCtx = {
   /** Nice tick count for gauges (set by renderer for family=gauge). */
   splitNumber?: number;
   accent?: string;
+  /** From System → Appearance (accent + readable axis/detail colours). */
+  palette?: EchartsThemePalette;
   points: HistoryPoint[];
   range: HistoryRange;
   /** Shortest side of the chart host in px — used to scale gauge fonts/arcs. */

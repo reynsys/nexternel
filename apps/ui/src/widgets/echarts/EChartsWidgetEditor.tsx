@@ -393,8 +393,8 @@ export function EChartsWidgetEditor({
           fullWidth
           value={accent}
           onChange={(e) => setAccent(e.target.value)}
-          placeholder="#5470c6"
-          helperText="CSS color used by presets that support accent"
+          placeholder="Appearance accent"
+          helperText="Optional override — leave blank to use System → Appearance accent colour"
         />
 
         <Divider />

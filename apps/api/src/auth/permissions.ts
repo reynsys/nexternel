@@ -37,16 +37,10 @@ export const PERMISSION_META: {
     group: "Dashboards",
   },
   {
-    key: "viewLive",
-    label: "View Live",
-    help: "Open the Live sensors page",
-    group: "Live",
-  },
-  {
     key: "controlRelays",
     label: "Control switches / relays",
-    help: "Toggle relays from dashboards or Live (not configuration)",
-    group: "Live",
+    help: "Toggle relays from dashboards (not configuration)",
+    group: "Dashboards",
   },
   {
     key: "viewSystem",

@@ -14,6 +14,19 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.121 — 01/08/2026
+
+- **ECharts widgets:** gauges and history charts use System → Appearance accent and theme-aware axis/detail colours (fixes labels blending into dark/gradient backgrounds)
+
+## V3.1.120 — 01/08/2026
+
+- **Dashboard options:** “This tab (horizontal menu)” uses the same collapsible accordion as “Manage dashboards” (expand/collapse arrow)
+
+## V3.1.119 — 01/08/2026
+
+- **Live page removed** — nav item and `/live` route retired (redirects to dashboards); dashboards remain the place for live sensor/switch values
+- **Devices online/offline** — ESPHome MQTT `status` (online/offline) and Shelly `online` topics drive presence; relay-only boards no longer flip offline after 90s of silence; ghost-online safety net extended to 24h
+
 ## V3.1.118 — 01/08/2026
 
 - **System information:** Version field restored to a single API version string (removed unsolicited “UI … · API …” dual label)

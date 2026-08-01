@@ -8,7 +8,6 @@ import {
 } from "../capabilities/store.js";
 import { getLiveState, parseMqttPayload, setLiveState } from "./state-cache.js";
 import { getPool } from "../db.js";
-import { DEVICE_ONLINE_TIMEOUT_MS } from "../devices/presence.js";
 import { looksLikeShellyCommandTopic } from "../shelly/topics.js";
 import { parseShellyMqttSwitchUpdates } from "../shelly/notify.js";
 import {
@@ -93,6 +92,68 @@ async function rebuildTopicIndex() {
   }
 }
 
+/** Safety net: clear ghost online when no MQTT traffic for a long time (LWT should fire sooner). */
+const DEVICE_GHOST_ONLINE_TIMEOUT_MS = 86_400_000; // 24 hours
+
+function applyDeviceRootStatusTopic(topic: string, payload: string): boolean {
+  const prefix = longestPrefixForTopic(topic);
+  if (!prefix || topic !== `${prefix}/status`) return false;
+  const state = payload.trim().toLowerCase();
+  if (state === "online" || state === "true" || state === "1") {
+    void getPool()
+      .query(
+        `UPDATE devices
+         SET is_online = TRUE, last_seen_at = NOW()
+         WHERE mqtt_topic_prefix = $1`,
+        [prefix]
+      )
+      .catch(() => {
+        /* ignore */
+      });
+    return true;
+  }
+  if (state === "offline" || state === "false" || state === "0") {
+    void getPool()
+      .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
+      .catch(() => {
+        /* ignore */
+      });
+    return true;
+  }
+  return false;
+}
+
+/** Shelly Gen1: {prefix}/online → true|false */
+function applyDeviceShellyOnlineTopic(topic: string, payload: string): boolean {
+  const match = /^(.+)\/online$/i.exec(topic);
+  if (!match) return false;
+  const prefix = longestPrefixForTopic(topic);
+  if (!prefix || prefix !== match[1]) return false;
+  const state = payload.trim().toLowerCase();
+  if (/^(true|1|online)$/.test(state)) {
+    void getPool()
+      .query(
+        `UPDATE devices
+         SET is_online = TRUE, last_seen_at = NOW()
+         WHERE mqtt_topic_prefix = $1`,
+        [prefix]
+      )
+      .catch(() => {
+        /* ignore */
+      });
+    return true;
+  }
+  if (/^(false|0|offline)$/.test(state)) {
+    void getPool()
+      .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
+      .catch(() => {
+        /* ignore */
+      });
+    return true;
+  }
+  return false;
+}
+
 function touchDeviceOnlineFromTopic(topic: string) {
   const prefix = longestPrefixForTopic(topic);
   if (!prefix) return;
@@ -166,11 +227,17 @@ function handleMessage(
   payloadBuf: Buffer,
   packet: { retain?: boolean }
 ) {
-  touchDeviceOnlineFromTopic(topic);
   const payload = payloadBuf.toString("utf8");
   const retained = Boolean(packet.retain);
 
   notifyDiscoveryCollectors(topic, payload);
+
+  const presenceHandled =
+    applyDeviceRootStatusTopic(topic, payload) ||
+    applyDeviceShellyOnlineTopic(topic, payload);
+  if (!presenceHandled) {
+    touchDeviceOnlineFromTopic(topic);
+  }
 
   // Shelly app / physical switch / status_update → events/rpc or /status
   const shellyHandled = applyShellyTopicUpdates(topic, payload, retained);
@@ -211,7 +278,7 @@ function startPresenceSweeper() {
              last_seen_at IS NULL
              OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
            )`,
-        [DEVICE_ONLINE_TIMEOUT_MS / 1000]
+        [DEVICE_GHOST_ONLINE_TIMEOUT_MS / 1000]
       )
       .catch(() => {
         /* ignore */

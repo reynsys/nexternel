@@ -221,8 +221,8 @@ export function DevicesPage() {
       const channels = model?.switchCount ?? 1;
       setInfo(
         channels > 1
-          ? `Shelly added with ${channels} switches. Open Live or add Switch widgets on the Dashboard.`
-          : "Shelly added. Open Live to control it, or Dashboard → Edit → Add widget → Controls → Switch."
+          ? `Shelly added with ${channels} switches. Add Switch widgets on the Dashboard.`
+          : "Shelly added. Dashboard → Edit → Add widget → Controls → Switch."
       );
       await load();
     } catch (err) {
@@ -449,7 +449,7 @@ export function DevicesPage() {
       </Stack>
 
       <Typography color="text.secondary">
-        Register ESPHome boards and Shelly switches for Live and dashboards.
+        Register ESPHome boards and Shelly switches for dashboards.
       </Typography>
 
       {error && (

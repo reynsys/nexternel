@@ -32,6 +32,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
+import TabRoundedIcon from "@mui/icons-material/TabRounded";
 import {
   api,
   connectLiveSocket,
@@ -113,6 +114,7 @@ export function DashboardPage() {
   const [iconPickerSectionId, setIconPickerSectionId] = useState<string | null>(null);
   const [iconPickerAnchor, setIconPickerAnchor] = useState<HTMLElement | null>(null);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
+  const [tabMetaExpanded, setTabMetaExpanded] = useState(false);
   const [manageExpanded, setManageExpanded] = useState(false);
 
   const categoryOptions = categoriesWithEntries();
@@ -460,6 +462,7 @@ export function DashboardPage() {
         onDashboardOptions={() => {
           if (!canEditDashboards) return;
           setEditMode(true);
+          setTabMetaExpanded(true);
           setManageExpanded(true);
         }}
       />
@@ -498,6 +501,7 @@ export function DashboardPage() {
               <Button
                 onClick={() => {
                   setEditMode(false);
+                  setTabMetaExpanded(false);
                   setManageExpanded(false);
                   if (id) {
                     void api.getDashboard(id).then((d) => {
@@ -511,37 +515,50 @@ export function DashboardPage() {
             </Stack>
           </Stack>
 
-          <Stack
-            spacing={1.5}
+          <Accordion
+            expanded={tabMetaExpanded}
+            onChange={(_e, exp) => setTabMetaExpanded(exp)}
+            disableGutters
             sx={{
-              p: 2,
               border: "1px solid",
               borderColor: "divider",
               borderRadius: 2,
+              "&:before": { display: "none" },
+              overflow: "hidden",
             }}
           >
-            <Typography variant="subtitle2" fontWeight={600}>
-              This tab (horizontal menu)
-            </Typography>
-            <TextField
-              size="small"
-              label="Tab name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              helperText="Shown on the top dashboard tabs — Save to keep the rename"
-              sx={{ maxWidth: 360 }}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showTabLabel}
-                  onChange={(e) => setShowTabLabel(e.target.checked)}
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TabRoundedIcon fontSize="small" color="action" />
+                <Typography fontWeight={600}>This tab (horizontal menu)</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Name · icon · label
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              <Stack spacing={1.5}>
+                <TextField
+                  size="small"
+                  label="Tab name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  helperText="Shown on the top dashboard tabs — Save to keep the rename"
+                  sx={{ maxWidth: 360 }}
                 />
-              }
-              label="Show name on tab (off = icon only)"
-            />
-            <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
-          </Stack>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showTabLabel}
+                      onChange={(e) => setShowTabLabel(e.target.checked)}
+                    />
+                  }
+                  label="Show name on tab (off = icon only)"
+                />
+                <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
 
           <Accordion
             expanded={manageExpanded}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useTheme } from "@mui/material";
 import ReactECharts from "echarts-for-react";
 import type { ECharts } from "echarts";
 import type { Capability, HistoryRange, WidgetInstance } from "../../api";
@@ -10,6 +10,7 @@ import {
   resolveMinMax,
 } from "./config";
 import { buildFinalOption } from "./merge-option";
+import { applyEchartsPalette, echartsPaletteFromTheme } from "./chart-theme";
 import { enforceAllGaugeSeries, niceGaugeAxis } from "./gauge-scale";
 import { getEchartsPreset } from "./registry";
 import type { EchartsBuildCtx, HistoryPoint } from "./types";
@@ -30,6 +31,8 @@ export function EChartsWidgetBody({
 }) {
   const config = parseEchartsConfig(widget.config);
   const preset = getEchartsPreset(config.presetId);
+  const theme = useTheme();
+  const chartPalette = useMemo(() => echartsPaletteFromTheme(theme), [theme]);
   const range: HistoryRange = config.range ?? "24h";
   const capabilityId = capabilityIdOf(widget);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -107,6 +110,7 @@ export function EChartsWidgetBody({
       min,
       max,
       accent: config.accent,
+      palette: chartPalette,
       points,
       range,
       sizePx,
@@ -116,14 +120,15 @@ export function EChartsWidgetBody({
       return { ...base, min: nice.min, max: nice.max, splitNumber: nice.splitNumber };
     }
     return base;
-  }, [cap, title, min, max, config.accent, points, range, sizePx, preset.family]);
+  }, [cap, title, min, max, config.accent, chartPalette, points, range, sizePx, preset.family]);
 
   const option = useMemo(() => {
     const built = preset.buildOption(ctx);
     const gauged =
       preset.family === "gauge" ? enforceAllGaugeSeries(built, ctx) : built;
-    return buildFinalOption(gauged, config.optionOverride);
-  }, [preset, ctx, config.optionOverride]);
+    const merged = buildFinalOption(gauged, config.optionOverride);
+    return applyEchartsPalette(merged, chartPalette);
+  }, [preset, ctx, config.optionOverride, chartPalette]);
 
   if (preset.needsCapability && !capabilityId && preset.dataMode !== "none") {
     return (

@@ -28,7 +28,9 @@ export function fmtAxisLabel(v: number): string {
 }
 
 export function accentOf(ctx: EchartsBuildCtx, fallback = "#5470c6"): string {
-  return ctx.accent || fallback;
+  if (ctx.accent) return ctx.accent;
+  if (ctx.palette?.accent) return ctx.palette.accent;
+  return fallback;
 }
 
 /** Round a rough step to 1 / 2 / 5 × 10^n (classic “nice” tick step). */

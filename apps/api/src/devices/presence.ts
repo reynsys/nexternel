@@ -1,5 +1,5 @@
-/** How long after last MQTT traffic a device is still considered online. */
-export const DEVICE_ONLINE_TIMEOUT_MS = 90_000;
+/** How long after last MQTT traffic a device without LWT status may stay online. */
+export const DEVICE_ONLINE_TIMEOUT_MS = 1_800_000; // 30 minutes
 
 export function isDeviceSeenRecently(lastSeenAt: Date | string | null | undefined): boolean {
   if (!lastSeenAt) return false;

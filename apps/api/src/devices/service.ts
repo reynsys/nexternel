@@ -3,7 +3,6 @@ import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
 import { buildShellySwitchTopics } from "../shelly/topics.js";
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
-import { isDeviceSeenRecently } from "./presence.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
@@ -163,7 +162,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     ipAddress: d.ip_address,
     macAddress: d.mac_address,
     isEnabled: d.is_enabled,
-    isOnline: isDeviceSeenRecently(d.last_seen_at),
+    isOnline: Boolean(d.is_online),
     lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
     sensors: sensorsByDevice.get(d.id) ?? [],
     relays: relaysByDevice.get(d.id) ?? [],

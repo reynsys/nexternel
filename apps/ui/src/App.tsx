@@ -5,7 +5,6 @@ import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardsPage } from "./pages/DashboardsPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { LivePage } from "./pages/LivePage";
 import { TroubleshootPage } from "./pages/TroubleshootPage";
 import { SystemPage } from "./pages/admin/SystemPage";
 import { UsersPage } from "./pages/admin/UsersPage";
@@ -123,16 +122,7 @@ export function App() {
           }
         />
 
-        <Route
-          path="live"
-          element={
-            <RequireAuth>
-              <RequirePermission permission="viewLive">
-                <LivePage />
-              </RequirePermission>
-            </RequireAuth>
-          }
-        />
+        <Route path="live" element={<Navigate to="/" replace />} />
         <Route
           path="admin/system"
           element={

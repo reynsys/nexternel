@@ -6,7 +6,9 @@ function timeSeries(ctx: EchartsBuildCtx): [string, number][] {
 }
 
 function accent(ctx: EchartsBuildCtx, fallback = "#5470c6"): string {
-  return ctx.accent || fallback;
+  if (ctx.accent) return ctx.accent;
+  if (ctx.palette?.accent) return ctx.palette.accent;
+  return fallback;
 }
 
 function yFmt(ctx: EchartsBuildCtx) {
@@ -30,6 +32,7 @@ function timeXAxisFor(ctx: EchartsBuildCtx): Record<string, unknown> {
       axisLabel: {
         fontSize: 10,
         hideOverlap: true,
+        color: ctx.palette?.textMuted,
         // Force clock time only — never year / month / day templates
         formatter: "{HH}:{mm}",
       },
@@ -43,6 +46,7 @@ function timeXAxisFor(ctx: EchartsBuildCtx): Record<string, unknown> {
     axisLabel: {
       fontSize: 10,
       hideOverlap: true,
+      color: ctx.palette?.textMuted,
       formatter: {
         year: "{MMM} {yyyy}",
         month: "{d} {MMM}",
@@ -68,7 +72,7 @@ function valueYAxis(
     min: ctx.min,
     max: ctx.max,
     scale: false,
-    axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+    axisLabel: { fontSize: 10, formatter: yFmt(ctx), color: ctx.palette?.textMuted },
   };
   if (opts?.flip) {
     /* category charts put value on xAxis — caller handles */
@@ -82,7 +86,7 @@ function valueXAxis(ctx: EchartsBuildCtx): Record<string, unknown> {
     min: ctx.min,
     max: ctx.max,
     scale: false,
-    axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+    axisLabel: { fontSize: 10, formatter: yFmt(ctx), color: ctx.palette?.textMuted },
   };
 }
 
