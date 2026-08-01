@@ -57,15 +57,25 @@ To switch from a gauge to a line chart (or the reverse), **Add** a new widget in
 
 Bound `series[].data` is preserved when applying `optionOverride` unless the override sets `data` explicitly.
 
-## Presets (first ship)
+## Presets
 
 **Sensors (gauges):** `gauge`, `gauge-simple`, `gauge-speed`, `gauge-progress`, `gauge-stage`, `gauge-grade`, `gauge-multi-title`, `gauge-temperature`, `gauge-ring`, `gauge-barometer`, `gauge-clock`, `gauge-car` — ported from [official ECharts gauge examples](https://echarts.apache.org/examples/en/index.html#chart-type-gauge).
 
 **Sensors (diagrams):** `pie-basic`, `pie-doughnut`, `radar-basic`, `funnel-basic`
 
-**Charts (history):** `line-basic`, `line-smooth`, `line-step`, `area-basic`, `area-stack`, `bar-basic`, `bar-horizontal`, `bar-stack`, `scatter-basic`, `heatmap-basic`, `pie-rose`
+**Charts (history):** line (basic / smooth / step / symbols / dashed / mark / end-label), area (filled / gradient / stack), bar (vertical / rounded / horizontal / stack), `scatter-basic`, `heatmap-basic`, `pie-rose`
 
 **System:** `blank`
+
+Apache’s public gallery has dozens of *demo pages* (multi-series sample datasets). Nexternel ships **sensor-bound presets** that work with one live/history capability — not every demo URL.
+
+## Axis behaviour (V3.1.115+)
+
+| Setting | Behaviour |
+|---------|-----------|
+| History range `1h` / `6h` / `24h` | X labels are clock time only (`HH:mm`) — no year |
+| History range `7d` | Day + month labels (no bare year ticks) |
+| Min / Max | Applied to the value axis on history charts and gauges |
 
 ## Edit drawer
 

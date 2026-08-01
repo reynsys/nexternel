@@ -113,7 +113,7 @@ export function EChartsWidgetEditor({
     setOverrideText(cfg.optionOverride ? JSON.stringify(cfg.optionOverride, null, 2) : "");
     setJsonError(null);
     setEditScope(scope);
-    setFamilyFilter(current.family);
+    setFamilyFilter("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open/widget.id only
   }, [open, widget?.id]);
 
@@ -249,7 +249,7 @@ export function EChartsWidgetEditor({
           {editScope === "gauge"
             ? "Pick a gauge style (ECharts gauge). To add a history chart, use Add widget → Charts (history)."
             : editScope === "history"
-              ? "Pick a chart type (line, area, bar, …). Gauges are under Sensors — add a new widget to switch."
+              ? "Chart type filters the preset list (or choose All chart types). Presets are sensor-history layouts — not every Apache demo (many demos need multi-series sample data)."
               : editScope === "liveDiagram"
                 ? "Pie, radar, or funnel for a live value."
                 : "Blank ECharts shell — configure with Advanced JSON."}
@@ -303,7 +303,10 @@ export function EChartsWidgetEditor({
             onChange={(e) => {
               const nextId = e.target.value;
               setPresetId(nextId);
-              setFamilyFilter(getEchartsPreset(nextId).family);
+              // Keep family filter on "all" so the full preset list stays visible
+              if (familyFilter !== "all") {
+                setFamilyFilter(getEchartsPreset(nextId).family);
+              }
             }}
           >
             {groupedPresets.flatMap(({ family, presets: list }) => [
@@ -379,6 +382,10 @@ export function EChartsWidgetEditor({
             placeholder="auto"
           />
         </Stack>
+        <Typography variant="caption" color="text.secondary">
+          Min / Max pin the value axis on the dashboard (e.g. 0–100). Leave blank to use sensor
+          defaults (temperature 0–60, humidity 0–100, …).
+        </Typography>
 
         <TextField
           label="Accent color"

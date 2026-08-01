@@ -33,8 +33,8 @@ export function parseEchartsConfig(config: Record<string, unknown>): EchartsWidg
     config.range === "7d"
       ? (config.range as HistoryRange)
       : undefined;
-  const min = typeof config.min === "number" ? config.min : undefined;
-  const max = typeof config.max === "number" ? config.max : undefined;
+  const min = coerceOptionalNumber(config.min);
+  const max = coerceOptionalNumber(config.max);
   const accent = typeof config.accent === "string" ? config.accent : undefined;
   const optionOverride =
     config.optionOverride &&
@@ -43,6 +43,15 @@ export function parseEchartsConfig(config: Record<string, unknown>): EchartsWidg
       ? (config.optionOverride as Record<string, unknown>)
       : undefined;
   return { presetId, range, min, max, accent, optionOverride };
+}
+
+function coerceOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
 }
 
 /** Map legacy gauge/history widgets onto echarts + presetId. */

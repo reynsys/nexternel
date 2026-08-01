@@ -1005,6 +1005,7 @@ export type SystemInfo = {
   mqttError: string | null;
   nodeRedUrl: string;
   nodeRedPort: number;
+  measuredAt?: string;
 };
 
 export type ConfigStatusResponse = {
@@ -1050,7 +1051,9 @@ export type WeatherForecastDay = {
   description: string;
   tempMax?: number;
   tempMin?: number;
-  precipProbability?: number;
+  precipProbability?: number | null;
+  precipMm?: number;
+  windMax?: number;
 };
 
 export type WeatherResponse = {
@@ -1065,6 +1068,7 @@ export type WeatherResponse = {
   latitude?: number;
   longitude?: number;
   timezone?: string;
+  source?: string;
   forecast: WeatherForecastDay[];
 };
 

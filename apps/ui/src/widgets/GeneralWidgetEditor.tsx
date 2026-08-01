@@ -227,8 +227,8 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               helperText="East/west (−180 to 180). UK values are typically negative (e.g. −0.85)."
             />
             <Typography variant="caption" color="text.secondary">
-              After Apply, save the dashboard so coordinates persist. UK locations use the Met
-              Office model (~2 km). Phone apps may still differ slightly.
+              After Apply, save the dashboard. Data is Open-Meteo using UK Met Office model
+              fields — not a live copy of the Met Office website (their icons/wording differ).
             </Typography>
           </>
         )}

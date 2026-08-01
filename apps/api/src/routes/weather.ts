@@ -7,7 +7,7 @@ const WMO: Record<number, string> = {
   2: "Partly cloudy",
   3: "Overcast",
   45: "Fog",
-  48: "Depositing rime fog",
+  48: "Fog",
   51: "Light drizzle",
   53: "Drizzle",
   55: "Dense drizzle",
@@ -36,8 +36,78 @@ function wmoDescription(code: number): string {
   return WMO[code] || "Unknown";
 }
 
+function isPrecipCode(code: number): boolean {
+  return (
+    (code >= 51 && code <= 67) ||
+    (code >= 71 && code <= 77) ||
+    (code >= 80 && code <= 86) ||
+    code >= 95
+  );
+}
+
+function isSkyCode(code: number): boolean {
+  return code <= 3 || (code >= 45 && code <= 48);
+}
+
+/** Most common code in a list (ties → first seen). */
+function modeCode(codes: number[]): number | null {
+  if (codes.length === 0) return null;
+  const counts = new Map<number, number>();
+  let best = codes[0]!;
+  let bestN = 0;
+  for (const c of codes) {
+    const n = (counts.get(c) ?? 0) + 1;
+    counts.set(c, n);
+    if (n > bestN) {
+      best = c;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+/**
+ * Open-Meteo daily weather_code is often the *most severe* hour of the day
+ * (e.g. 0.3 mm evening drizzle → whole day “drizzle”). Met Office website
+ * presents the daytime picture. Prefer daytime sky when rain is negligible.
+ */
+function dayDisplayCode(opts: {
+  dailyCode: number;
+  rainMm: number;
+  daytimeCodes: number[];
+}): number {
+  const { dailyCode, rainMm, daytimeCodes } = opts;
+  const skyFromDay =
+    modeCode(daytimeCodes.filter((c) => isSkyCode(c))) ??
+    modeCode(daytimeCodes) ??
+    null;
+
+  // Trace / negligible precip — don't show rain for the whole day
+  if (rainMm < 0.5 && isPrecipCode(dailyCode)) {
+    return skyFromDay ?? Math.min(dailyCode, 3);
+  }
+
+  // Light rain day — keep a light precip symbol if model says so
+  if (rainMm >= 0.5 && rainMm < 1.5 && isPrecipCode(dailyCode)) {
+    if (dailyCode >= 80) return 80;
+    if (dailyCode >= 71) return 71;
+    return 51;
+  }
+
+  return dailyCode;
+}
+
+function hourLocal(iso: string): number {
+  // "2026-08-01T14:00" → 14
+  const m = /T(\d{2})/.exec(iso);
+  return m ? Number(m[1]) : 12;
+}
+
+function dayKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
 export const weatherRoutes: FastifyPluginAsync = async (app) => {
-  /** Resolve a place name → lat/lon (Open-Meteo geocoding). */
   app.get("/api/v1/weather/geocode", async (request, reply) => {
     if (!requireUser(request, reply)) return;
 
@@ -121,19 +191,22 @@ export const weatherRoutes: FastifyPluginAsync = async (app) => {
     url.searchParams.set("longitude", String(lon));
     url.searchParams.set(
       "current",
-      "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation"
+    );
+    url.searchParams.set(
+      "hourly",
+      "weather_code,precipitation,wind_speed_10m,temperature_2m"
     );
     url.searchParams.set(
       "daily",
-      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+      "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,rain_sum,precipitation_probability_max,wind_speed_10m_max"
     );
     url.searchParams.set("forecast_days", "6");
     url.searchParams.set("wind_speed_unit", "mph");
     url.searchParams.set("temperature_unit", "celsius");
-    // Local calendar days for the coordinates (not the browser/server TZ)
     url.searchParams.set("timezone", "auto");
-    // UK/Ireland: Met Office seamless (~2 km UKV) — default global model snaps to ~0.25°
-    // and returns coarse grid centres (e.g. 52.25, −0.75 for 52.29, −0.85).
+    // UKMO model fields via Open-Meteo (not a 1:1 Met Office website feed).
+    // Icons are Open-Meteo WMO codes — we re-derive day icons from daytime + rain sum.
     if (lat >= 49.5 && lat <= 61 && lon >= -11 && lon <= 2.5) {
       url.searchParams.set("models", "ukmo_seamless");
     } else {
@@ -142,7 +215,7 @@ export const weatherRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const res = await fetch(url.toString(), {
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {
         return reply.code(502).send({
@@ -159,30 +232,66 @@ export const weatherRoutes: FastifyPluginAsync = async (app) => {
           relative_humidity_2m?: number;
           weather_code?: number;
           wind_speed_10m?: number;
+          precipitation?: number;
           time?: string;
+        };
+        hourly?: {
+          time?: string[];
+          weather_code?: number[];
+          precipitation?: number[];
+          wind_speed_10m?: number[];
         };
         daily?: {
           time?: string[];
           weather_code?: number[];
           temperature_2m_max?: number[];
           temperature_2m_min?: number[];
+          precipitation_sum?: number[];
+          rain_sum?: number[];
           precipitation_probability_max?: number[];
+          wind_speed_10m_max?: number[];
         };
       };
 
       const current = data.current;
       const code = current?.weather_code ?? 0;
       const daily = data.daily;
+      const hourly = data.hourly;
+
+      const daytimeByDay = new Map<string, number[]>();
+      const times = hourly?.time ?? [];
+      for (let i = 0; i < times.length; i++) {
+        const t = times[i]!;
+        const h = hourLocal(t);
+        // Daytime window Met Office-style (morning–evening)
+        if (h < 7 || h > 20) continue;
+        const key = dayKey(t);
+        const list = daytimeByDay.get(key) ?? [];
+        list.push(hourly?.weather_code?.[i] ?? 0);
+        daytimeByDay.set(key, list);
+      }
+
       const forecast =
         daily?.time?.map((date, i) => {
-          const dayCode = daily.weather_code?.[i] ?? 0;
+          const rawCode = daily.weather_code?.[i] ?? 0;
+          const rainMm = Math.max(
+            daily.rain_sum?.[i] ?? 0,
+            daily.precipitation_sum?.[i] ?? 0
+          );
+          const displayCode = dayDisplayCode({
+            dailyCode: rawCode,
+            rainMm,
+            daytimeCodes: daytimeByDay.get(date) ?? [],
+          });
           return {
             date,
-            weatherCode: dayCode,
-            description: wmoDescription(dayCode),
+            weatherCode: displayCode,
+            description: wmoDescription(displayCode),
             tempMax: daily.temperature_2m_max?.[i],
             tempMin: daily.temperature_2m_min?.[i],
-            precipProbability: daily.precipitation_probability_max?.[i],
+            precipMm: rainMm,
+            precipProbability: daily.precipitation_probability_max?.[i] ?? null,
+            windMax: daily.wind_speed_10m_max?.[i],
           };
         }) ?? [];
 
@@ -198,6 +307,7 @@ export const weatherRoutes: FastifyPluginAsync = async (app) => {
         latitude: data.latitude,
         longitude: data.longitude,
         timezone: data.timezone,
+        source: "open-meteo-ukmo",
         forecast,
       };
     } catch (err) {

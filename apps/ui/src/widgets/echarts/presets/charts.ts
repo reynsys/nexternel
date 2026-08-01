@@ -1,4 +1,5 @@
 import type { EchartsBuildCtx, EchartsPreset } from "../types";
+import type { HistoryRange } from "../../../api";
 
 function timeSeries(ctx: EchartsBuildCtx): [string, number][] {
   return ctx.points.map((p) => [p.t, p.v]);
@@ -12,28 +13,83 @@ function yFmt(ctx: EchartsBuildCtx) {
   return (v: number) => (ctx.unit ? `${v}${ctx.unit}` : String(v));
 }
 
-const historyGrid = { left: 40, right: 16, top: 28, bottom: 28 };
+const historyGrid = { left: 48, right: 16, top: 28, bottom: 32 };
 
-/** ECharts 5 default day template is bare `{d}` → labels like "25". */
-const timeAxisLabel = {
-  fontSize: 10,
-  hideOverlap: true,
-  formatter: {
-    year: "{yyyy}",
-    month: "{MMM} {yyyy}",
-    day: "{d} {MMM}",
-    hour: "{HH}:{mm}",
-    minute: "{HH}:{mm}",
-    second: "{HH}:{mm}",
-  },
-};
+/**
+ * Range-aware time axis — short windows must not show year / calendar-day noise.
+ * (ECharts default tick levels pick `{yyyy}` / `{d} {MMM}` on 24h charts.)
+ */
+function timeXAxisFor(ctx: EchartsBuildCtx): Record<string, unknown> {
+  const range: HistoryRange = ctx.range || "24h";
+  const short = range === "1h" || range === "6h" || range === "24h";
 
-const timeXAxis = { type: "time" as const, axisLabel: timeAxisLabel };
+  if (short) {
+    return {
+      type: "time",
+      minInterval: range === "1h" ? 5 * 60 * 1000 : 60 * 60 * 1000,
+      axisLabel: {
+        fontSize: 10,
+        hideOverlap: true,
+        // Force clock time only — never year / month / day templates
+        formatter: "{HH}:{mm}",
+      },
+    };
+  }
+
+  // 7d+: allow day labels, still avoid bare year ticks
+  return {
+    type: "time",
+    minInterval: 6 * 60 * 60 * 1000,
+    axisLabel: {
+      fontSize: 10,
+      hideOverlap: true,
+      formatter: {
+        year: "{MMM} {yyyy}",
+        month: "{d} {MMM}",
+        day: "{d} {MMM}",
+        hour: "{d} {MMM}\n{HH}:{mm}",
+        minute: "{HH}:{mm}",
+        second: "{HH}:{mm}",
+      },
+    },
+  };
+}
+
+/**
+ * Y-axis honours Edit Chart Min/Max (via ctx from resolveMinMax).
+ * Without this, `scale: true` auto-zooms to data (e.g. 30–38) and ignores 0–100.
+ */
+function valueYAxis(
+  ctx: EchartsBuildCtx,
+  opts?: { flip?: boolean }
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    type: "value",
+    min: ctx.min,
+    max: ctx.max,
+    scale: false,
+    axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+  };
+  if (opts?.flip) {
+    /* category charts put value on xAxis — caller handles */
+  }
+  return base;
+}
+
+function valueXAxis(ctx: EchartsBuildCtx): Record<string, unknown> {
+  return {
+    type: "value",
+    min: ctx.min,
+    max: ctx.max,
+    scale: false,
+    axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
+  };
+}
 
 export const CHART_PRESETS: EchartsPreset[] = [
   {
     id: "line-basic",
-    label: "Line chart",
+    label: "Line (basic)",
     description: "Basic time-series line from history",
     family: "line",
     category: "history",
@@ -44,12 +100,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        scale: true,
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -63,7 +115,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
   },
   {
     id: "line-smooth",
-    label: "Smooth line",
+    label: "Line (smooth)",
     description: "Smoothed history line",
     family: "line",
     category: "history",
@@ -74,12 +126,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        scale: true,
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -94,7 +142,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
   },
   {
     id: "line-step",
-    label: "Step line",
+    label: "Line (step)",
     description: "Stepped history line (holds value between points)",
     family: "line",
     category: "history",
@@ -105,12 +153,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        scale: true,
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -124,8 +168,137 @@ export const CHART_PRESETS: EchartsPreset[] = [
     }),
   },
   {
+    id: "line-symbols",
+    label: "Line (with points)",
+    description: "Line with visible data markers",
+    family: "line",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => ({
+      animation: false,
+      grid: historyGrid,
+      tooltip: { trigger: "axis" },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
+      series: [
+        {
+          name: ctx.title,
+          type: "line",
+          showSymbol: true,
+          symbol: "circle",
+          symbolSize: 6,
+          data: timeSeries(ctx),
+          itemStyle: { color: accent(ctx) },
+        },
+      ],
+    }),
+  },
+  {
+    id: "line-dashed",
+    label: "Line (dashed)",
+    description: "Dashed line style",
+    family: "line",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => ({
+      animation: false,
+      grid: historyGrid,
+      tooltip: { trigger: "axis" },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
+      series: [
+        {
+          name: ctx.title,
+          type: "line",
+          showSymbol: false,
+          lineStyle: { type: "dashed", width: 2 },
+          data: timeSeries(ctx),
+          itemStyle: { color: accent(ctx) },
+        },
+      ],
+    }),
+  },
+  {
+    id: "line-mark",
+    label: "Line (avg / min / max)",
+    description: "Line with average, min and max mark lines",
+    family: "line",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => ({
+      animation: false,
+      grid: historyGrid,
+      tooltip: { trigger: "axis" },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
+      series: [
+        {
+          name: ctx.title,
+          type: "line",
+          showSymbol: false,
+          data: timeSeries(ctx),
+          itemStyle: { color: accent(ctx) },
+          markLine: {
+            silent: true,
+            symbol: "none",
+            lineStyle: { type: "dashed" },
+            data: [{ type: "average", name: "Avg" }, { type: "min" }, { type: "max" }],
+            label: { fontSize: 9 },
+          },
+        },
+      ],
+    }),
+  },
+  {
+    id: "line-end-label",
+    label: "Line (end label)",
+    description: "Smooth line with value label at the latest point",
+    family: "line",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => {
+      const data = timeSeries(ctx);
+      return {
+        animation: false,
+        grid: { ...historyGrid, right: 48 },
+        tooltip: { trigger: "axis" },
+        xAxis: timeXAxisFor(ctx),
+        yAxis: valueYAxis(ctx),
+        series: [
+          {
+            name: ctx.title,
+            type: "line",
+            smooth: true,
+            showSymbol: false,
+            data,
+            itemStyle: { color: accent(ctx) },
+            endLabel: {
+              show: data.length > 0,
+              formatter: (p: { value?: [string, number] }) => {
+                const v = p.value?.[1];
+                if (v == null) return "";
+                return ctx.unit ? `${v}${ctx.unit}` : String(v);
+              },
+              fontSize: 11,
+              color: accent(ctx),
+            },
+            labelLayout: { moveOverlap: "shiftY" },
+          },
+        ],
+      };
+    },
+  },
+  {
     id: "area-basic",
-    label: "Area chart",
+    label: "Area (filled)",
     description: "Filled area over time",
     family: "area",
     category: "history",
@@ -136,12 +309,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        scale: true,
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -156,8 +325,51 @@ export const CHART_PRESETS: EchartsPreset[] = [
     }),
   },
   {
+    id: "area-gradient",
+    label: "Area (gradient)",
+    description: "Area with vertical colour gradient fill",
+    family: "area",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => {
+      const c = accent(ctx);
+      return {
+        animation: false,
+        grid: historyGrid,
+        tooltip: { trigger: "axis" },
+        xAxis: timeXAxisFor(ctx),
+        yAxis: valueYAxis(ctx),
+        series: [
+          {
+            name: ctx.title,
+            type: "line",
+            smooth: true,
+            showSymbol: false,
+            data: timeSeries(ctx),
+            itemStyle: { color: c },
+            areaStyle: {
+              color: {
+                type: "linear",
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: c },
+                  { offset: 1, color: "rgba(0,0,0,0)" },
+                ],
+              },
+            },
+          },
+        ],
+      };
+    },
+  },
+  {
     id: "area-stack",
-    label: "Stacked area",
+    label: "Area (stacked look)",
     description: "Area with stacked visual (single series)",
     family: "area",
     category: "history",
@@ -168,11 +380,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -188,7 +397,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
   },
   {
     id: "bar-basic",
-    label: "Bar chart",
+    label: "Bar (vertical)",
     description: "Vertical bars from history samples",
     family: "bar",
     category: "history",
@@ -199,11 +408,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "axis" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           name: ctx.title,
@@ -215,9 +421,34 @@ export const CHART_PRESETS: EchartsPreset[] = [
     }),
   },
   {
+    id: "bar-rounded",
+    label: "Bar (rounded)",
+    description: "Vertical bars with rounded tops",
+    family: "bar",
+    category: "history",
+    dataMode: "history",
+    needsCapability: true,
+    defaultSize: { w: 6, h: 4 },
+    buildOption: (ctx) => ({
+      animation: false,
+      grid: historyGrid,
+      tooltip: { trigger: "axis" },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
+      series: [
+        {
+          name: ctx.title,
+          type: "bar",
+          data: timeSeries(ctx),
+          itemStyle: { color: accent(ctx), borderRadius: [4, 4, 0, 0] },
+        },
+      ],
+    }),
+  },
+  {
     id: "bar-horizontal",
-    label: "Horizontal bar",
-    description: "Category bars (binned history)",
+    label: "Bar (horizontal)",
+    description: "Category bars (recent samples)",
     family: "bar",
     category: "history",
     dataMode: "history",
@@ -236,10 +467,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
           ),
           axisLabel: { fontSize: 9 },
         },
-        xAxis: {
-          type: "value",
-          axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-        },
+        xAxis: valueXAxis(ctx),
         series: [
           {
             type: "bar",
@@ -252,7 +480,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
   },
   {
     id: "bar-stack",
-    label: "Stacked bar",
+    label: "Bar (stacked look)",
     description: "Stacked column look from history samples",
     family: "bar",
     category: "history",
@@ -261,6 +489,7 @@ export const CHART_PRESETS: EchartsPreset[] = [
     defaultSize: { w: 6, h: 4 },
     buildOption: (ctx) => {
       const sample = ctx.points.slice(-16);
+      const short = ctx.range === "1h" || ctx.range === "6h" || ctx.range === "24h";
       return {
         animation: false,
         grid: historyGrid,
@@ -268,14 +497,17 @@ export const CHART_PRESETS: EchartsPreset[] = [
         xAxis: {
           type: "category",
           data: sample.map((p) =>
-            new Date(p.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            short
+              ? new Date(p.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : new Date(p.t).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                })
           ),
           axisLabel: { fontSize: 9, rotate: 30 },
         },
-        yAxis: {
-          type: "value",
-          axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-        },
+        yAxis: valueYAxis(ctx),
         series: [
           {
             name: ctx.title,
@@ -283,13 +515,6 @@ export const CHART_PRESETS: EchartsPreset[] = [
             stack: "total",
             data: sample.map((p) => p.v),
             itemStyle: { color: accent(ctx) },
-          },
-          {
-            name: "Baseline",
-            type: "bar",
-            stack: "total",
-            data: sample.map(() => 0),
-            itemStyle: { color: "rgba(128,128,128,0.2)" },
           },
         ],
       };
@@ -410,12 +635,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
       animation: false,
       grid: historyGrid,
       tooltip: { trigger: "item" },
-      xAxis: timeXAxis,
-      yAxis: {
-        type: "value",
-        scale: true,
-        axisLabel: { fontSize: 10, formatter: yFmt(ctx) },
-      },
+      xAxis: timeXAxisFor(ctx),
+      yAxis: valueYAxis(ctx),
       series: [
         {
           type: "scatter",
@@ -515,11 +736,13 @@ export const CHART_PRESETS: EchartsPreset[] = [
         bucket.set(key, cur);
       }
       const data: [number, number, number][] = [];
-      let vmax = 1;
+      let vmax = ctx.max;
+      let vmin = ctx.min;
       for (const [key, { sum, n }] of bucket) {
         const [day, hour] = key.split("-").map(Number);
         const avg = sum / n;
         vmax = Math.max(vmax, avg);
+        vmin = Math.min(vmin, avg);
         data.push([hour!, day!, Math.round(avg * 100) / 100]);
       }
       return {
@@ -528,8 +751,8 @@ export const CHART_PRESETS: EchartsPreset[] = [
         xAxis: { type: "category", data: hours, splitArea: { show: true } },
         yAxis: { type: "category", data: days, splitArea: { show: true } },
         visualMap: {
-          min: 0,
-          max: vmax,
+          min: vmin,
+          max: vmax <= vmin ? vmin + 1 : vmax,
           calculable: true,
           orient: "horizontal",
           left: "center",

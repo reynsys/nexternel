@@ -14,6 +14,22 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.116 — 01/08/2026
+
+- **System information widget:** live CPU % (sample delta, not sticky 1‑minute loadavg); RAM uses Linux MemAvailable; refresh every 5s; shows UI + API versions when they differ; uptime labelled as API uptime
+
+## V3.1.115 — 01/08/2026
+
+- **ECharts charts:** 24h / short ranges use clock-only X labels (no year); Min/Max now pin the dashboard Y-axis (no more auto-zoom to 30–38); Edit Chart defaults to **All chart types** so the full history preset list is visible; more line/area/bar presets (points, dashed, avg marks, end label, gradient area, rounded bars). Apache gallery demos ≠ single-sensor presets — clarified in Edit help + docs
+
+## V3.1.114 — 01/08/2026
+
+- **Weather:** removed rain “mm” labels under forecast days (not useful for end users)
+
+## V3.1.113 — 01/08/2026
+
+- **Weather:** day icons no longer use Open-Meteo’s “worst hour of the day” code (tiny evening drizzle was showing as rain all day). Icons now follow daytime conditions + real rain amount; light days show rain mm when ≥0.5 mm. Clarified: UKMO *model via Open-Meteo*, not a mirror of the Met Office website
+
 ## V3.1.112 — 29/07/2026
 
 - **Weather:** removed lat/lon from the widget display; UK/Ireland forecasts use Met Office `ukmo_seamless` (~2 km) instead of the coarse global grid that showed centres like 52.25, −0.75 when you entered 52.29, −0.85

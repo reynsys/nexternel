@@ -6,6 +6,7 @@ import { getMqttStatus } from "../telemetry/mqtt.js";
 import { config } from "../config.js";
 import { APP_VERSION } from "../version.js";
 import { readServerTemperatureC } from "../lib/server-temperature.js";
+import { readMemoryStats, sampleCpuLoadPercent } from "../lib/host-metrics.js";
 
 const WAN_CACHE_TTL_MS = 5 * 60_000;
 let wanCache: { ip: string | null; at: number } | null = null;
@@ -47,23 +48,21 @@ function lanIp(): string | null {
 }
 
 export const systemRoutes: FastifyPluginAsync = async (app) => {
+  // Warm CPU sampler so the first dashboard poll can use a real delta
+  sampleCpuLoadPercent();
+
   app.get("/api/v1/system", async (request, reply) => {
     if (!requirePermission(request, reply, "viewSystem")) return;
 
     const cpus = os.cpus();
     const cpuCount = cpus.length || 1;
-    const load = os.loadavg();
-    const loadPercent = Math.min(100, Math.round((load[0] / cpuCount) * 100));
-    const totalMem = os.totalmem();
-    const freeMem = os.freemem();
-    const usedMem = totalMem - freeMem;
-    const memoryPercent =
-      totalMem > 0 ? Math.min(100, Math.round((usedMem / totalMem) * 100)) : 0;
+    const loadPercent = sampleCpuLoadPercent();
 
-    const [database, wanIp, temperatureC] = await Promise.all([
+    const [database, wanIp, temperatureC, memory] = await Promise.all([
       checkDatabase(),
       resolveWanIp(),
       readServerTemperatureC(),
+      readMemoryStats(),
     ]);
     const mqtt = getMqttStatus();
     const lan = lanIp();
@@ -72,18 +71,14 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
     return {
       version: APP_VERSION,
       service: "api",
+      /** API container process uptime (not host OS uptime). */
       uptimeSeconds: Math.floor(process.uptime()),
       cpu: {
         model: cpus[0]?.model?.trim() || "CPU",
         cores: cpuCount,
         loadPercent,
       },
-      memory: {
-        totalMb: Math.round(totalMem / 1024 / 1024),
-        usedMb: Math.round(usedMem / 1024 / 1024),
-        freeMb: Math.round(freeMem / 1024 / 1024),
-        percent: memoryPercent,
-      },
+      memory,
       temperatureC,
       lanIp: lan,
       wanIp,
@@ -92,6 +87,7 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
       mqttError: mqtt.lastError ?? null,
       nodeRedUrl,
       nodeRedPort: 1880,
+      measuredAt: new Date().toISOString(),
     };
   });
 };
