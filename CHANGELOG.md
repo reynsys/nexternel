@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.118 — 01/08/2026
+
+- **System information:** Version field restored to a single API version string (removed unsolicited “UI … · API …” dual label)
+
+## V3.1.117 — 01/08/2026
+
+- **System information:** RAM display back to percent only (removed unsolicited used/total MB text)
+
 ## V3.1.116 — 01/08/2026
 
 - **System information widget:** live CPU % (sample delta, not sticky 1‑minute loadavg); RAM uses Linux MemAvailable; refresh every 5s; shows UI + API versions when they differ; uptime labelled as API uptime

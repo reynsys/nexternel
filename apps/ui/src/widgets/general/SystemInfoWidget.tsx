@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type SystemInfo, type WidgetInstance } from "../../api";
-import { APP_VERSION } from "../../version";
 import { generalWidgetHeading } from "./config";
 
 function formatUptime(seconds: number): string {
@@ -23,7 +22,6 @@ function Row({ label, value }: { label: string; value: string }) {
         variant="caption"
         fontWeight={600}
         noWrap
-        title={value}
         sx={{ fontVariantNumeric: "tabular-nums" }}
       >
         {value}
@@ -53,7 +51,6 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
       }
     }
     void load();
-    // Live stats — was 30s (felt stuck); CPU sampler needs frequent polls
     const id = window.setInterval(() => void load(), 5_000);
     return () => {
       cancelled = true;
@@ -68,16 +65,6 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
       : mem && mem.totalMb > 0
         ? Math.round((mem.usedMb / mem.totalMb) * 100)
         : null;
-  const memLabel =
-    mem && memPercent != null
-      ? `${memPercent}% (${mem.usedMb}/${mem.totalMb} MB)`
-      : memPercent != null
-        ? `${memPercent}%`
-        : "—";
-
-  const apiVer = info?.version ?? "—";
-  const versionLabel =
-    apiVer === APP_VERSION ? APP_VERSION : `UI ${APP_VERSION} · API ${apiVer}`;
 
   return (
     <Box
@@ -98,13 +85,10 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
         </Typography>
       )}
       <Stack spacing={0.5} sx={{ flex: 1, justifyContent: "center", minHeight: 0 }}>
-        <Row label="Version" value={versionLabel} />
-        <Row
-          label="API uptime"
-          value={info ? formatUptime(info.uptimeSeconds) : "—"}
-        />
+        <Row label="Version" value={info?.version ?? "—"} />
+        <Row label="Uptime" value={info ? formatUptime(info.uptimeSeconds) : "—"} />
         <Row label="CPU" value={info ? `${info.cpu.loadPercent}%` : "—"} />
-        <Row label="RAM" value={memLabel} />
+        <Row label="RAM" value={memPercent != null ? `${memPercent}%` : "—"} />
         <Row
           label="Temperature"
           value={
