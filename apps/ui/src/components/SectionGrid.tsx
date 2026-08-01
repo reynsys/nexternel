@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import GridLayout, { type Layout } from "react-grid-layout";
 import {
   Box,
@@ -6,9 +6,13 @@ import {
   IconButton,
   Paper,
   Stack,
+  Tooltip,
   Typography,
+  alpha,
+  useTheme,
 } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import DriveFileMoveOutlinedIcon from "@mui/icons-material/DriveFileMoveOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
@@ -24,6 +28,8 @@ import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceSty
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
+const WIDGET_DRAG_MIME = "application/x-nexternel-widget";
+
 type Props = {
   sectionId: string;
   widgets: WidgetInstance[];
@@ -32,6 +38,10 @@ type Props = {
   onLayoutChange: (sectionId: string, next: Layout[]) => void;
   onRemoveWidget: (sectionId: string, widgetId: string) => void;
   onUpdateWidget: (sectionId: string, widgetId: string, patch: Partial<WidgetInstance>) => void;
+  onMoveWidget?: (fromSectionId: string, toSectionId: string, widgetId: string) => void;
+  widgetDrag?: { widgetId: string; fromSectionId: string } | null;
+  onWidgetDragStart?: (sectionId: string, widgetId: string) => void;
+  onWidgetDragEnd?: () => void;
   onCapabilityState?: (
     capabilityId: string,
     value: unknown,
@@ -59,13 +69,26 @@ export function SectionGrid({
   onLayoutChange,
   onRemoveWidget,
   onUpdateWidget,
+  onMoveWidget,
+  widgetDrag,
+  onWidgetDragStart,
+  onWidgetDragEnd,
   onCapabilityState,
 }: Props) {
+  const theme = useTheme();
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [editWidgetId, setEditWidgetId] = useState<string | null>(null);
+  const [dropHighlight, setDropHighlight] = useState(false);
   const gradientActive = useGradientActive();
   const solidContentPanels = useSolidContentPanels();
+
+  const mutedLabel = alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.62 : 0.55);
+  const canAcceptDrop =
+    editMode &&
+    widgetDrag &&
+    widgetDrag.fromSectionId !== sectionId &&
+    Boolean(onMoveWidget);
 
   useEffect(() => {
     const el = hostRef.current;
@@ -98,27 +121,75 @@ export function SectionGrid({
   const editingClock = editing ? isClockWidget(editing.type) : false;
   const editingGeneral = editing ? isGeneralWidgetType(editing.type) : false;
 
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setDropHighlight(false);
+    if (!canAcceptDrop) return;
+    try {
+      const raw = e.dataTransfer.getData(WIDGET_DRAG_MIME);
+      const parsed = JSON.parse(raw) as { widgetId?: string; sectionId?: string };
+      if (
+        typeof parsed.widgetId === "string" &&
+        typeof parsed.sectionId === "string" &&
+        parsed.sectionId !== sectionId
+      ) {
+        onMoveWidget?.(parsed.sectionId, sectionId, parsed.widgetId);
+      }
+    } catch {
+      /* ignore */
+    }
+    onWidgetDragEnd?.();
+  }
+
   return (
     <Box
       ref={hostRef}
+      onDragOver={(e) => {
+        if (!canAcceptDrop) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDropHighlight(true);
+      }}
+      onDragEnter={(e) => {
+        if (!canAcceptDrop) return;
+        e.preventDefault();
+        setDropHighlight(true);
+      }}
+      onDragLeave={(e) => {
+        if (!hostRef.current?.contains(e.relatedTarget as Node)) {
+          setDropHighlight(false);
+        }
+      }}
+      onDrop={handleDrop}
       sx={{
         width: "100%",
         minHeight: widgets.length ? 160 : 72,
         borderRadius: 2,
         p: editMode ? 1.5 : 0.5,
         bgcolor: (t) =>
-          editMode
-            ? t.palette.mode === "dark"
-              ? "rgba(255,255,255,0.03)"
-              : "rgba(0,0,0,0.02)"
-            : "transparent",
-        outline: editMode ? "1px dashed" : "none",
-        outlineColor: "divider",
+          dropHighlight
+            ? alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.14 : 0.1)
+            : editMode
+              ? t.palette.mode === "dark"
+                ? "rgba(255,255,255,0.03)"
+                : "rgba(0,0,0,0.02)"
+              : "transparent",
+        outline: editMode || dropHighlight ? "1px dashed" : "none",
+        outlineColor: dropHighlight ? "primary.main" : "divider",
+        transition: "outline-color 0.15s ease, background-color 0.15s ease",
       }}
     >
       {editMode && widgets.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          Drag the handle to move · resize from the corner · Edit changes binding / title
+        <Typography variant="caption" sx={{ display: "block", mb: 1, color: mutedLabel }}>
+          Drag the handle to move within this section · use the move icon to drag to another section
+        </Typography>
+      )}
+      {editMode && canAcceptDrop && dropHighlight && (
+        <Typography
+          variant="caption"
+          sx={{ display: "block", mb: 1, color: "primary.main", fontWeight: 600 }}
+        >
+          Drop here to move widget into this section
         </Typography>
       )}
       {width > 0 && widgets.length > 0 && (
@@ -175,21 +246,41 @@ export function SectionGrid({
                         borderBottom: "1px solid",
                         borderColor: "divider",
                         bgcolor: (t) =>
-                          t.palette.mode === "dark" ? "rgba(255,255,255,0.04)" : "grey.50",
+                          alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.1 : 0.06),
                       }}
                     >
-                      <IconButton
-                        size="small"
-                        className="widget-drag-handle"
-                        aria-label="Drag widget"
-                        sx={{ cursor: "grab", touchAction: "none" }}
-                      >
-                        <DragIndicatorIcon fontSize="small" />
-                      </IconButton>
+                      <Tooltip title="Drag to reposition in this section">
+                        <IconButton
+                          size="small"
+                          className="widget-drag-handle"
+                          aria-label="Drag widget in section"
+                          sx={{ cursor: "grab", touchAction: "none" }}
+                        >
+                          <DragIndicatorIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Drag to another section">
+                        <IconButton
+                          size="small"
+                          aria-label="Move widget to another section"
+                          draggable={editMode}
+                          sx={{ cursor: "grab", touchAction: "none" }}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(
+                              WIDGET_DRAG_MIME,
+                              JSON.stringify({ widgetId: w.id, sectionId })
+                            );
+                            e.dataTransfer.effectAllowed = "move";
+                            onWidgetDragStart?.(sectionId, w.id);
+                          }}
+                          onDragEnd={() => onWidgetDragEnd?.()}
+                        >
+                          <DriveFileMoveOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        sx={{ flex: 1 }}
+                        sx={{ flex: 1, color: mutedLabel }}
                         noWrap
                       >
                         {echarts
@@ -260,7 +351,7 @@ export function SectionGrid({
         </GridLayout>
       )}
       {widgets.length === 0 && (
-        <Typography color="text.secondary" sx={{ p: 2, textAlign: "center" }}>
+        <Typography sx={{ p: 2, textAlign: "center", color: mutedLabel }}>
           {editMode ? "No widgets yet — use Add widget." : "Empty section."}
         </Typography>
       )}

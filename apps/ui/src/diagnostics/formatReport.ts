@@ -65,7 +65,10 @@ export function formatDiagnosticsReport(
       lines.push(
         `counts.capabilities: ${server.counts.capabilities ?? "?"}`,
         `counts.capabilityBindings: ${server.counts.capabilityBindings ?? "?"}`,
-        `counts.v3Dashboards: ${server.counts.v3Dashboards ?? "?"}`
+        `counts.v3Dashboards: ${server.counts.v3Dashboards ?? "?"}`,
+        `counts.devicesEnabled: ${server.counts.devicesEnabled ?? "?"}`,
+        `counts.devicesOnline: ${server.counts.devicesOnline ?? "?"}`,
+        `counts.devicesOffline: ${server.counts.devicesOffline ?? "?"}`
       );
     }
     if (server.process) {

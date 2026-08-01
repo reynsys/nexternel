@@ -430,6 +430,9 @@ export type ServerDiagnostics = {
     capabilities: number | null;
     capabilityBindings: number | null;
     v3Dashboards: number | null;
+    devicesEnabled?: number | null;
+    devicesOnline?: number | null;
+    devicesOffline?: number | null;
   };
   process: {
     uptimeSeconds: number;

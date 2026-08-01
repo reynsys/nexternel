@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { CAPABILITY_KINDS } from "@nexternel/domain";
 import { checkDatabase, getPool } from "../db.js";
+import { listDevicesDetailed } from "../devices/service.js";
 import { getMqttStatus } from "../telemetry/mqtt.js";
 import { APP_VERSION } from "../version.js";
 
@@ -19,11 +20,16 @@ export const diagnosticsRoutes: FastifyPluginAsync = async (app) => {
     const mqtt = getMqttStatus();
     const mqttOk = mqtt.status === "connected";
 
-    const [capabilities, capabilityBindings, v3Dashboards] = await Promise.all([
+    const [capabilities, capabilityBindings, v3Dashboards, devices] = await Promise.all([
       safeCount("SELECT COUNT(*)::text AS c FROM capabilities"),
       safeCount("SELECT COUNT(*)::text AS c FROM capability_bindings"),
       safeCount("SELECT COUNT(*)::text AS c FROM v3_dashboards"),
+      listDevicesDetailed().catch(() => []),
     ]);
+
+    const enabledDevices = devices.filter((d) => d.isEnabled);
+    const devicesOnline = enabledDevices.filter((d) => d.isOnline).length;
+    const devicesOffline = enabledDevices.length - devicesOnline;
 
     return {
       status: database === "ok" && mqttOk ? "ok" : "degraded",
@@ -37,6 +43,9 @@ export const diagnosticsRoutes: FastifyPluginAsync = async (app) => {
         capabilities,
         capabilityBindings,
         v3Dashboards,
+        devicesEnabled: enabledDevices.length,
+        devicesOnline,
+        devicesOffline,
       },
       process: {
         uptimeSeconds: Math.floor(process.uptime()),

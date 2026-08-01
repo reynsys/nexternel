@@ -34,6 +34,8 @@ const shellyPrefixes = new Set<string>();
 
 /** Debounce device online touches (prefix → last ms) */
 const lastOnlineTouch = new Map<string, number>();
+/** Debounce capability-driven presence (capability id → last ms) */
+const lastCapabilityOnlineTouch = new Map<string, number>();
 let cachedPrefixes: string[] = [];
 
 /** Phase 3 discovery temporary listeners (announce / RPC probe replies). */
@@ -95,7 +97,11 @@ async function rebuildTopicIndex() {
 /** Safety net: clear ghost online when no MQTT traffic for a long time (LWT should fire sooner). */
 const DEVICE_GHOST_ONLINE_TIMEOUT_MS = 86_400_000; // 24 hours
 
-function applyDeviceRootStatusTopic(topic: string, payload: string): boolean {
+function applyDeviceRootStatusTopic(
+  topic: string,
+  payload: string,
+  retained: boolean
+): boolean {
   const prefix = longestPrefixForTopic(topic);
   if (!prefix || topic !== `${prefix}/status`) return false;
   const state = payload.trim().toLowerCase();
@@ -113,6 +119,8 @@ function applyDeviceRootStatusTopic(topic: string, payload: string): boolean {
     return true;
   }
   if (state === "offline" || state === "false" || state === "0") {
+    // Retained offline is often a stale LWT while the device is still publishing sensors.
+    if (retained) return true;
     void getPool()
       .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
       .catch(() => {
@@ -124,7 +132,11 @@ function applyDeviceRootStatusTopic(topic: string, payload: string): boolean {
 }
 
 /** Shelly Gen1: {prefix}/online → true|false */
-function applyDeviceShellyOnlineTopic(topic: string, payload: string): boolean {
+function applyDeviceShellyOnlineTopic(
+  topic: string,
+  payload: string,
+  retained: boolean
+): boolean {
   const match = /^(.+)\/online$/i.exec(topic);
   if (!match) return false;
   const prefix = longestPrefixForTopic(topic);
@@ -144,6 +156,7 @@ function applyDeviceShellyOnlineTopic(topic: string, payload: string): boolean {
     return true;
   }
   if (/^(false|0|offline)$/.test(state)) {
+    if (retained) return true;
     void getPool()
       .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
       .catch(() => {
@@ -152,6 +165,24 @@ function applyDeviceShellyOnlineTopic(topic: string, payload: string): boolean {
     return true;
   }
   return false;
+}
+
+function touchDeviceOnlineByCapability(capabilityId: string) {
+  const now = Date.now();
+  const prev = lastCapabilityOnlineTouch.get(capabilityId) ?? 0;
+  if (now - prev < 15_000) return;
+  lastCapabilityOnlineTouch.set(capabilityId, now);
+  void getPool()
+    .query(
+      `UPDATE devices d
+       SET is_online = TRUE, last_seen_at = NOW()
+       FROM capabilities c
+       WHERE c.id = $1 AND c.device_id = d.id`,
+      [capabilityId]
+    )
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function touchDeviceOnlineFromTopic(topic: string) {
@@ -178,6 +209,7 @@ function applyLiveSwitch(
   value: unknown,
   retained: boolean
 ) {
+  touchDeviceOnlineByCapability(capabilityId);
   setLiveState(capabilityId, value, {
     quality: "good",
     retained,
@@ -233,8 +265,8 @@ function handleMessage(
   notifyDiscoveryCollectors(topic, payload);
 
   const presenceHandled =
-    applyDeviceRootStatusTopic(topic, payload) ||
-    applyDeviceShellyOnlineTopic(topic, payload);
+    applyDeviceRootStatusTopic(topic, payload, retained) ||
+    applyDeviceShellyOnlineTopic(topic, payload, retained);
   if (!presenceHandled) {
     touchDeviceOnlineFromTopic(topic);
   }

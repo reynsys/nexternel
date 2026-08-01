@@ -14,6 +14,15 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.123 — 01/08/2026
+
+- **Devices online/offline:** ESP32 sensor traffic now marks the parent device online; stale retained MQTT `offline` (LWT) no longer overrides live readings; Devices list also reflects recent live capability data (matches Dashboard)
+
+## V3.1.122 — 01/08/2026
+
+- **Dashboard sections:** empty-section text and widget count use Appearance-aware colours; section icons use accent
+- **Dashboard edit:** drag widgets between sections (move icon on widget → drop on target section); drag handle still moves within a section
+
 ## V3.1.121 — 01/08/2026
 
 - **ECharts widgets:** gauges and history charts use System → Appearance accent and theme-aware axis/detail colours (fixes labels blending into dark/gradient backgrounds)

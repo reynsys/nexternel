@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { useParams } from "react-router-dom";
 import { type Layout } from "react-grid-layout";
 import {
@@ -116,6 +116,10 @@ export function DashboardPage() {
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
   const [tabMetaExpanded, setTabMetaExpanded] = useState(false);
   const [manageExpanded, setManageExpanded] = useState(false);
+  const [widgetDrag, setWidgetDrag] = useState<{
+    widgetId: string;
+    fromSectionId: string;
+  } | null>(null);
 
   const categoryOptions = categoriesWithEntries();
   const typeOptions = catalogByCategory(addCategory);
@@ -415,6 +419,62 @@ export function DashboardPage() {
     }));
   }
 
+  function moveWidgetToSection(
+    fromSectionId: string,
+    toSectionId: string,
+    widgetId: string
+  ) {
+    if (fromSectionId === toSectionId) return;
+    setSections((prev) => {
+      let moved: WidgetInstance | null = null;
+      const stripped = prev.map((s) => {
+        if (s.id !== fromSectionId) return s;
+        const w = s.widgets.find((x) => x.id === widgetId);
+        if (!w) return s;
+        moved = w;
+        return { ...s, widgets: s.widgets.filter((x) => x.id !== widgetId) };
+      });
+      if (!moved) return prev;
+      return stripped.map((s) => {
+        if (s.id !== toSectionId) return s;
+        const pos = nextWidgetPlacement(s.widgets, moved!.layout.w);
+        return {
+          ...s,
+          collapsed: false,
+          widgets: [
+            ...s.widgets,
+            {
+              ...moved!,
+              layout: {
+                ...moved!.layout,
+                x: pos.x,
+                y: pos.y,
+              },
+            },
+          ],
+        };
+      });
+    });
+  }
+
+  function handleSectionWidgetDrop(e: DragEvent, toSectionId: string) {
+    e.preventDefault();
+    try {
+      const raw = e.dataTransfer.getData("application/x-nexternel-widget");
+      const parsed = JSON.parse(raw) as { widgetId?: string; sectionId?: string };
+      if (
+        typeof parsed.widgetId === "string" &&
+        typeof parsed.sectionId === "string" &&
+        parsed.sectionId !== toSectionId
+      ) {
+        moveWidgetToSection(parsed.sectionId, toSectionId, parsed.widgetId);
+      }
+    } catch {
+      /* ignore */
+    }
+    setWidgetDrag(null);
+  }
+
   function updateWidget(
     sectionId: string,
     widgetId: string,
@@ -647,6 +707,18 @@ export function DashboardPage() {
               onChange={(_e, expanded) =>
                 updateSection(section.id, { collapsed: !expanded })
               }
+              onDragOver={(e) => {
+                if (
+                  !editMode ||
+                  !widgetDrag ||
+                  widgetDrag.fromSectionId === section.id
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(e) => handleSectionWidgetDrop(e, section.id)}
               disableGutters
               sx={{
                 gridColumn: `span ${span}`,
@@ -689,7 +761,7 @@ export function DashboardPage() {
                       <SecIcon fontSize="small" />
                     </IconButton>
                   ) : (
-                    <SecIcon color="action" fontSize="small" />
+                    <SecIcon color="primary" fontSize="small" />
                   )}
                   {editMode ? (
                     <TextField
@@ -705,7 +777,10 @@ export function DashboardPage() {
                       {section.title}
                     </Typography>
                   )}
-                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ flexShrink: 0, color: "primary.main", fontWeight: 500 }}
+                  >
                     {section.widgets.length} widget{section.widgets.length === 1 ? "" : "s"}
                   </Typography>
                   {editMode && (
@@ -783,6 +858,12 @@ export function DashboardPage() {
                   onLayoutChange={onLayoutChange}
                   onRemoveWidget={removeWidget}
                   onUpdateWidget={updateWidget}
+                  onMoveWidget={moveWidgetToSection}
+                  widgetDrag={widgetDrag}
+                  onWidgetDragStart={(sid, wid) =>
+                    setWidgetDrag({ fromSectionId: sid, widgetId: wid })
+                  }
+                  onWidgetDragEnd={() => setWidgetDrag(null)}
                   onCapabilityState={applyLive}
                 />
               </AccordionDetails>

@@ -3,6 +3,8 @@ import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
 import { buildShellySwitchTopics } from "../shelly/topics.js";
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
+import { LIVE_CAPABILITY_PRESENCE_MS } from "./presence.js";
+import { getAllLiveStates } from "../telemetry/state-cache.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
@@ -62,6 +64,23 @@ type DeviceRow = {
   is_online: boolean;
   last_seen_at: Date | null;
 };
+
+async function deviceIdsWithRecentLiveSignal(): Promise<Set<string>> {
+  const states = getAllLiveStates();
+  const recentCapIds = states
+    .filter(
+      (s) =>
+        s.quality === "good" &&
+        Date.now() - Date.parse(s.updatedAt) < LIVE_CAPABILITY_PRESENCE_MS
+    )
+    .map((s) => s.capabilityId);
+  if (recentCapIds.length === 0) return new Set();
+  const result = await getPool().query<{ device_id: string }>(
+    `SELECT DISTINCT device_id FROM capabilities WHERE id = ANY($1::uuid[])`,
+    [recentCapIds]
+  );
+  return new Set(result.rows.map((r) => r.device_id));
+}
 
 export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
   const pool = getPool();
@@ -150,6 +169,8 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     relaysByDevice.set(r.device_id, list);
   }
 
+  const liveDeviceIds = await deviceIdsWithRecentLiveSignal();
+
   return devices.rows.map((d) => ({
     id: d.id,
     roomId: d.room_id,
@@ -162,7 +183,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     ipAddress: d.ip_address,
     macAddress: d.mac_address,
     isEnabled: d.is_enabled,
-    isOnline: Boolean(d.is_online),
+    isOnline: Boolean(d.is_online) || liveDeviceIds.has(d.id),
     lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
     sensors: sensorsByDevice.get(d.id) ?? [],
     relays: relaysByDevice.get(d.id) ?? [],
