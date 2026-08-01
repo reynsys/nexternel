@@ -25,7 +25,9 @@ export function parseEchartsConfig(config: Record<string, unknown>): EchartsWidg
   const presetId =
     typeof config.presetId === "string" && config.presetId
       ? config.presetId
-      : "gauge";
+      : typeof config.gaugeStyle === "string" && LEGACY_STYLE_TO_PRESET[config.gaugeStyle]
+        ? LEGACY_STYLE_TO_PRESET[config.gaugeStyle]
+        : "gauge";
   const range =
     config.range === "1h" ||
     config.range === "6h" ||
@@ -104,6 +106,8 @@ export function defaultRangeForKind(kind: string | undefined): { min: number; ma
   if (kind === "temperature") return { min: 0, max: 60 };
   if (kind === "humidity" || kind === "battery") return { min: 0, max: 100 };
   if (kind === "pressure") return { min: 950, max: 1050 };
+  if (kind === "power") return { min: 0, max: 5000 };
+  if (kind === "energy") return { min: 0, max: 50 };
   return { min: 0, max: 100 };
 }
 
@@ -123,8 +127,15 @@ export function resolveMinMax(
   return { min, max };
 }
 
-export function liveValue(cap: Capability | undefined): number {
-  return typeof cap?.state?.value === "number" ? cap.state.value : 0;
+export function liveValue(cap: Capability | undefined): number | null {
+  if (!cap?.state) return null;
+  const v = cap.state.value;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v.trim());
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
 export function defaultPresetForKind(kind: string | undefined): string {

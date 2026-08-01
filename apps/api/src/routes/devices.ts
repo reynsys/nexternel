@@ -28,6 +28,10 @@ function pgErrorCode(err: unknown): string {
 
 async function afterDeviceMutation() {
   await syncCapabilitiesFromLegacy();
+  const { repairDashboardCapabilityBindings } = await import(
+    "../migrate/repair-dashboard-bindings.js"
+  );
+  await repairDashboardCapabilityBindings();
   await refreshTelemetrySubscriptions();
 }
 

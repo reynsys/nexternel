@@ -1,6 +1,9 @@
 import type { EchartsBuildCtx } from "./types";
 
-/** Official demos assume ~360px canvas; scale lengths/fonts for widget cells. */
+/**
+ * Official ECharts gauge demos assume ~360px canvas; scale stroke/font lengths for widget cells.
+ * Gauge series `radius` % is relative to half of min(width,height) — not the full min side.
+ */
 export function gaugeScale(ctx: EchartsBuildCtx): number {
   const px = ctx.sizePx ?? 220;
   return Math.min(1.15, Math.max(0.35, px / 360));
@@ -67,7 +70,6 @@ export function niceGaugeAxis(
   const span = max - min;
   let step = niceStep(span / target);
 
-  // Prefer integer steps when the range is “sensor-sized”
   if (span >= 5 && step < 1) step = 1;
 
   let niceMin = Math.floor(min / step) * step;
@@ -80,7 +82,6 @@ export function niceGaugeAxis(
     niceMax = niceMin + step * 2;
   }
 
-  // Too many ticks in a small cell → coarsen the step
   const maxSplits = s < 0.55 ? 5 : s < 0.8 ? 8 : 12;
   while (splitNumber > maxSplits) {
     step = niceStep(step * 2);
@@ -94,7 +95,6 @@ export function niceGaugeAxis(
     }
   }
 
-  // Avoid floating junk on bounds
   const fix = (n: number) => Math.round(n * 1e6) / 1e6;
   return {
     min: fix(niceMin),
@@ -105,7 +105,10 @@ export function niceGaugeAxis(
 
 export type GaugeLayoutId = "full" | "semi" | "temp" | "ring";
 
-/** Placement that fills the chart host (radius % of min(width,height)). */
+/**
+ * Fixed center/radius from Apache ECharts gauge examples — no cell math here.
+ * Presets may override; this is only the shared default per layout family.
+ */
 export function gaugeLayout(id: GaugeLayoutId): {
   center: [string, string];
   radius: string;
@@ -122,53 +125,8 @@ export function gaugeLayout(id: GaugeLayoutId): {
   }
 }
 
-function clampRadius(radius: unknown, maxPct = 100): string {
-  if (typeof radius !== "string") return "90%";
-  const m = radius.match(/^(\d+(?:\.\d+)?)%$/);
-  if (!m) return radius;
-  const n = Number(m[1]);
-  return `${Math.min(Math.max(n, 85), maxPct)}%`;
-}
-
-function ensureCenter(center: unknown): [string, string] {
-  if (Array.isArray(center) && center.length >= 2) {
-    return [String(center[0]), String(center[1])];
-  }
-  return ["50%", "58%"];
-}
-
 /**
- * Keep every gauge dial low enough that top axis labels stay inside the widget.
- * Applied in enforceAllGaugeSeries so no preset can sit too high.
- */
-export function nudgeGaugeCenterDown(
-  center: unknown,
-  series: Record<string, unknown>
-): [string, string] {
-  const [x, y] = ensureCenter(center);
-  const ym = String(y).match(/^(-?\d+(?:\.\d+)?)%$/);
-  if (!ym) return [x, "58%"];
-  let yPct = Number(ym[1]);
-
-  const start = typeof series.startAngle === "number" ? series.startAngle : null;
-  const end = typeof series.endAngle === "number" ? series.endAngle : null;
-  const isSemi =
-    start !== null &&
-    ((start >= 170 && start <= 210) ||
-      (start === 180 && (end === null || end <= 0)));
-
-  const minY = isSemi ? 68 : 56;
-  if (yPct < minY) yPct = minY;
-  return [x, `${yPct}%`];
-}
-
-/**
- * Post-process any gauge option so EVERY series gets:
- * - nice min/max/splitNumber (no 16.666… ticks)
- * - fmtAxisLabel on visible axis labels
- * - radius fill + center nudged down (all presets)
- *
- * Grade gauges that intentionally use 0–1 are left on that scale for min/max.
+ * Nice axis ticks + label formatter only. Layout stays on each preset / gaugeLayout().
  */
 export function enforceAllGaugeSeries(
   option: Record<string, unknown>,
@@ -215,8 +173,6 @@ export function enforceAllGaugeSeries(
                     ).splitNumber
                   : nice.splitNumber,
             }),
-        radius: clampRadius(s.radius, 100),
-        center: nudgeGaugeCenterDown(s.center, s),
         axisLabel,
       };
     }),

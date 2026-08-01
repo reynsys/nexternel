@@ -103,15 +103,20 @@ export function SectionGrid({
     return () => ro.disconnect();
   }, []);
 
-  const layout: Layout[] = widgets.map((w) => ({
-    i: w.id,
-    x: w.layout.x,
-    y: w.layout.y,
-    w: w.layout.w,
-    h: w.layout.h,
-    minW: w.layout.minW ?? 2,
-    minH: w.layout.minH ?? 2,
-  }));
+  const layout: Layout[] = widgets
+    .filter((w) => typeof w.id === "string" && w.id.trim())
+    .map((w) => {
+      const l = w.layout ?? { i: w.id, x: 0, y: 0, w: 4, h: 4 };
+      return {
+        i: w.id,
+        x: l.x ?? 0,
+        y: l.y ?? 0,
+        w: l.w ?? 4,
+        h: l.h ?? 4,
+        minW: l.minW ?? 2,
+        minH: l.minH ?? 2,
+      };
+    });
 
   const editing = editWidgetId
     ? widgets.find((w) => w.id === editWidgetId) ?? null
@@ -334,6 +339,7 @@ export function SectionGrid({
                       p: 1,
                       display: "flex",
                       flexDirection: "column",
+                      height: "100%",
                     }}
                   >
                     <WidgetRenderer

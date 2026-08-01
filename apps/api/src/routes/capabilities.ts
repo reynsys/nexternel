@@ -44,8 +44,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
   app.post("/api/v1/capabilities/sync", async (request, reply) => {
     if (!requirePermission(request, reply, "editDevices")) return;
     const result = await syncCapabilitiesFromLegacy();
+    const { repairDashboardCapabilityBindings } = await import(
+      "../migrate/repair-dashboard-bindings.js"
+    );
+    const repaired = await repairDashboardCapabilityBindings();
     await refreshTelemetrySubscriptions();
-    return { ok: true, ...result };
+    return { ok: true, ...result, dashboardBindingsRemapped: repaired.bindingsRemapped };
   });
 
   app.post<{

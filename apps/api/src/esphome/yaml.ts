@@ -24,13 +24,14 @@ const ESPHOME_DIRS = ["/esphome", join(process.cwd(), "..", "..", "esphome")];
 
 const SKIP_YAML = new Set(["secrets", "packages"]);
 
-/** ESPHome default object_id when `id:` is omitted — slugified name. */
+/** ESPHome node name on device → YAML file stem in esphome/ (OTA name may differ from file name). */
+const YAML_NAME_ALIASES: Record<string, string> = {
+  "home-assistant-glow": "glow-energy",
+};
+
+/** ESPHome default object_id — lowercase name with spaces → underscores (hyphens kept). */
 export function esphomeObjectIdFromName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
+  return name.trim().toLowerCase().replace(/ /g, "_");
 }
 
 function resolveSubstitutions(yaml: string): string {
@@ -152,22 +153,128 @@ function parseSwitchRelays(yaml: string): EsphomeImportSuggestion["relays"] {
     }
   }
 
-  const outputSection = extractTopLevelSection(yaml, "output");
-  if (outputSection) {
-    for (const block of splitYamlListItems(outputSection)) {
-      if (!/platform:\s*gpio/i.test(block)) continue;
-      const idM = /\bid:\s*(\w+)/i.exec(block);
-      if (!idM) continue;
-      const nameM = /\bname:\s*["']?([^"'\n#]+?)["']?/i.exec(block);
-      addRelay({
-        entityId: idM[1],
-        name: nameM?.[1]?.trim() || idM[1].replace(/_/g, " "),
-        gpioPin: parsePin(block),
-      });
-    }
+  return relays;
+}
+
+function parseYamlObjectId(block: string): string | undefined {
+  const m = /\bobject_id:\s*(\w+)/i.exec(block);
+  return m?.[1];
+}
+
+/** MQTT topic segment: object_id → slugified name → internal id. */
+function resolveSensorEntityId(block: string, fallback?: string): string | undefined {
+  const objectId = parseYamlObjectId(block);
+  if (objectId) return objectId;
+  const name = parseYamlName(block);
+  if (name) return esphomeObjectIdFromName(name);
+  const id = parseYamlId(block);
+  if (id) return id;
+  return fallback;
+}
+
+function parseYamlId(block: string): string | undefined {
+  const idM = /\bid:\s*(\w+)/i.exec(block);
+  return idM?.[1];
+}
+
+function parseUnit(block: string): string | undefined {
+  const m = /\bunit_of_measurement:\s*['"]?([^'"\n#]+?)['"]?\s*$/im.exec(block);
+  return m?.[1]?.trim();
+}
+
+function parseDeviceClass(block: string): string | undefined {
+  const m = /\bdevice_class:\s*(\w+)/i.exec(block);
+  return m?.[1]?.toLowerCase();
+}
+
+function parseSensorBlocks(yaml: string): EsphomeImportSuggestion["sensors"] {
+  const sensors: EsphomeImportSuggestion["sensors"] = [];
+  const seen = new Set<string>();
+
+  function addSensor(opts: {
+    entityId: string;
+    name: string;
+    sensorType: string;
+    unit?: string;
+  }) {
+    if (seen.has(opts.entityId)) return;
+    seen.add(opts.entityId);
+    sensors.push({
+      name: opts.name,
+      slug: opts.entityId.replace(/_/g, "-"),
+      sensorType: opts.sensorType,
+      unit: opts.unit,
+      esphomeEntityId: opts.entityId,
+    });
   }
 
-  return relays;
+  const sensorSection = extractTopLevelSection(yaml, "sensor");
+  if (!sensorSection) return sensors;
+
+  for (const block of splitYamlListItems(sensorSection)) {
+    const platform = /\bplatform:\s*([\w_]+)/i.exec(block)?.[1]?.toLowerCase();
+    if (!platform) continue;
+
+    if (platform === "pulse_meter") {
+      const entityId = resolveSensorEntityId(block, "sensor_energy_pulse_meter");
+      if (!entityId) continue;
+      addSensor({
+        entityId,
+        name: parseYamlName(block) ?? "Power consumption",
+        sensorType: "power",
+        unit: parseUnit(block) ?? "W",
+      });
+      const totalMatch = /\btotal:\s*\n([\s\S]*)/i.exec(block);
+      if (totalMatch) {
+        const totalBlock = totalMatch[1];
+        const totalId = resolveSensorEntityId(totalBlock, "sensor_total_energy");
+        if (totalId) {
+          addSensor({
+            entityId: totalId,
+            name: parseYamlName(totalBlock) ?? "Total energy",
+            sensorType: "energy",
+            unit: parseUnit(totalBlock) ?? "kWh",
+          });
+        }
+      }
+      continue;
+    }
+
+    if (platform === "total_daily_energy") {
+      const entityId = resolveSensorEntityId(block, "sensor_total_daily_energy");
+      if (!entityId) continue;
+      addSensor({
+        entityId,
+        name: parseYamlName(block) ?? "Daily energy",
+        sensorType: "energy",
+        unit: parseUnit(block) ?? "kWh",
+      });
+      continue;
+    }
+
+    if (platform === "wifi_signal" || platform === "dht") {
+      continue;
+    }
+
+    const entityId = resolveSensorEntityId(block);
+    if (!entityId) continue;
+
+    const deviceClass = parseDeviceClass(block);
+    let sensorType = deviceClass ?? "number";
+    if (entityId.includes("temperature")) sensorType = "temperature";
+    else if (entityId.includes("humidity")) sensorType = "humidity";
+    else if (entityId.includes("pressure")) sensorType = "pressure";
+    else if (entityId.includes("battery")) sensorType = "battery";
+
+    addSensor({
+      entityId,
+      name: parseYamlName(block) ?? entityId.replace(/_/g, " "),
+      sensorType,
+      unit: parseUnit(block),
+    });
+  }
+
+  return sensors;
 }
 
 /** Best-effort parse of ESPHome YAML for device registration hints. */
@@ -184,27 +291,31 @@ export function parseEsphomeYaml(
   const esphomeName = nameMatch?.[1]?.trim() || fallbackName;
 
   const prefixMatch = /topic_prefix:\s*["']?([^"'\n${}]+)/m.exec(resolved);
-  const mqttTopicPrefix = prefixMatch?.[1]?.trim() || `damnhome/${esphomeName}`;
+  const mqttTopicPrefix = prefixMatch?.[1]?.trim() || `nexternel/${esphomeName}`;
 
-  const sensors: EsphomeImportSuggestion["sensors"] = [];
-  const idBlocks = [...resolved.matchAll(/\s+id:\s*(\w+)\s*\n/g)];
-  for (const [, id] of idBlocks) {
-    if (id.includes("temperature")) {
-      sensors.push({
-        name: "Temperature",
-        slug: "temperature",
-        sensorType: "temperature",
-        unit: "°C",
-        esphomeEntityId: id,
-      });
-    } else if (id.includes("humidity")) {
-      sensors.push({
-        name: "Humidity",
-        slug: "humidity",
-        sensorType: "humidity",
-        unit: "%",
-        esphomeEntityId: id,
-      });
+  const sensors = parseSensorBlocks(resolved);
+
+  // Legacy fallback: id blocks for simple DHT-style YAML without full sensor sections
+  if (sensors.length === 0) {
+    const idBlocks = [...resolved.matchAll(/\s+id:\s*(\w+)\s*\n/g)];
+    for (const [, id] of idBlocks) {
+      if (id.includes("temperature")) {
+        sensors.push({
+          name: "Temperature",
+          slug: "temperature",
+          sensorType: "temperature",
+          unit: "°C",
+          esphomeEntityId: id,
+        });
+      } else if (id.includes("humidity")) {
+        sensors.push({
+          name: "Humidity",
+          slug: "humidity",
+          sensorType: "humidity",
+          unit: "%",
+          esphomeEntityId: id,
+        });
+      }
     }
   }
 
@@ -234,9 +345,10 @@ export async function listEsphomeYamlFiles(): Promise<string[]> {
 export async function loadEsphomeYaml(esphomeName: string): Promise<string | null> {
   const candidates = [
     esphomeName,
+    YAML_NAME_ALIASES[esphomeName],
     esphomeName.replace(/_/g, "-"),
     esphomeName.replace(/-/g, "_"),
-  ];
+  ].filter((c): c is string => Boolean(c));
 
   for (const base of candidates) {
     const fileName = `${base}.yaml`;

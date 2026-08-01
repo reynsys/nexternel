@@ -37,6 +37,28 @@ function findCap(caps: Capability[], widget: WidgetInstance): Capability | undef
   if (title) {
     const named = caps.filter((c) => c.name.trim().toLowerCase() === title);
     if (named.length === 1) return named[0];
+    if (
+      (title.includes("meter") || title.includes("gauge")) &&
+      title.includes("energy") &&
+      !title.includes("daily")
+    ) {
+      const power = caps.filter((c) => c.kind === "power");
+      if (power.length === 1) return power[0];
+    }
+    const partial = caps.filter(
+      (c) =>
+        title.includes(c.name.trim().toLowerCase()) ||
+        c.name.trim().toLowerCase().includes(title)
+    );
+    if (partial.length === 1) return partial[0];
+    if (title.includes("power")) {
+      const power = caps.filter((c) => c.kind === "power");
+      if (power.length === 1) return power[0];
+    }
+    if (title.includes("energy") || title.includes("daily")) {
+      const energy = caps.filter((c) => c.kind === "energy");
+      if (energy.length === 1) return energy[0];
+    }
   }
   return undefined;
 }
@@ -87,11 +109,12 @@ export function WidgetRenderer({
   const showHeader =
     !isClock &&
     !isGeneral &&
-    (chrome ||
-      Boolean(title) ||
-      widget.type === "switch" ||
-      widget.type === "stat" ||
-      Boolean(cap));
+    (chrome
+      ? Boolean(title) ||
+        widget.type === "switch" ||
+        widget.type === "stat" ||
+        Boolean(cap)
+      : Boolean(title) || widget.type === "switch" || widget.type === "stat");
 
   const body = (
     <>

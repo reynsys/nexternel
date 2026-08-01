@@ -43,10 +43,41 @@ export function emptyDocument(name = "Dashboard"): DashboardDocument {
   };
 }
 
+function normalizeWidget(w: WidgetInstance, index: number): WidgetInstance {
+  const id = typeof w.id === "string" && w.id.trim() ? w.id.trim() : newId("widget");
+  const raw =
+    w.layout && typeof w.layout === "object" && !Array.isArray(w.layout)
+      ? w.layout
+      : {};
+  const layout = {
+    i: id,
+    x: typeof raw.x === "number" && Number.isFinite(raw.x) ? raw.x : 0,
+    y: typeof raw.y === "number" && Number.isFinite(raw.y) ? raw.y : index * 4,
+    w: typeof raw.w === "number" && Number.isFinite(raw.w) ? raw.w : 4,
+    h: typeof raw.h === "number" && Number.isFinite(raw.h) ? raw.h : 4,
+    minW: typeof raw.minW === "number" ? raw.minW : undefined,
+    minH: typeof raw.minH === "number" ? raw.minH : undefined,
+  };
+  const bindings =
+    w.bindings && typeof w.bindings === "object" && !Array.isArray(w.bindings)
+      ? w.bindings
+      : {};
+  const type = typeof w.type === "string" && w.type.trim() ? w.type.trim() : "stat";
+  const config =
+    w.config && typeof w.config === "object" && !Array.isArray(w.config) ? w.config : {};
+  const base: WidgetInstance = {
+    ...w,
+    id,
+    type,
+    layout,
+    bindings,
+    config,
+  };
+  return isEchartsWidgetType(base.type) ? migrateWidgetToEcharts(base) : base;
+}
+
 function migrateWidgets(widgets: WidgetInstance[]): WidgetInstance[] {
-  return widgets.map((w) =>
-    isEchartsWidgetType(w.type) ? migrateWidgetToEcharts(w) : w
-  );
+  return widgets.map((w, i) => normalizeWidget(w, i));
 }
 
 function normalizeSection(s: DashboardSection, i: number): DashboardSection {

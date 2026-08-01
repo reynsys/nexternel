@@ -335,9 +335,11 @@ export function EChartsWidgetEditor({
               onChange={(e) => setCapabilityId(e.target.value)}
             >
               {capabilities
-                .filter((c) =>
-                  preset.dataMode === "history" ? c.kind !== "switch" : true
-                )
+                .filter((c) => {
+                  if (c.kind === "switch") return false;
+                  if (preset.dataMode === "history") return true;
+                  return true;
+                })
                 .map((c) => (
                   <MenuItem key={c.id} value={c.id}>
                     {c.deviceName} · {c.name} ({c.kind})

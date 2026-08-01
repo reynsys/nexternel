@@ -254,6 +254,112 @@ function applyShellyTopicUpdates(
   return applied;
 }
 
+const ESPHOME_SENSOR_STATE_RE = /^(.+)\/sensor\/([^/]+)\/state$/;
+
+function inferSensorMatchFromEntity(entityId: string): {
+  sensorType: string;
+  nameHint: string | null;
+} | null {
+  const e = entityId.toLowerCase();
+  if (e.includes("power")) return { sensorType: "power", nameHint: "power" };
+  if (e.includes("daily")) return { sensorType: "energy", nameHint: "daily" };
+  if (e.includes("total") && e.includes("energy")) {
+    return { sensorType: "energy", nameHint: "total" };
+  }
+  if (e.includes("energy")) return { sensorType: "energy", nameHint: null };
+  return null;
+}
+
+function registerTopicBinding(topic: string, capabilityId: string, kind: string) {
+  const list = topicIndex.get(topic) ?? [];
+  if (!list.some((e) => e.capabilityId === capabilityId)) {
+    list.push({ capabilityId, kind });
+    topicIndex.set(topic, list);
+  }
+}
+
+/** Self-heal when DB state_topic lags ESPHome MQTT object_id (common after Glow import fixes). */
+async function tryHealEsphomeSensorTopic(
+  topic: string,
+  payload: string,
+  retained: boolean
+): Promise<boolean> {
+  const m = ESPHOME_SENSOR_STATE_RE.exec(topic);
+  if (!m) return false;
+  const prefix = m[1]!;
+  const entityId = m[2]!;
+  const hint = inferSensorMatchFromEntity(entityId);
+
+  let row:
+    | {
+        capability_id: string;
+        kind: string;
+        sensor_id: string;
+        stored_topic: string;
+      }
+    | undefined;
+
+  const exact = await getPool().query<{
+    capability_id: string;
+    kind: string;
+    sensor_id: string;
+    stored_topic: string;
+  }>(
+    `SELECT c.id AS capability_id, c.kind, s.id AS sensor_id, s.mqtt_state_topic AS stored_topic
+     FROM devices d
+     JOIN sensors s ON s.device_id = d.id
+     JOIN capabilities c ON c.source_type = 'sensor' AND c.source_id = s.id AND c.is_enabled = TRUE
+     WHERE d.mqtt_topic_prefix = $1
+       AND (s.esphome_entity_id = $2 OR s.mqtt_state_topic = $3)
+     LIMIT 1`,
+    [prefix, entityId, topic]
+  );
+  row = exact.rows[0];
+
+  if (!row && hint) {
+    const fuzzy = await getPool().query<{
+      capability_id: string;
+      kind: string;
+      sensor_id: string;
+      stored_topic: string;
+    }>(
+      `SELECT c.id AS capability_id, c.kind, s.id AS sensor_id, s.mqtt_state_topic AS stored_topic
+       FROM devices d
+       JOIN sensors s ON s.device_id = d.id
+       JOIN capabilities c ON c.source_type = 'sensor' AND c.source_id = s.id AND c.is_enabled = TRUE
+       WHERE d.mqtt_topic_prefix = $1
+         AND s.sensor_type = $2
+         AND ($3::text IS NULL OR LOWER(s.name) LIKE '%' || $3 || '%')
+       ORDER BY s.updated_at DESC
+       LIMIT 1`,
+      [prefix, hint.sensorType, hint.nameHint]
+    );
+    row = fuzzy.rows[0];
+  }
+
+  if (!row) return false;
+
+  if (row.stored_topic !== topic) {
+    await getPool().query(
+      `UPDATE sensors
+       SET mqtt_state_topic = $2, esphome_entity_id = $3, updated_at = NOW()
+       WHERE id = $1`,
+      [row.sensor_id, topic, entityId]
+    );
+    await getPool().query(
+      `UPDATE capability_bindings
+       SET state_topic = $2, updated_at = NOW()
+       WHERE capability_id = $1`,
+      [row.capability_id, topic]
+    );
+  }
+
+  registerTopicBinding(topic, row.capability_id, row.kind);
+  const value = parseMqttPayload(row.kind, payload);
+  applyLiveSwitch(row.capability_id, value, retained);
+  return true;
+}
+
 function handleMessage(
   topic: string,
   payloadBuf: Buffer,
@@ -275,7 +381,12 @@ function handleMessage(
   const shellyHandled = applyShellyTopicUpdates(topic, payload, retained);
 
   const entries = topicIndex.get(topic);
-  if (!entries?.length) return;
+  if (!entries?.length) {
+    void tryHealEsphomeSensorTopic(topic, payload, retained).catch(() => {
+      /* ignore heal errors */
+    });
+    return;
+  }
 
   // Avoid double-applying the same Shelly status/switch:N payload
   if (shellyHandled && /\/status\/switch:\d+$/i.test(topic)) return;

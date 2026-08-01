@@ -68,6 +68,7 @@ import {
 import { SectionGrid } from "../components/SectionGrid";
 import { DashboardTabBar } from "../components/DashboardTabBar";
 import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
+import { DashboardErrorBoundary } from "../components/DashboardErrorBoundary";
 import { DashboardIconPicker } from "../components/DashboardIconPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 import {
@@ -513,6 +514,7 @@ export function DashboardPage() {
   }
 
   return (
+    <DashboardErrorBoundary>
     <Stack spacing={2}>
       <DashboardTabBar
         activeId={id}
@@ -1074,5 +1076,6 @@ export function DashboardPage() {
         </DialogActions>
       </Dialog>
     </Stack>
+    </DashboardErrorBoundary>
   );
 }

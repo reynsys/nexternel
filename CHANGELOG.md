@@ -14,6 +14,73 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.139 — 01/08/2026
+
+- **Gauge revert/fix:** remove broken cell-math `gaugeLayout` (V3.1.138 set radius ~28% — tiny dials); restore fixed ECharts example center/radius; enforcement only adjusts axis ticks
+
+## V3.1.138 — 01/08/2026
+
+- **Gauges:** restore widget titles on dashboard; remove global center/radius overrides; cell-aware layout from ECharts examples; Basic / Simple / Progress dials differentiated (no progress fill vs round cap vs value below arc)
+
+## V3.1.137 — 01/08/2026
+
+- **Gauge fix:** restore stroke scale from min(cell width,height) — V3.1.136 used max() and made dials thick/clipped; semicircle layout aligned with ECharts speed example (60%/90%); stop forcing minimum radius
+
+## V3.1.136 — 01/08/2026
+
+- **Gauge widgets:** chart uses full grid cell (no duplicate title block); chart host flex fix; visual diag flags undersized chart areas
+
+## V3.1.135 — 01/08/2026
+
+- **Revert:** global semicircle gauge layout (V3.1.133) — fixes `gaugeScale is not defined` dashboard crash; Speed gauge layout back to shared defaults
+
+## V3.1.134 — 01/08/2026
+
+- **Dashboard crash fix:** normalize widget layout/bindings on load; error boundary instead of blank white page; relay prune only when YAML lists relays
+
+## V3.1.133 — 01/08/2026
+
+- **UI:** Speed / semicircle gauge layout — larger radius, higher center in small widgets (less empty space above dial)
+
+## V3.1.132 — 01/08/2026
+
+- **API:** MQTT self-heal for ESPHome sensor topics (fixes Glow gauge at 0 when PuTTY shows data); energy-meter widgets map to power capability
+
+## V3.1.131 — 01/08/2026
+
+- **Gauge fix:** always render live gauge dial (V3.1.130 hid chart when state was empty); repair dashboard bindings after device sync; fuzzy capability match for stale widget IDs
+
+## V3.1.130 — 01/08/2026
+
+- **Glow sync:** stop importing internal `output` GPIO as switches; prune stale sensors/relays on Sync ESPHome; broader sensor topic repair (power/energy matchers)
+- **UI:** live gauges show — without data (not 0); hide switch capabilities from gauge picker; power/energy gauge axis defaults
+
+## V3.1.129 — 01/08/2026
+
+- **API:** ESPHome YAML import uses MQTT `object_id` from sensor name (e.g. Glow `house_-_power_consumption`) — fixes Online device with blank dashboard gauges
+- **UI:** ECharts gauge remount on preset change; legacy `gaugeStyle` read in editor config
+
+## V3.1.128 — 01/08/2026
+
+- **glow-energy.yaml:** MQTT `username` from substitutions (must match `.env` `MQTT_USERNAME`, e.g. `damn_nexternel` not `nexternel`)
+
+## V3.1.127 — 01/08/2026
+
+- **glow-energy.yaml:** removed optional `web_server` login; OTA password documented (from existing Glow firmware, not Nexternel)
+
+## V3.1.126 — 01/08/2026
+
+- **glow-energy.yaml:** all credentials in `substitutions` only (no `!secret` — fixes ESPHome compile when secrets.yaml is missing)
+
+## V3.1.125 — 01/08/2026
+
+- **glow-energy.yaml:** OTA and web_server passwords use `substitutions` (no `!secret ota_password`) so ESPHome compile works before secrets are defined
+
+## V3.1.124 — 01/08/2026
+
+- **Glow energy (Nexternel-only):** `esphome/glow-energy.yaml` — MQTT + SNTP, no Home Assistant; OTA-safe `home-assistant-glow` node name
+- **ESPHome YAML import:** detects power/energy sensors (pulse meter, total/daily energy) and more sensor platforms for HA migration
+
 ## V3.1.123 — 01/08/2026
 
 - **Devices online/offline:** ESP32 sensor traffic now marks the parent device online; stale retained MQTT `offline` (LWT) no longer overrides live readings; Devices list also reflects recent live capability data (matches Dashboard)

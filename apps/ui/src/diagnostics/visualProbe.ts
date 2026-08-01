@@ -3,6 +3,7 @@ export type VisualFlags = {
   clippedOverflow: boolean;
   offscreen: boolean;
   hidden: boolean;
+  undersizedChart: boolean;
 };
 
 export type VisualElementProbe = {
@@ -47,6 +48,8 @@ const MAX_ELEMENTS = 40;
 /** Default selectors for dashboard / widget layout bugs (V2 gauge class of issues). */
 export const DEFAULT_VISUAL_SELECTORS = [
   "[data-nx-widget]",
+  "[data-nx-chart-host]",
+  ".echarts-for-react",
   ".react-grid-item",
   ".react-grid-layout",
   ".layout",
@@ -126,7 +129,39 @@ function flagsFor(
       rect.top > vh ||
       rect.left > vw,
     hidden,
+    undersizedChart:
+      el.hasAttribute("data-nx-chart-host") &&
+      rect.height > 0 &&
+      rect.height < 100,
   };
+}
+
+/** Detect tiny gauge arcs inside a reasonably sized chart host (broken radius %). */
+function gaugeArcWarnings(): string[] {
+  const out: string[] = [];
+  document.querySelectorAll("[data-nx-chart-host]").forEach((host) => {
+    const hr = host.getBoundingClientRect();
+    if (hr.height < 60) return;
+    const svg = host.querySelector("svg");
+    if (!svg) return;
+    const sw = svg.clientWidth || hr.width;
+    const sh = svg.clientHeight || hr.height;
+    const minSide = Math.min(sw, sh);
+    for (const path of svg.querySelectorAll("path[d]")) {
+      const d = path.getAttribute("d") ?? "";
+      const m = d.match(/A([\d.]+)\s+([\d.]+)/);
+      if (!m) continue;
+      const rx = parseFloat(m[1]);
+      if (!Number.isFinite(rx) || rx < 8) continue;
+      if (rx < minSide * 0.14) {
+        out.push(
+          `Gauge arc ~${Math.round(rx)}px in ${Math.round(hr.width)}×${Math.round(hr.height)} chart-host (${Math.round(sw)}×${Math.round(sh)} svg) — radius option too low for this cell`
+        );
+        break;
+      }
+    }
+  });
+  return out;
 }
 
 export function probeElement(el: Element): VisualElementProbe {
@@ -205,11 +240,18 @@ export function scanVisual(
 
   const elements = limited.map(probeElement);
   const problemCount = elements.filter(
-    (e) => e.flags.zeroSize || e.flags.clippedOverflow || e.flags.offscreen
+    (e) =>
+      e.flags.zeroSize ||
+      e.flags.clippedOverflow ||
+      e.flags.offscreen ||
+      e.flags.undersizedChart
   ).length;
   if (problemCount > 0) {
-    warnings.push(`${problemCount} element(s) flagged (zeroSize / clippedOverflow / offscreen)`);
+    warnings.push(
+      `${problemCount} element(s) flagged (zeroSize / clippedOverflow / offscreen / undersizedChart)`
+    );
   }
+  warnings.push(...gaugeArcWarnings());
 
   return {
     collectedAt: new Date().toISOString(),
@@ -235,11 +277,16 @@ export function scanElementTree(el: Element): VisualScanResult {
   const elements = unique.map(probeElement);
   const warnings: string[] = [];
   const problemCount = elements.filter(
-    (e) => e.flags.zeroSize || e.flags.clippedOverflow || e.flags.offscreen
+    (e) =>
+      e.flags.zeroSize ||
+      e.flags.clippedOverflow ||
+      e.flags.offscreen ||
+      e.flags.undersizedChart
   ).length;
   if (problemCount > 0) {
     warnings.push(`${problemCount} element(s) flagged in pick tree`);
   }
+  warnings.push(...gaugeArcWarnings());
 
   return {
     collectedAt: new Date().toISOString(),

@@ -195,35 +195,136 @@ export async function getDeviceDetailed(id: string): Promise<DeviceDetail | null
   return all.find((d) => d.id === id) ?? null;
 }
 
+async function pruneOrphanSensorsAndRelays(
+  client: PoolClient,
+  deviceId: string,
+  sensorSlugs: string[],
+  relaySlugs: string[]
+) {
+  if (sensorSlugs.length > 0) {
+    await client.query(
+      `DELETE FROM capabilities
+       WHERE source_type = 'sensor'
+         AND source_id IN (
+           SELECT id FROM sensors
+           WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))
+         )`,
+      [deviceId, sensorSlugs]
+    );
+    await client.query(
+      `DELETE FROM sensors WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))`,
+      [deviceId, sensorSlugs]
+    );
+  }
+
+  if (relaySlugs.length > 0) {
+    await client.query(
+      `DELETE FROM capabilities
+       WHERE source_type = 'relay'
+         AND source_id IN (
+           SELECT id FROM relays
+           WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))
+         )`,
+      [deviceId, relaySlugs]
+    );
+    await client.query(
+      `DELETE FROM relays WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))`,
+      [deviceId, relaySlugs]
+    );
+  }
+}
+
+async function upsertSensorFromSuggestion(
+  client: PoolClient,
+  deviceId: string,
+  mqttTopicPrefix: string,
+  s: EsphomeImportSuggestion["sensors"][number]
+) {
+  const stateTopic = `${mqttTopicPrefix}/sensor/${s.esphomeEntityId}/state`;
+  const matchers: { sql: string; params: unknown[] }[] = [
+    { sql: "name = $2", params: [s.name] },
+    { sql: "esphome_entity_id = $2", params: [s.esphomeEntityId] },
+    { sql: "slug = $2", params: [s.slug] },
+  ];
+  if (s.sensorType === "power") {
+    matchers.push({ sql: "sensor_type = $2", params: ["power"] });
+  }
+  if (s.sensorType === "energy") {
+    const hint = /daily/i.test(s.name) ? "%daily%" : "%total%";
+    matchers.push({
+      sql: "sensor_type = $2 AND LOWER(name) LIKE $3",
+      params: ["energy", hint],
+    });
+  }
+
+  for (const m of matchers) {
+    const result = await client.query(
+      `UPDATE sensors SET
+         name = $3,
+         slug = $4,
+         sensor_type = $5,
+         unit = $6,
+         mqtt_state_topic = $7,
+         esphome_entity_id = $8,
+         updated_at = NOW()
+       WHERE device_id = $1 AND ${m.sql}
+       RETURNING id`,
+      [
+        deviceId,
+        ...m.params,
+        s.name,
+        s.slug,
+        s.sensorType,
+        s.unit ?? null,
+        stateTopic,
+        s.esphomeEntityId,
+      ]
+    );
+    if ((result.rowCount ?? 0) > 0) return;
+  }
+
+  await client.query(
+    `INSERT INTO sensors (
+       device_id, name, slug, sensor_type, unit, mqtt_state_topic, esphome_entity_id
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (device_id, slug) DO UPDATE SET
+       name = EXCLUDED.name,
+       sensor_type = EXCLUDED.sensor_type,
+       unit = EXCLUDED.unit,
+       mqtt_state_topic = EXCLUDED.mqtt_state_topic,
+       esphome_entity_id = EXCLUDED.esphome_entity_id,
+       updated_at = NOW()`,
+    [
+      deviceId,
+      s.name,
+      s.slug,
+      s.sensorType,
+      s.unit ?? null,
+      stateTopic,
+      s.esphomeEntityId,
+    ]
+  );
+}
+
 async function insertSensorsAndRelays(
   client: PoolClient,
   deviceId: string,
   mqttTopicPrefix: string,
   sensors: EsphomeImportSuggestion["sensors"],
   relays: RelayInsert[],
-  firmwareType = "esphome"
+  firmwareType = "esphome",
+  pruneOrphans = false
 ) {
   for (const s of sensors) {
-    await client.query(
-      `INSERT INTO sensors (
-         device_id, name, slug, sensor_type, unit, mqtt_state_topic, esphome_entity_id
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (device_id, slug) DO UPDATE SET
-         name = EXCLUDED.name,
-         sensor_type = EXCLUDED.sensor_type,
-         unit = EXCLUDED.unit,
-         mqtt_state_topic = EXCLUDED.mqtt_state_topic,
-         esphome_entity_id = EXCLUDED.esphome_entity_id,
-         updated_at = NOW()`,
-      [
-        deviceId,
-        s.name,
-        s.slug,
-        s.sensorType,
-        s.unit ?? null,
-        `${mqttTopicPrefix}/sensor/${s.esphomeEntityId}/state`,
-        s.esphomeEntityId,
-      ]
+    await upsertSensorFromSuggestion(client, deviceId, mqttTopicPrefix, s);
+  }
+
+  if (pruneOrphans && sensors.length > 0) {
+    await pruneOrphanSensorsAndRelays(
+      client,
+      deviceId,
+      sensors.map((s) => s.slug),
+      relays.map((r) => r.slug)
     );
   }
 
@@ -532,7 +633,9 @@ export async function syncDeviceFromEsphomeSuggestion(
       id,
       mqttTopicPrefix,
       suggestion.sensors,
-      suggestion.relays
+      suggestion.relays,
+      device.firmwareType,
+      true
     );
     await client.query("COMMIT");
   } catch (err) {

@@ -9,6 +9,7 @@ import { getPool } from "../db.js";
 type CapRow = {
   id: string;
   name: string;
+  kind: string;
   device_name: string;
   source_id: string;
   source_type: string;
@@ -120,7 +121,7 @@ export async function repairDashboardCapabilityBindings(): Promise<{
 }> {
   const pool = getPool();
   const caps = await pool.query<CapRow>(
-    `SELECT c.id, c.name, d.name AS device_name, c.source_id, c.source_type
+    `SELECT c.id, c.name, c.kind, d.name AS device_name, c.source_id, c.source_type
      FROM capabilities c
      JOIN devices d ON d.id = c.device_id
      WHERE c.is_enabled = TRUE`
@@ -158,6 +159,14 @@ export async function repairDashboardCapabilityBindings(): Promise<{
     if (title) {
       const named = byName.get(title);
       if (named?.length === 1) return named[0]!.id;
+      if (
+        (title.includes("meter") || title.includes("gauge")) &&
+        title.includes("energy") &&
+        !title.includes("daily")
+      ) {
+        const power = caps.rows.filter((c) => c.kind === "power");
+        if (power.length === 1) return power[0]!.id;
+      }
       const parts = title.split("·").map((p) => p.trim());
       if (parts.length >= 2) {
         const entity = parts[parts.length - 1]!;

@@ -135,7 +135,11 @@ export function TroubleshootPage() {
   const randomOk = client?.randomUuid === "ok";
   const visualProblems =
     visual?.elements.filter(
-      (e) => e.flags.zeroSize || e.flags.clippedOverflow || e.flags.offscreen
+      (e) =>
+        e.flags.zeroSize ||
+        e.flags.clippedOverflow ||
+        e.flags.offscreen ||
+        e.flags.undersizedChart
     ).length ?? 0;
 
   return (

@@ -44,6 +44,7 @@ export function EChartsWidgetBody({
   const [loading, setLoading] = useState(false);
 
   const needsHistory = preset.dataMode === "history";
+  /** Match ECharts gauge radius (% of min(width,height)) — never use max(w,h) for stroke scale. */
   const sizePx = box.w > 0 && box.h > 0 ? Math.min(box.w, box.h) : 220;
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export function EChartsWidgetBody({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [config.presetId]);
 
   useEffect(() => {
     if (!needsHistory) {
@@ -101,9 +102,10 @@ export function EChartsWidgetBody({
   }, [needsHistory, capabilityId, range]);
 
   const { min, max } = resolveMinMax(config, cap);
+  const live = liveValue(cap);
   const ctx: EchartsBuildCtx = useMemo(() => {
     const base: EchartsBuildCtx = {
-      value: liveValue(cap),
+      value: live ?? 0,
       unit: cap?.unit ?? "",
       title,
       kind: cap?.kind ?? "",
@@ -120,7 +122,7 @@ export function EChartsWidgetBody({
       return { ...base, min: nice.min, max: nice.max, splitNumber: nice.splitNumber };
     }
     return base;
-  }, [cap, title, min, max, config.accent, chartPalette, points, range, sizePx, preset.family]);
+  }, [cap, title, min, max, config.accent, chartPalette, points, range, sizePx, preset.family, live]);
 
   const option = useMemo(() => {
     const built = preset.buildOption(ctx);
@@ -134,6 +136,14 @@ export function EChartsWidgetBody({
     return (
       <Typography variant="body2" color="text.secondary">
         No capability bound
+      </Typography>
+    );
+  }
+
+  if (preset.needsCapability && capabilityId && !cap) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Capability missing — edit widget and re-select
       </Typography>
     );
   }
@@ -160,6 +170,7 @@ export function EChartsWidgetBody({
   return (
     <Box
       ref={hostRef}
+      data-nx-chart-host
       sx={{
         position: "relative",
         flex: 1,
@@ -182,6 +193,7 @@ export function EChartsWidgetBody({
       )}
       {ready && (
         <ReactECharts
+          key={config.presetId}
           option={option}
           style={{ width: box.w, height: box.h, position: "absolute", inset: 0 }}
           opts={{ renderer, width: box.w, height: box.h }}
