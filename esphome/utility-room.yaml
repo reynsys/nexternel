@@ -1,22 +1,23 @@
-# Nexternel — Living Room ESP32 (DHT temperature + humidity)
-# OTA node name MUST stay living-room (matches firmware on device).
+# Nexternel — Utility Room ESP32 (DHT temperature + humidity)
+# OTA node name MUST stay utility-room (matches firmware on device).
 # 1) Edit substitutions below (MQTT must match ~/nexternel/.env)
-# 2) ESPHome :6052 → living-room → Install → Wirelessly (OTA)
-# 3) Admin → Devices → import/sync from YAML → Sync capabilities
+# 2) Upload to ~/nexternel/esphome/ → docker compose restart esphome
+# 3) ESPHome :6052 → utility-room → Install → Wirelessly (OTA)
+# 4) Admin → Devices → import from YAML → Sync capabilities
 
 substitutions:
-  device_name: living-room
-  friendly_name: Living Room
-  mqtt_topic_prefix: nexternel/living-room
+  device_name: utility-room
+  friendly_name: Utility Room
+  mqtt_topic_prefix: nexternel/utility-room
   wifi_ssid: "DAMN"
   wifi_password: "n3v3rm1nd"
   mqtt_broker: "192.168.3.101"
   mqtt_username: "damn_nexternel"
   mqtt_password: "n3v3rm1nd"
   # From your Home Assistant YAML — required for OTA from existing firmware
-  ota_password: "f7b99eb9fc0a9d651bbaafdf3e8c2591"
-  ap_ssid: "Living-Room Fallback Hotspot"
-  ap_password: "e8zqGUJp63IU"
+  ota_password: "9cc516b429dd03312ab192704be2595d"
+  ap_ssid: "Utility-Room Fallback Hotspot"
+  ap_password: "isTi3adXYOPY"
 
 esphome:
   name: "${device_name}"
@@ -56,13 +57,13 @@ sensor:
   - platform: dht
     pin: GPIO2
     temperature:
-      name: "Living Room Temperature"
-      id: living_room_temperature
+      name: "Utility Room Temperature"
+      id: utility_room_temperature
       unit_of_measurement: "°C"
       accuracy_decimals: 1
     humidity:
-      name: "Living Room Humidity"
-      id: living_room_humidity
+      name: "Utility Room Humidity"
+      id: utility_room_humidity
       unit_of_measurement: "%"
       accuracy_decimals: 0
     update_interval: 60s

@@ -2,19 +2,20 @@ import { useEffect, useState } from "react";
 import { Box, Paper, Stack, Switch, Typography } from "@mui/material";
 import type { Capability } from "../api";
 import { api, type WidgetInstance } from "../api";
-import { getWidgetContribution } from "../plugins/registry";
 import {
   capabilityLocationLabel,
 } from "../lib/capability-labels";
 import { resolveWidgetTitle } from "../lib/widget-title";
+import { primaryCapabilityId } from "../lib/widget-bindings";
 import { contentSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
+import { getWidgetContribution } from "../plugins/registry";
 
 function capabilityIdOf(widget: WidgetInstance): string | null {
-  const id = widget.bindings.capabilityId;
-  return typeof id === "string" ? id : null;
+  const id = primaryCapabilityId(widget.bindings);
+  return id ?? null;
 }
 
 function findCap(caps: Capability[], widget: WidgetInstance): Capability | undefined {
@@ -65,6 +66,7 @@ function findCap(caps: Capability[], widget: WidgetInstance): Capability | undef
 
 function formatValue(cap: Capability | undefined): string {
   if (!cap?.state) return "—";
+  if (cap.state.quality === "stale" || cap.state.quality === "unknown") return "—";
   const v = cap.state.value;
   if (typeof v === "boolean") return v ? "ON" : "OFF";
   if (typeof v === "number") {
@@ -157,7 +159,21 @@ export function WidgetRenderer({
         }}
       >
         {PluginComponent ? (
-          <PluginComponent widget={widget} capabilities={capabilities} editMode={editMode} />
+          <PluginComponent
+            widget={widget}
+            capabilities={capabilities}
+            editMode={editMode}
+            onCapabilityCommand={async (capabilityId: string, action: "on" | "off") => {
+              const res = await api.command(capabilityId, action);
+              onCapabilityState?.(
+                capabilityId,
+                res.value,
+                "good",
+                new Date().toISOString()
+              );
+              return res;
+            }}
+          />
         ) : isGeneralWidgetType(widget.type) ? (
           <GeneralWidgetBody widget={widget} />
         ) : widget.type === "switch" ? (
@@ -167,7 +183,12 @@ export function WidgetRenderer({
             onCapabilityState={onCapabilityState}
           />
         ) : isEchartsWidgetType(rawWidget.type) || widget.type === "echarts" ? (
-          <EChartsWidgetBody widget={widget} cap={cap} title={title} />
+          <EChartsWidgetBody
+            widget={widget}
+            cap={cap}
+            title={title}
+            layoutEpoch={editMode ? 1 : 0}
+          />
         ) : (
           <StatWidgetBody cap={cap} />
         )}
@@ -180,7 +201,16 @@ export function WidgetRenderer({
       <Box
         data-nx-widget={widget.id}
         data-nx-widget-type={widget.type}
-        sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          alignSelf: "stretch",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
       >
         {body}
       </Box>

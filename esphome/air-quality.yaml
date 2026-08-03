@@ -1,0 +1,91 @@
+# Nexternel — Air Quality ESP8266 (PMSx003 + DHT + measure switch)
+# PMS nested sensors do not support object_id — use name slug = MQTT topic segment.
+# 1) Edit substitutions (MQTT must match ~/nexternel/.env)
+# 2) ESPHome :6052 → air-quality → Install → Wirelessly (OTA)
+# 3) Admin → Devices → import/sync from YAML → Sync capabilities
+
+substitutions:
+  device_name: air-quality
+  friendly_name: Air Quality
+  mqtt_topic_prefix: nexternel/air-quality
+  wifi_ssid: "DAMN"
+  wifi_password: "n3v3rm1nd"
+  mqtt_broker: "192.168.3.101"
+  mqtt_username: "damn_nexternel"
+  mqtt_password: "n3v3rm1nd"
+  ota_password: "99f4328bb2ee4fb48b3f731a1947ad70"
+  ap_ssid: "Air-Quality Fallback Hotspot"
+  ap_password: "MUyIgjFaGry0"
+
+esphome:
+  name: "${device_name}"
+  friendly_name: "${friendly_name}"
+
+esp8266:
+  board: esp01_1m
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+    password: "${ota_password}"
+
+wifi:
+  ssid: "${wifi_ssid}"
+  password: "${wifi_password}"
+  ap:
+    ssid: "${ap_ssid}"
+    password: "${ap_password}"
+
+captive_portal:
+
+mqtt:
+  broker: "${mqtt_broker}"
+  port: 1883
+  username: "${mqtt_username}"
+  password: "${mqtt_password}"
+  topic_prefix: ${mqtt_topic_prefix}
+  discovery: false
+
+uart:
+  tx_pin: GPIO12
+  rx_pin: GPIO13
+  baud_rate: 9600
+
+sensor:
+  - platform: pmsx003
+    type: PMSX003
+    pm_1_0:
+      name: "pm_1_0"
+      id: pm_1_0
+    pm_2_5:
+      name: "pm_2_5"
+      id: pm_2_5
+    pm_10_0:
+      name: "pm_10_0"
+      id: pm_10_0
+  - platform: dht
+    pin: GPIO2
+    temperature:
+      name: "air_quality_temperature"
+      id: air_quality_temperature
+    humidity:
+      name: "air_quality_humidity"
+      id: air_quality_humidity
+    update_interval: 30s
+
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO0
+    id: pms_set
+    name: "Start measuring"
+
+interval:
+  - interval: 120s
+    then:
+      - switch.turn_on: pms_set
+      - delay: 20s
+      - switch.turn_off: pms_set

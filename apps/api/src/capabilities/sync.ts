@@ -94,5 +94,16 @@ export async function syncCapabilitiesFromLegacy(): Promise<{
     relayCount += 1;
   }
 
+  await pool.query(
+    `DELETE FROM capabilities c
+     WHERE c.source_type = 'sensor'
+       AND NOT EXISTS (SELECT 1 FROM sensors s WHERE s.id = c.source_id)`
+  );
+  await pool.query(
+    `DELETE FROM capabilities c
+     WHERE c.source_type = 'relay'
+       AND NOT EXISTS (SELECT 1 FROM relays r WHERE r.id = c.source_id)`
+  );
+
   return { sensors: sensorCount, relays: relayCount };
 }

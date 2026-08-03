@@ -107,13 +107,14 @@ function parseSwitchBlock(block: string): {
   gpioPin?: number;
 } | null {
   if (!/platform:\s*(gpio|output|inverted_gpio)/i.test(block)) return null;
+  if (/\binternal:\s*true/i.test(block)) return null;
 
   const idM = /\bid:\s*(\w+)/i.exec(block);
   const objectIdM = /\bobject_id:\s*(\w+)/i.exec(block);
   const label = parseYamlName(block);
   const outputRef = /\boutput:\s*(\w+)/i.exec(block)?.[1];
 
-  let entityId = idM?.[1] || objectIdM?.[1];
+  let entityId = objectIdM?.[1] || idM?.[1];
 
   if (!entityId && label) {
     entityId = esphomeObjectIdFromName(label);
@@ -122,6 +123,13 @@ function parseSwitchBlock(block: string): {
     entityId = outputRef;
   }
   if (!entityId) return null;
+
+  const idLower = entityId.toLowerCase();
+  if (idLower.startsWith("output_") || idLower.startsWith("led_")) return null;
+  const labelLower = (label || "").toLowerCase();
+  if (/^output\s/.test(labelLower) || labelLower === "red" || labelLower === "green") {
+    return null;
+  }
 
   return {
     entityId,
@@ -185,6 +193,162 @@ function parseUnit(block: string): string | undefined {
 function parseDeviceClass(block: string): string | undefined {
   const m = /\bdevice_class:\s*(\w+)/i.exec(block);
   return m?.[1]?.toLowerCase();
+}
+
+/** Body of a nested YAML key inside a list item (e.g. `temperature:` under `dht`). */
+function extractNestedSubBlock(block: string, key: string): string | null {
+  const lines = block.split(/\r?\n/);
+  const keyRe = new RegExp(`^\\s*${key}:\\s*(.*)$`);
+  let start = -1;
+  let baseIndent = 0;
+  let inlineTail: string | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const m = keyRe.exec(lines[i]);
+    if (!m) continue;
+    start = i;
+    baseIndent = (lines[i].match(/^\s*/) ?? [""])[0].length;
+    const inline = m[1]?.trim();
+    inlineTail = inline && inline.length > 0 ? inline : null;
+    break;
+  }
+  if (start === -1) return null;
+
+  if (inlineTail) return inlineTail;
+
+  const body: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === "") {
+      body.push(line);
+      continue;
+    }
+    const indent = (line.match(/^\s*/) ?? [""])[0].length;
+    if (indent <= baseIndent) break;
+    body.push(line);
+  }
+  return body.length ? body.join("\n") : null;
+}
+
+type NestedSensorDef = {
+  subKey: string;
+  sensorType: string;
+  defaultUnit?: string;
+};
+
+/** ESPHome platforms with nested sensor entities (not a single top-level name/id). */
+const NESTED_SENSOR_PLATFORMS: Record<string, NestedSensorDef[]> = {
+  dht: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  dht12: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  dht22: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  sht3x: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  sht4x: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  shtcx: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  aht10: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  htu21d: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  htu31d: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+  ],
+  bme280: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+    { subKey: "pressure", sensorType: "pressure", defaultUnit: "hPa" },
+  ],
+  bme680: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "humidity", sensorType: "humidity", defaultUnit: "%" },
+    { subKey: "pressure", sensorType: "pressure", defaultUnit: "hPa" },
+  ],
+  bmp280: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "pressure", sensorType: "pressure", defaultUnit: "hPa" },
+  ],
+  bmp085: [
+    { subKey: "temperature", sensorType: "temperature", defaultUnit: "°C" },
+    { subKey: "pressure", sensorType: "pressure", defaultUnit: "hPa" },
+  ],
+  pmsx003: [
+    { subKey: "pm_1_0", sensorType: "pm1", defaultUnit: "µg/m³" },
+    { subKey: "pm_2_5", sensorType: "pm25", defaultUnit: "µg/m³" },
+    { subKey: "pm_10_0", sensorType: "pm10", defaultUnit: "µg/m³" },
+  ],
+  pmsa003: [
+    { subKey: "pm_1_0", sensorType: "pm1", defaultUnit: "µg/m³" },
+    { subKey: "pm_2_5", sensorType: "pm25", defaultUnit: "µg/m³" },
+    { subKey: "pm_10_0", sensorType: "pm10", defaultUnit: "µg/m³" },
+  ],
+  pmsa003i: [
+    { subKey: "pm_1_0", sensorType: "pm1", defaultUnit: "µg/m³" },
+    { subKey: "pm_2_5", sensorType: "pm25", defaultUnit: "µg/m³" },
+    { subKey: "pm_10_0", sensorType: "pm10", defaultUnit: "µg/m³" },
+  ],
+  pmsx003i: [
+    { subKey: "pm_1_0", sensorType: "pm1", defaultUnit: "µg/m³" },
+    { subKey: "pm_2_5", sensorType: "pm25", defaultUnit: "µg/m³" },
+    { subKey: "pm_10_0", sensorType: "pm10", defaultUnit: "µg/m³" },
+  ],
+};
+
+function parseNestedPlatformSensors(
+  block: string,
+  platform: string,
+  addSensor: (opts: {
+    entityId: string;
+    name: string;
+    sensorType: string;
+    unit?: string;
+  }) => void
+): boolean {
+  const defs = NESTED_SENSOR_PLATFORMS[platform];
+  if (!defs) return false;
+
+  let added = false;
+  for (const def of defs) {
+    const sub = extractNestedSubBlock(block, def.subKey);
+    if (!sub) continue;
+
+    const entityId =
+      resolveSensorEntityId(sub, `${platform}_${def.subKey}`) ??
+      `${platform}_${def.subKey}`;
+    const name = parseYamlName(sub) ?? def.subKey.replace(/_/g, " ");
+    const unit = parseUnit(sub) ?? def.defaultUnit;
+    let sensorType = def.sensorType;
+    if (entityId.includes("temperature")) sensorType = "temperature";
+    else if (entityId.includes("humidity")) sensorType = "humidity";
+    else if (entityId.includes("pressure")) sensorType = "pressure";
+    else if (entityId.includes("pm_10") || entityId.includes("pm10")) sensorType = "pm10";
+    else if (entityId.includes("pm_2") || entityId.includes("pm25")) sensorType = "pm25";
+    else if (entityId.includes("pm_1") || entityId.includes("pm1")) sensorType = "pm1";
+
+    addSensor({ entityId, name, sensorType, unit });
+    added = true;
+  }
+  return added;
 }
 
 function parseSensorBlocks(yaml: string): EsphomeImportSuggestion["sensors"] {
@@ -252,7 +416,12 @@ function parseSensorBlocks(yaml: string): EsphomeImportSuggestion["sensors"] {
       continue;
     }
 
-    if (platform === "wifi_signal" || platform === "dht") {
+    if (platform === "wifi_signal") {
+      continue;
+    }
+
+    if (NESTED_SENSOR_PLATFORMS[platform]) {
+      parseNestedPlatformSensors(block, platform, (opts) => addSensor(opts));
       continue;
     }
 

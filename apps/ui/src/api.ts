@@ -1234,6 +1234,8 @@ export type DashboardDocument = {
   name: string;
   tabIcon?: string;
   showTabLabel?: boolean;
+  /** Section quick-jump chips below tab bar (off by default). */
+  showSectionNav?: boolean;
   sections: DashboardSection[];
 };
 

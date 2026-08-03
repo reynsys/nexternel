@@ -1,8 +1,8 @@
-/** How long after last MQTT traffic a device without LWT status may stay online. */
-export const DEVICE_ONLINE_TIMEOUT_MS = 1_800_000; // 30 minutes
+/** No MQTT traffic (non-retained) for this long → device offline. */
+export const DEVICE_ONLINE_TIMEOUT_MS = 180_000; // 3 minutes
 
-/** Live capability updates imply the parent device is reachable (e.g. ESPHome sensors). */
-export const LIVE_CAPABILITY_PRESENCE_MS = 120_000; // 2 minutes
+/** Live sensor reading older than this → quality stale (no dashboard value). */
+export const LIVE_CAPABILITY_PRESENCE_MS = 180_000;
 
 export function isDeviceSeenRecently(lastSeenAt: Date | string | null | undefined): boolean {
   if (!lastSeenAt) return false;

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import GridLayout, { type Layout } from "react-grid-layout";
 import {
   Box,
-  Button,
   IconButton,
   Paper,
   Stack,
@@ -18,11 +17,13 @@ import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
 import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
+import { AirQualityWidgetEditor } from "../widgets/AirQualityWidgetEditor";
 import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
 import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
 import { GeneralWidgetEditor } from "../widgets/GeneralWidgetEditor";
 import { isGeneralWidgetType } from "../widgets/general";
 import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
+import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
 import { contentSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
 import "react-grid-layout/css/styles.css";
@@ -56,6 +57,10 @@ function isCoreEditable(type: string): boolean {
 
 function isClockWidget(type: string): boolean {
   return type === CLOCK_WIDGET_TYPE;
+}
+
+function isAirQualityWidget(type: string): boolean {
+  return type === AIR_QUALITY_WIDGET_TYPE;
 }
 
 /**
@@ -103,6 +108,14 @@ export function SectionGrid({
     return () => ro.disconnect();
   }, []);
 
+  /** Charts must remeasure when edit chrome appears (toolbar + resize handle). */
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [editMode, width]);
+
   const layout: Layout[] = widgets
     .filter((w) => typeof w.id === "string" && w.id.trim())
     .map((w) => {
@@ -124,6 +137,7 @@ export function SectionGrid({
   const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
   const editingCore = editing ? isCoreEditable(editing.type) : false;
   const editingClock = editing ? isClockWidget(editing.type) : false;
+  const editingAirQuality = editing ? isAirQualityWidget(editing.type) : false;
   const editingGeneral = editing ? isGeneralWidgetType(editing.type) : false;
 
   function handleDrop(e: DragEvent) {
@@ -182,6 +196,18 @@ export function SectionGrid({
         outline: editMode || dropHighlight ? "1px dashed" : "none",
         outlineColor: dropHighlight ? "primary.main" : "divider",
         transition: "outline-color 0.15s ease, background-color 0.15s ease",
+        /* RGL sets pixel height on .react-grid-item; children must fill it. */
+        "& .react-grid-item": {
+          overflow: "hidden",
+          boxSizing: "border-box",
+        },
+        "& .react-grid-item > div": {
+          height: "100%",
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+        },
       }}
     >
       {editMode && widgets.length > 0 && (
@@ -222,18 +248,22 @@ export function SectionGrid({
             const echarts = isEchartsWidgetType(w.type);
             const core = isCoreEditable(w.type);
             const clock = isClockWidget(w.type);
+            const airQuality = isAirQualityWidget(w.type);
             const general = isGeneralWidgetType(w.type);
-            const canEdit = echarts || core || clock || general;
+            const canEdit = echarts || core || clock || airQuality || general;
             return (
-              <div key={w.id}>
+              <div key={w.id} data-nx-grid-widget={w.id}>
                 <Paper
                   elevation={editMode ? 2 : 0}
                   variant={editMode ? "elevation" : "outlined"}
                   sx={{
+                    flex: 1,
+                    minHeight: 0,
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
+                    boxSizing: "border-box",
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
@@ -246,6 +276,7 @@ export function SectionGrid({
                       alignItems="center"
                       spacing={0.5}
                       sx={{
+                        flexShrink: 0,
                         px: 0.5,
                         py: 0.25,
                         borderBottom: "1px solid",
@@ -290,7 +321,9 @@ export function SectionGrid({
                       >
                         {echarts
                           ? "ECharts"
-                          : clock
+                          : airQuality
+                            ? "Air quality"
+                            : clock
                             ? "Clock"
                             : general
                               ? w.type === "calendar"
@@ -311,24 +344,28 @@ export function SectionGrid({
                                   : "Widget"}
                       </Typography>
                       {canEdit && (
-                        <Button
-                          size="small"
-                          startIcon={<TuneIcon />}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={() => setEditWidgetId(w.id)}
-                        >
-                          Edit
-                        </Button>
+                        <Tooltip title="Edit widget">
+                          <IconButton
+                            size="small"
+                            aria-label="Edit widget"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={() => setEditWidgetId(w.id)}
+                          >
+                            <TuneIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteOutlineIcon />}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={() => onRemoveWidget(sectionId, w.id)}
-                      >
-                        Remove
-                      </Button>
+                      <Tooltip title="Remove widget">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label="Remove widget"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={() => onRemoveWidget(sectionId, w.id)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Stack>
                   )}
                   <Box
@@ -336,10 +373,10 @@ export function SectionGrid({
                       flex: 1,
                       minHeight: 0,
                       minWidth: 0,
-                      p: 1,
+                      p: editMode ? 0.75 : 1,
                       display: "flex",
                       flexDirection: "column",
-                      height: "100%",
+                      boxSizing: "border-box",
                     }}
                   >
                     <WidgetRenderer
@@ -402,6 +439,20 @@ export function SectionGrid({
           onUpdateWidget(sectionId, editing.id, {
             title: patch.title,
             config: patch.config ?? editing.config,
+          });
+        }}
+      />
+
+      <AirQualityWidgetEditor
+        open={Boolean(editing) && editingAirQuality}
+        widget={editingAirQuality ? editing : null}
+        capabilities={capabilities}
+        onClose={() => setEditWidgetId(null)}
+        onSave={(patch) => {
+          if (!editing) return;
+          onUpdateWidget(sectionId, editing.id, {
+            title: patch.title,
+            bindings: patch.bindings ?? editing.bindings,
           });
         }}
       />

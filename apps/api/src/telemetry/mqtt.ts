@@ -6,7 +6,11 @@ import {
   listStateTopicBindings,
   getCapabilityById,
 } from "../capabilities/store.js";
-import { getLiveState, parseMqttPayload, setLiveState } from "./state-cache.js";
+import { getLiveState, parseMqttPayload, setLiveState, getAllLiveStates } from "./state-cache.js";
+import {
+  DEVICE_ONLINE_TIMEOUT_MS,
+  LIVE_CAPABILITY_PRESENCE_MS,
+} from "../devices/presence.js";
 import { getPool } from "../db.js";
 import { looksLikeShellyCommandTopic } from "../shelly/topics.js";
 import { parseShellyMqttSwitchUpdates } from "../shelly/notify.js";
@@ -94,8 +98,43 @@ async function rebuildTopicIndex() {
   }
 }
 
-/** Safety net: clear ghost online when no MQTT traffic for a long time (LWT should fire sooner). */
-const DEVICE_GHOST_ONLINE_TIMEOUT_MS = 86_400_000; // 24 hours
+/** Safety net: mark offline when no live MQTT traffic within DEVICE_ONLINE_TIMEOUT_MS. */
+
+function markDeviceOnline(prefix: string) {
+  void getPool()
+    .query(
+      `UPDATE devices
+       SET is_online = TRUE, last_seen_at = NOW()
+       WHERE mqtt_topic_prefix = $1`,
+      [prefix]
+    )
+    .catch(() => {
+      /* ignore */
+    });
+}
+
+function markDeviceOffline(prefix: string) {
+  void getPool()
+    .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
+    .catch(() => {
+      /* ignore */
+    });
+}
+
+async function staleCapabilitiesForPrefix(prefix: string) {
+  const caps = await getPool().query<{ id: string }>(
+    `SELECT c.id FROM capabilities c
+     JOIN devices d ON d.id = c.device_id
+     WHERE d.mqtt_topic_prefix = $1`,
+    [prefix]
+  );
+  for (const row of caps.rows) {
+    const s = getLiveState(row.id);
+    if (s && s.quality === "good") {
+      setLiveState(row.id, s.value, { quality: "stale", retained: s.retained });
+    }
+  }
+}
 
 function applyDeviceRootStatusTopic(
   topic: string,
@@ -106,26 +145,12 @@ function applyDeviceRootStatusTopic(
   if (!prefix || topic !== `${prefix}/status`) return false;
   const state = payload.trim().toLowerCase();
   if (state === "online" || state === "true" || state === "1") {
-    void getPool()
-      .query(
-        `UPDATE devices
-         SET is_online = TRUE, last_seen_at = NOW()
-         WHERE mqtt_topic_prefix = $1`,
-        [prefix]
-      )
-      .catch(() => {
-        /* ignore */
-      });
+    if (!retained) markDeviceOnline(prefix);
     return true;
   }
   if (state === "offline" || state === "false" || state === "0") {
-    // Retained offline is often a stale LWT while the device is still publishing sensors.
-    if (retained) return true;
-    void getPool()
-      .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
-      .catch(() => {
-        /* ignore */
-      });
+    markDeviceOffline(prefix);
+    void staleCapabilitiesForPrefix(prefix);
     return true;
   }
   return false;
@@ -143,25 +168,12 @@ function applyDeviceShellyOnlineTopic(
   if (!prefix || prefix !== match[1]) return false;
   const state = payload.trim().toLowerCase();
   if (/^(true|1|online)$/.test(state)) {
-    void getPool()
-      .query(
-        `UPDATE devices
-         SET is_online = TRUE, last_seen_at = NOW()
-         WHERE mqtt_topic_prefix = $1`,
-        [prefix]
-      )
-      .catch(() => {
-        /* ignore */
-      });
+    if (!retained) markDeviceOnline(prefix);
     return true;
   }
   if (/^(false|0|offline)$/.test(state)) {
-    if (retained) return true;
-    void getPool()
-      .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
-      .catch(() => {
-        /* ignore */
-      });
+    markDeviceOffline(prefix);
+    void staleCapabilitiesForPrefix(prefix);
     return true;
   }
   return false;
@@ -185,36 +197,32 @@ function touchDeviceOnlineByCapability(capabilityId: string) {
     });
 }
 
-function touchDeviceOnlineFromTopic(topic: string) {
+function touchDeviceOnlineFromTopic(topic: string, retained: boolean) {
+  if (retained) return;
   const prefix = longestPrefixForTopic(topic);
   if (!prefix) return;
   const now = Date.now();
   const prev = lastOnlineTouch.get(prefix) ?? 0;
   if (now - prev < 15_000) return;
   lastOnlineTouch.set(prefix, now);
-  void getPool()
-    .query(
-      `UPDATE devices
-       SET is_online = TRUE, last_seen_at = NOW()
-       WHERE mqtt_topic_prefix = $1`,
-      [prefix]
-    )
-    .catch(() => {
-      /* ignore */
-    });
+  markDeviceOnline(prefix);
 }
 
-function applyLiveSwitch(
+function applyLiveCapability(
   capabilityId: string,
   value: unknown,
-  retained: boolean
+  retained: boolean,
+  kind = "switch"
 ) {
-  touchDeviceOnlineByCapability(capabilityId);
+  const sensorLike = kind !== "switch";
+  if (!retained) {
+    touchDeviceOnlineByCapability(capabilityId);
+  }
   setLiveState(capabilityId, value, {
-    quality: "good",
+    quality: retained && sensorLike ? "stale" : "good",
     retained,
   });
-  if (typeof value === "boolean") {
+  if (kind === "switch" && typeof value === "boolean") {
     void getPool()
       .query(
         `UPDATE relays r
@@ -248,7 +256,7 @@ function applyShellyTopicUpdates(
       shellyIndexKey(prefix, u.componentKey)
     );
     if (!capabilityId) continue;
-    applyLiveSwitch(capabilityId, u.output, retained);
+    applyLiveCapability(capabilityId, u.output, retained, "switch");
     applied = true;
   }
   return applied;
@@ -261,6 +269,25 @@ function inferSensorMatchFromEntity(entityId: string): {
   nameHint: string | null;
 } | null {
   const e = entityId.toLowerCase();
+  if (e.includes("pm_10") || e.includes("pm10") || (e.includes("particulate") && e.includes("10"))) {
+    return { sensorType: "pm10", nameHint: "10" };
+  }
+  if (
+    e.includes("pm_2") ||
+    e.includes("pm25") ||
+    e.includes("pm2") ||
+    (e.includes("particulate") && e.includes("2.5"))
+  ) {
+    return { sensorType: "pm25", nameHint: "2.5" };
+  }
+  if (
+    e.includes("pm_1") ||
+    (e.includes("particulate") && (e.includes("1.0") || e.includes("1_0")))
+  ) {
+    return { sensorType: "pm1", nameHint: "1.0" };
+  }
+  if (e.includes("temp")) return { sensorType: "temperature", nameHint: "temp" };
+  if (e.includes("humid")) return { sensorType: "humidity", nameHint: "humid" };
   if (e.includes("power")) return { sensorType: "power", nameHint: "power" };
   if (e.includes("daily")) return { sensorType: "energy", nameHint: "daily" };
   if (e.includes("total") && e.includes("energy")) {
@@ -356,7 +383,83 @@ async function tryHealEsphomeSensorTopic(
 
   registerTopicBinding(topic, row.capability_id, row.kind);
   const value = parseMqttPayload(row.kind, payload);
-  applyLiveSwitch(row.capability_id, value, retained);
+  applyLiveCapability(row.capability_id, value, retained, row.kind);
+  return true;
+}
+
+const ESPHOME_SWITCH_STATE_RE = /^(.+)\/switch\/([^/]+)\/state$/;
+
+/** Self-heal relay command/state topics when ESPHome object_id differs from YAML id. */
+async function tryHealEsphomeSwitchTopic(
+  topic: string,
+  payload: string,
+  retained: boolean
+): Promise<boolean> {
+  const m = ESPHOME_SWITCH_STATE_RE.exec(topic);
+  if (!m) return false;
+  const prefix = m[1]!;
+  const entityId = m[2]!;
+  const commandTopic = `${prefix}/switch/${entityId}/command`;
+
+  const exact = await getPool().query<{
+    capability_id: string;
+    relay_id: string;
+    stored_state: string;
+    stored_command: string;
+  }>(
+    `SELECT c.id AS capability_id, r.id AS relay_id,
+            r.mqtt_state_topic AS stored_state, r.mqtt_command_topic AS stored_command
+     FROM devices d
+     JOIN relays r ON r.device_id = d.id
+     JOIN capabilities c ON c.source_type = 'relay' AND c.source_id = r.id AND c.is_enabled = TRUE
+     WHERE d.mqtt_topic_prefix = $1
+       AND (r.esphome_entity_id = $2 OR r.mqtt_state_topic = $3)
+     LIMIT 1`,
+    [prefix, entityId, topic]
+  );
+  let row = exact.rows[0];
+
+  if (!row) {
+    const fuzzy = await getPool().query<{
+      capability_id: string;
+      relay_id: string;
+      stored_state: string;
+      stored_command: string;
+    }>(
+      `SELECT c.id AS capability_id, r.id AS relay_id,
+              r.mqtt_state_topic AS stored_state, r.mqtt_command_topic AS stored_command
+       FROM devices d
+       JOIN relays r ON r.device_id = d.id
+       JOIN capabilities c ON c.source_type = 'relay' AND c.source_id = r.id AND c.is_enabled = TRUE
+       WHERE d.mqtt_topic_prefix = $1
+         AND (LOWER(r.name) LIKE '%measur%' OR LOWER(r.slug) LIKE '%pms%')
+       ORDER BY r.updated_at DESC
+       LIMIT 1`,
+      [prefix]
+    );
+    row = fuzzy.rows[0];
+  }
+
+  if (!row) return false;
+
+  if (row.stored_state !== topic || row.stored_command !== commandTopic) {
+    await getPool().query(
+      `UPDATE relays
+       SET mqtt_state_topic = $2, mqtt_command_topic = $3, esphome_entity_id = $4, updated_at = NOW()
+       WHERE id = $1`,
+      [row.relay_id, topic, commandTopic, entityId]
+    );
+    await getPool().query(
+      `UPDATE capability_bindings
+       SET state_topic = $2, command_topic = $3, updated_at = NOW()
+       WHERE capability_id = $1`,
+      [row.capability_id, topic, commandTopic]
+    );
+  }
+
+  registerTopicBinding(topic, row.capability_id, "switch");
+  const value = parseMqttPayload("switch", payload);
+  applyLiveCapability(row.capability_id, value, retained, "switch");
   return true;
 }
 
@@ -374,7 +477,7 @@ function handleMessage(
     applyDeviceRootStatusTopic(topic, payload, retained) ||
     applyDeviceShellyOnlineTopic(topic, payload, retained);
   if (!presenceHandled) {
-    touchDeviceOnlineFromTopic(topic);
+    touchDeviceOnlineFromTopic(topic, retained);
   }
 
   // Shelly app / physical switch / status_update → events/rpc or /status
@@ -382,9 +485,16 @@ function handleMessage(
 
   const entries = topicIndex.get(topic);
   if (!entries?.length) {
-    void tryHealEsphomeSensorTopic(topic, payload, retained).catch(() => {
-      /* ignore heal errors */
-    });
+    void tryHealEsphomeSensorTopic(topic, payload, retained)
+      .then((healed) => {
+        if (!healed) {
+          return tryHealEsphomeSwitchTopic(topic, payload, retained);
+        }
+        return healed;
+      })
+      .catch(() => {
+        /* ignore heal errors */
+      });
     return;
   }
 
@@ -393,7 +503,7 @@ function handleMessage(
 
   for (const { capabilityId, kind } of entries) {
     const value = parseMqttPayload(kind, payload);
-    applyLiveSwitch(capabilityId, value, retained);
+    applyLiveCapability(capabilityId, value, retained, kind);
   }
 }
 
@@ -412,22 +522,43 @@ function requestShellyStatusUpdates() {
 function startPresenceSweeper() {
   if (presenceTimer) return;
   presenceTimer = setInterval(() => {
-    void getPool()
-      .query(
-        `UPDATE devices
-         SET is_online = FALSE
-         WHERE is_online = TRUE
-           AND (
-             last_seen_at IS NULL
-             OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
-           )`,
-        [DEVICE_GHOST_ONLINE_TIMEOUT_MS / 1000]
-      )
-      .catch(() => {
-        /* ignore */
-      });
+    void sweepDevicePresence();
   }, 15_000);
   presenceTimer.unref?.();
+}
+
+async function sweepDevicePresence() {
+  const timeoutSec = DEVICE_ONLINE_TIMEOUT_MS / 1000;
+  try {
+    const offline = await getPool().query<{ mqtt_topic_prefix: string }>(
+      `UPDATE devices
+       SET is_online = FALSE
+       WHERE is_online = TRUE
+         AND (
+           last_seen_at IS NULL
+           OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
+         )
+       RETURNING mqtt_topic_prefix`,
+      [timeoutSec]
+    );
+    for (const row of offline.rows) {
+      await staleCapabilitiesForPrefix(row.mqtt_topic_prefix);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const staleMs = LIVE_CAPABILITY_PRESENCE_MS;
+  for (const state of getAllLiveStates()) {
+    if (state.quality !== "good") continue;
+    const age = Date.now() - Date.parse(state.updatedAt);
+    if (age > staleMs) {
+      setLiveState(state.capabilityId, state.value, {
+        quality: "stale",
+        retained: state.retained,
+      });
+    }
+  }
 }
 
 export async function startTelemetry(): Promise<void> {
@@ -549,7 +680,7 @@ export async function publishSwitchCommand(
   });
 
   // Optimistic update; state topic / events/rpc will confirm
-  applyLiveSwitch(capabilityId, next, false);
+  applyLiveCapability(capabilityId, next, false, "switch");
 
   return { value: next };
 }

@@ -185,9 +185,11 @@ export function listCatalogEntries(): CatalogEntry[] {
   const plugins: CatalogEntry[] = listWidgetContributions().map((p) => ({
     type: p.type,
     label: p.label,
-    description: "Plugin widget",
+    description: p.bindingSlots?.length
+      ? "Composite widget — multiple capability bindings"
+      : "Plugin widget",
     category: p.category ?? "plugins",
-    needsCapability: p.needsCapability !== false,
+    needsCapability: p.bindingSlots?.length ? false : p.needsCapability !== false,
   }));
   return [...CORE_CATALOG, ...echartsCatalogEntries(), ...plugins];
 }

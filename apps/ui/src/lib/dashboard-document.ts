@@ -29,6 +29,7 @@ export function emptyDocument(name = "Dashboard"): DashboardDocument {
     name,
     tabIcon: DEFAULT_DASHBOARD_TAB_ICON,
     showTabLabel: true,
+    showSectionNav: false,
     sections: [
       {
         id: "section-main",
@@ -110,13 +111,14 @@ export function normalizeDocument(raw: unknown, fallbackName = "Dashboard"): Das
       ? doc.tabIcon.trim()
       : DEFAULT_DASHBOARD_TAB_ICON;
   const showTabLabel = doc.showTabLabel !== false;
+  const showSectionNav = doc.showSectionNav === true;
 
   if (doc.schemaVersion === 2 && Array.isArray(doc.sections)) {
     const sections = (doc.sections as DashboardSection[])
       .map((s, i) => normalizeSection(s, i))
       .sort((a, b) => a.order - b.order);
     if (sections.length === 0) return emptyDocument(name);
-    return { schemaVersion: 2, name, tabIcon, showTabLabel, sections };
+    return { schemaVersion: 2, name, tabIcon, showTabLabel, showSectionNav, sections };
   }
 
   const widgets = migrateWidgets(
@@ -127,6 +129,7 @@ export function normalizeDocument(raw: unknown, fallbackName = "Dashboard"): Das
     name,
     tabIcon,
     showTabLabel,
+    showSectionNav,
     sections: [
       {
         id: "section-main",

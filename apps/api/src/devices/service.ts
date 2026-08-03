@@ -3,8 +3,6 @@ import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
 import { buildShellySwitchTopics } from "../shelly/topics.js";
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
-import { LIVE_CAPABILITY_PRESENCE_MS } from "./presence.js";
-import { getAllLiveStates } from "../telemetry/state-cache.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
@@ -64,23 +62,6 @@ type DeviceRow = {
   is_online: boolean;
   last_seen_at: Date | null;
 };
-
-async function deviceIdsWithRecentLiveSignal(): Promise<Set<string>> {
-  const states = getAllLiveStates();
-  const recentCapIds = states
-    .filter(
-      (s) =>
-        s.quality === "good" &&
-        Date.now() - Date.parse(s.updatedAt) < LIVE_CAPABILITY_PRESENCE_MS
-    )
-    .map((s) => s.capabilityId);
-  if (recentCapIds.length === 0) return new Set();
-  const result = await getPool().query<{ device_id: string }>(
-    `SELECT DISTINCT device_id FROM capabilities WHERE id = ANY($1::uuid[])`,
-    [recentCapIds]
-  );
-  return new Set(result.rows.map((r) => r.device_id));
-}
 
 export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
   const pool = getPool();
@@ -169,8 +150,6 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     relaysByDevice.set(r.device_id, list);
   }
 
-  const liveDeviceIds = await deviceIdsWithRecentLiveSignal();
-
   return devices.rows.map((d) => ({
     id: d.id,
     roomId: d.room_id,
@@ -183,7 +162,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     ipAddress: d.ip_address,
     macAddress: d.mac_address,
     isEnabled: d.is_enabled,
-    isOnline: Boolean(d.is_online) || liveDeviceIds.has(d.id),
+    isOnline: Boolean(d.is_online),
     lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
     sensors: sensorsByDevice.get(d.id) ?? [],
     relays: relaysByDevice.get(d.id) ?? [],
@@ -217,21 +196,20 @@ async function pruneOrphanSensorsAndRelays(
     );
   }
 
-  if (relaySlugs.length > 0) {
-    await client.query(
-      `DELETE FROM capabilities
-       WHERE source_type = 'relay'
-         AND source_id IN (
-           SELECT id FROM relays
-           WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))
-         )`,
-      [deviceId, relaySlugs]
-    );
-    await client.query(
-      `DELETE FROM relays WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))`,
-      [deviceId, relaySlugs]
-    );
-  }
+  // Empty relaySlugs → YAML has no switches; remove all relays for this device.
+  await client.query(
+    `DELETE FROM capabilities
+     WHERE source_type = 'relay'
+       AND source_id IN (
+         SELECT id FROM relays
+         WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))
+       )`,
+    [deviceId, relaySlugs]
+  );
+  await client.query(
+    `DELETE FROM relays WHERE device_id = $1 AND NOT (slug = ANY($2::text[]))`,
+    [deviceId, relaySlugs]
+  );
 }
 
 async function upsertSensorFromSuggestion(
@@ -254,6 +232,31 @@ async function upsertSensorFromSuggestion(
     matchers.push({
       sql: "sensor_type = $2 AND LOWER(name) LIKE $3",
       params: ["energy", hint],
+    });
+  }
+  if (s.sensorType === "pm25" || s.sensorType === "pm10" || s.sensorType === "pm1") {
+    matchers.push({ sql: "sensor_type = $2", params: [s.sensorType] });
+    const hint =
+      s.sensorType === "pm25"
+        ? "%2.5%"
+        : s.sensorType === "pm10"
+          ? "%10%"
+          : "%1.0%";
+    matchers.push({
+      sql: "sensor_type = $2 AND LOWER(name) LIKE $3",
+      params: [s.sensorType, hint],
+    });
+  }
+  if (s.sensorType === "temperature") {
+    matchers.push({
+      sql: "sensor_type = $2 AND LOWER(name) LIKE '%temp%'",
+      params: ["temperature"],
+    });
+  }
+  if (s.sensorType === "humidity") {
+    matchers.push({
+      sql: "sensor_type = $2 AND LOWER(name) LIKE '%humid%'",
+      params: ["humidity"],
     });
   }
 
@@ -326,6 +329,8 @@ async function insertSensorsAndRelays(
       sensors.map((s) => s.slug),
       relays.map((r) => r.slug)
     );
+  } else if (pruneOrphans) {
+    await pruneOrphanSensorsAndRelays(client, deviceId, [], relays.map((r) => r.slug));
   }
 
   for (const r of relays) {

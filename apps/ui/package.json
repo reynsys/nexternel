@@ -14,6 +14,7 @@
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
     "@nexternel/plugin-example-clock": "file:../../packages/plugin-example-clock",
+    "@nexternel/plugin-air-quality": "file:../../packages/plugin-air-quality",
     "@nexternel/plugin-sdk": "file:../../packages/plugin-sdk",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",

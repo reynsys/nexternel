@@ -1,22 +1,22 @@
-# Nexternel — Living Room ESP32 (DHT temperature + humidity)
-# OTA node name MUST stay living-room (matches firmware on device).
+# Nexternel — Kids Room ESP32 (DHT temperature + humidity)
+# OTA node name MUST stay kids-room (matches firmware on device).
 # 1) Edit substitutions below (MQTT must match ~/nexternel/.env)
-# 2) ESPHome :6052 → living-room → Install → Wirelessly (OTA)
+# 2) ESPHome :6052 → kids-room → Install → Wirelessly (OTA)
 # 3) Admin → Devices → import/sync from YAML → Sync capabilities
 
 substitutions:
-  device_name: living-room
-  friendly_name: Living Room
-  mqtt_topic_prefix: nexternel/living-room
+  device_name: kids-room
+  friendly_name: Kids Room
+  mqtt_topic_prefix: nexternel/kids-room
   wifi_ssid: "DAMN"
   wifi_password: "n3v3rm1nd"
   mqtt_broker: "192.168.3.101"
   mqtt_username: "damn_nexternel"
   mqtt_password: "n3v3rm1nd"
   # From your Home Assistant YAML — required for OTA from existing firmware
-  ota_password: "f7b99eb9fc0a9d651bbaafdf3e8c2591"
-  ap_ssid: "Living-Room Fallback Hotspot"
-  ap_password: "e8zqGUJp63IU"
+  ota_password: "1b81aabb9a9be4cdd693f7241ce9b5b4"
+  ap_ssid: "Kids Room Fallback Hotspot"
+  ap_password: "xdTLYHO7mqWR"
 
 esphome:
   name: "${device_name}"
@@ -56,13 +56,13 @@ sensor:
   - platform: dht
     pin: GPIO2
     temperature:
-      name: "Living Room Temperature"
-      id: living_room_temperature
+      name: "Kids Room Temperature"
+      id: kids_room_temperature
       unit_of_measurement: "°C"
       accuracy_decimals: 1
     humidity:
-      name: "Living Room Humidity"
-      id: living_room_humidity
+      name: "Kids Room Humidity"
+      id: kids_room_humidity
       unit_of_measurement: "%"
       accuracy_decimals: 0
     update_interval: 60s

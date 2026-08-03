@@ -5,3 +5,4 @@
 export * from "./capability.js";
 export * from "./dashboard.js";
 export * from "./history.js";
+export * from "./widget-bindings.js";

@@ -14,6 +14,10 @@ export default defineConfig({
         root,
         "../../packages/plugin-example-clock/src/index.tsx"
       ),
+      "@nexternel/plugin-air-quality": path.resolve(
+        root,
+        "../../packages/plugin-air-quality/src/index.tsx"
+      ),
     },
   },
   server: {

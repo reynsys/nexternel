@@ -65,6 +65,8 @@ export const DashboardDocumentSchema = z.object({
   tabIcon: z.string().optional(),
   /** When false, tab shows icon only (tooltip for name). */
   showTabLabel: z.boolean().optional().default(true),
+  /** Section quick-jump chips below the tab bar (off by default). */
+  showSectionNav: z.boolean().optional().default(false),
   sections: z.array(DashboardSectionSchema).default([]),
 });
 
@@ -100,6 +102,7 @@ export function emptyDashboardDocument(name = "Dashboard"): DashboardDocument {
     name,
     tabIcon: DEFAULT_DASHBOARD_TAB_ICON,
     showTabLabel: true,
+    showSectionNav: false,
     sections: [
       {
         id: "section-main",
@@ -130,6 +133,7 @@ export function migrateDashboardDocument(raw: unknown): DashboardDocument {
       ? doc.tabIcon.trim()
       : DEFAULT_DASHBOARD_TAB_ICON;
   const showTabLabel = doc.showTabLabel !== false;
+  const showSectionNav = doc.showSectionNav === true;
 
   if (doc.schemaVersion === 2 && Array.isArray(doc.sections)) {
     const parsed = DashboardDocumentSchema.safeParse({
@@ -137,6 +141,7 @@ export function migrateDashboardDocument(raw: unknown): DashboardDocument {
       name,
       tabIcon,
       showTabLabel,
+      showSectionNav,
       schemaVersion: 2,
     });
     if (parsed.success) {
@@ -151,6 +156,7 @@ export function migrateDashboardDocument(raw: unknown): DashboardDocument {
         name,
         tabIcon,
         showTabLabel,
+        showSectionNav,
         sections,
       };
     }
@@ -169,6 +175,7 @@ export function migrateDashboardDocument(raw: unknown): DashboardDocument {
     name,
     tabIcon,
     showTabLabel,
+    showSectionNav,
     sections: [
       {
         id: "section-main",

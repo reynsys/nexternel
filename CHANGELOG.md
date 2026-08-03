@@ -14,6 +14,59 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.152 — 03/08/2026
+
+- **Air quality widget:** units inline with values (µg/m³, °C, %); readings aligned left in tiles
+
+## V3.1.151 — 03/08/2026
+
+- **Air quality widget:** grid layout — AQI row, PM1/2.5/10 and temp/humidity tiles with larger values and icons; Measure now at bottom
+
+## V3.1.150 — 03/08/2026
+
+- **Air quality widget:** AQI badge with tinted panel (readable “Good” green); Measure now shows active state while switch is on (~22s)
+
+## V3.1.149 — 03/08/2026
+
+- **Air quality / ESPHome:** MQTT topic self-heal for PM sensors and measure switch; YAML `object_id` aligned with topics; switch import prefers `object_id`
+
+## V3.1.148 — 03/08/2026
+
+- **UI build fix:** correct `widget-bindings` import path in `EChartsWidgetBody.tsx`
+
+## V3.1.147 — 03/08/2026
+
+- **UI build fix:** correct import paths in `SlotBindingFields.tsx`
+
+## V3.1.146 — 03/08/2026
+
+- **Platform:** multi-capability widget bindings (`slots` + legacy `capabilityId`); ESPHome YAML import for nested sensors (DHT, PMSX003, BME280, …)
+- **Air quality:** `plugin.air-quality` composite dashboard widget (PM, temp/humidity, AQI, Measure now); sample `esphome/air-quality.yaml`
+
+## V3.1.145 — 03/08/2026
+
+- **Dashboard:** section quick-jump chips hidden by default; optional per tab via Dashboard options → Show section quick-jump row
+
+## V3.1.144 — 03/08/2026
+
+- **Dashboard edit mode:** charts fill widget height (flex grow fix); ECharts uses container size instead of stale pixel box
+
+## V3.1.143 — 03/08/2026
+
+- **Dashboard edit mode:** fix chart bottom clipping — grid cells now constrain widget height; charts remeasure when edit chrome appears; slimmer widget toolbar
+
+## V3.1.142 — 03/08/2026
+
+- **Dashboard edit mode:** chart widgets no longer clip at the bottom (edit toolbar + flex layout fix)
+
+## V3.1.141 — 03/08/2026
+
+- **Capabilities cleanup:** remove ghost relays (Fan Relay) when YAML has no switches; drop orphan capabilities (e.g. Glow output green/red); YAML import skips internal status LEDs; widget picker hides disabled devices
+
+## V3.1.140 — 03/08/2026
+
+- **Device presence:** offline after 3 min without live MQTT; ESPHome LWT offline honoured; retained sensor snapshots marked stale; dashboard hides stale readings; Devices page no longer shows ghost Online
+
 ## V3.1.139 — 01/08/2026
 
 - **Gauge revert/fix:** remove broken cell-math `gaugeLayout` (V3.1.138 set radius ~28% — tiny dials); restore fixed ECharts example center/radius; enforcement only adjusts axis ticks

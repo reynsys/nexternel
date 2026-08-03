@@ -28,6 +28,7 @@ export async function listCapabilities(): Promise<CapabilityRow[]> {
      LEFT JOIN rooms r ON r.id = d.room_id
      LEFT JOIN capability_bindings b ON b.capability_id = c.id
      WHERE c.is_enabled = TRUE
+       AND COALESCE(d.is_enabled, TRUE) = TRUE
      ORDER BY COALESCE(r.name, ''), d.name ASC, c.name ASC`
   );
   return result.rows;

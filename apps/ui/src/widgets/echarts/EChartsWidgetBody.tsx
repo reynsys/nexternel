@@ -9,6 +9,7 @@ import {
   parseEchartsConfig,
   resolveMinMax,
 } from "./config";
+import { primaryCapabilityId } from "../../lib/widget-bindings";
 import { buildFinalOption } from "./merge-option";
 import { applyEchartsPalette, echartsPaletteFromTheme } from "./chart-theme";
 import { enforceAllGaugeSeries, niceGaugeAxis } from "./gauge-scale";
@@ -16,18 +17,21 @@ import { getEchartsPreset } from "./registry";
 import type { EchartsBuildCtx, HistoryPoint } from "./types";
 
 function capabilityIdOf(widget: WidgetInstance): string | null {
-  const id = widget.bindings.capabilityId;
-  return typeof id === "string" ? id : null;
+  const id = primaryCapabilityId(widget.bindings);
+  return id ?? null;
 }
 
 export function EChartsWidgetBody({
   widget,
   cap,
   title,
+  layoutEpoch = 0,
 }: {
   widget: WidgetInstance;
   cap: Capability | undefined;
   title: string;
+  /** Bumps when dashboard edit chrome changes so charts remeasure. */
+  layoutEpoch?: number;
 }) {
   const config = parseEchartsConfig(widget.config);
   const preset = getEchartsPreset(config.presetId);
@@ -50,6 +54,7 @@ export function EChartsWidgetBody({
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
+
     const measure = () => {
       const r = el.getBoundingClientRect();
       const w = Math.max(0, Math.floor(r.width));
@@ -59,11 +64,24 @@ export function EChartsWidgetBody({
         chartRef.current?.resize({ width: w, height: h });
       }
     };
+
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [config.presetId]);
+
+    let cancelled = false;
+    const settle = () => {
+      if (!cancelled) measure();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(settle));
+    const t = window.setTimeout(settle, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      ro.disconnect();
+    };
+  }, [config.presetId, layoutEpoch]);
 
   useEffect(() => {
     if (!needsHistory) {
@@ -195,12 +213,15 @@ export function EChartsWidgetBody({
         <ReactECharts
           key={config.presetId}
           option={option}
-          style={{ width: box.w, height: box.h, position: "absolute", inset: 0 }}
-          opts={{ renderer, width: box.w, height: box.h }}
+          style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+          opts={{ renderer }}
           notMerge
           onChartReady={(chart) => {
             chartRef.current = chart;
-            chart.resize({ width: box.w, height: box.h });
+            const r = hostRef.current?.getBoundingClientRect();
+            if (r && r.width > 0 && r.height > 0) {
+              chart.resize({ width: Math.floor(r.width), height: Math.floor(r.height) });
+            }
           }}
         />
       )}

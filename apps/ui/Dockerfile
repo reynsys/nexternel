@@ -2,10 +2,15 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+COPY packages/domain ./packages/domain
 COPY packages/plugin-sdk ./packages/plugin-sdk
 COPY packages/plugin-example-clock ./packages/plugin-example-clock
+COPY packages/plugin-air-quality ./packages/plugin-air-quality
 COPY packages/domain ./packages/domain
 COPY apps/ui ./apps/ui
+
+WORKDIR /app/packages/domain
+RUN npm install && npm run build
 
 WORKDIR /app/packages/plugin-sdk
 RUN npm install && npm run build

@@ -65,6 +65,9 @@ import {
   generalDefaultSize,
   isGeneralWidgetType,
 } from "../widgets/general";
+import { SlotBindingFields } from "../components/SlotBindingFields";
+import { bindingsFromSlots } from "../lib/widget-bindings";
+import { suggestSlotBindings } from "../lib/slot-bindings";
 import { SectionGrid } from "../components/SectionGrid";
 import { DashboardTabBar } from "../components/DashboardTabBar";
 import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
@@ -84,6 +87,7 @@ import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
 import { chromeSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive } from "../skins/useSurfaceStyles";
+import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
 
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
@@ -99,6 +103,7 @@ export function DashboardPage() {
   const [name, setName] = useState("Dashboard");
   const [tabIcon, setTabIcon] = useState("dashboard");
   const [showTabLabel, setShowTabLabel] = useState(true);
+  const [showSectionNav, setShowSectionNav] = useState(false);
   const [sections, setSections] = useState<DashboardSection[]>(
     () => emptyDocument().sections
   );
@@ -112,6 +117,7 @@ export function DashboardPage() {
   const [addType, setAddType] = useState("stat");
   const [addCapId, setAddCapId] = useState("");
   const [addRange, setAddRange] = useState("24h");
+  const [addSlotValues, setAddSlotValues] = useState<Record<string, string>>({});
   const [iconPickerSectionId, setIconPickerSectionId] = useState<string | null>(null);
   const [iconPickerAnchor, setIconPickerAnchor] = useState<HTMLElement | null>(null);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
@@ -126,6 +132,10 @@ export function DashboardPage() {
   const typeOptions = catalogByCategory(addCategory);
   const typeGroups = groupCatalogByEchartsFamily(typeOptions);
   const selectedEntry = getCatalogEntry(addType);
+
+  const selectedPlugin = getWidgetContribution(addType);
+  const bindingSlots = selectedPlugin?.bindingSlots ?? [];
+  const hasBindingSlots = bindingSlots.length > 0;
 
   const addCapabilityOptions = useMemo(() => {
     const presetId =
@@ -157,9 +167,24 @@ export function DashboardPage() {
     setName(normalized.name);
     setTabIcon(normalized.tabIcon ?? "dashboard");
     setShowTabLabel(normalized.showTabLabel !== false);
+    setShowSectionNav(normalized.showSectionNav === true);
     setSections(normalized.sections);
     if (normalized.sections[0]) setAddSectionId(normalized.sections[0].id);
   }
+
+  useEffect(() => {
+    if (!addOpen) return;
+    const plug = getWidgetContribution(addType);
+    if (plug?.bindingSlots?.length) {
+      setAddSlotValues(
+        suggestSlotBindings(plug.bindingSlots, capabilities, {
+          deviceName: addType === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
+        })
+      );
+    } else {
+      setAddSlotValues({});
+    }
+  }, [addOpen, addType, capabilities]);
 
   useEffect(() => {
     if (!id) return;
@@ -306,9 +331,11 @@ export function DashboardPage() {
     }
     const entry = getCatalogEntry(addType);
     const plugin = getWidgetContribution(addType);
+    const slotDefs = plugin?.bindingSlots ?? [];
+    const hasSlots = slotDefs.length > 0;
     const requiresCapability =
-      entry?.needsCapability ??
-      (plugin ? plugin.needsCapability !== false : true);
+      !hasSlots &&
+      (entry?.needsCapability ?? (plugin ? plugin.needsCapability !== false : true));
 
     const effectiveCapId =
       addCapabilityOptions.some((c) => c.id === addCapId)
@@ -323,6 +350,15 @@ export function DashboardPage() {
       );
       return;
     }
+
+    if (hasSlots) {
+      const missing = slotDefs.filter((s) => s.required && !addSlotValues[s.key]?.trim());
+      if (missing.length > 0) {
+        setError(`Choose: ${missing.map((s) => s.label).join(", ")}`);
+        return;
+      }
+    }
+
     const cap = effectiveCapId
       ? capabilities.find((c) => c.id === effectiveCapId)
       : undefined;
@@ -343,10 +379,12 @@ export function DashboardPage() {
 
     const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
     const generalSize = isGeneralWidgetType(type) ? generalDefaultSize(type) : null;
+    const pluginSize = plugin?.defaultSize;
     const size = preset?.defaultSize ??
+      pluginSize ??
       generalSize ?? {
         w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
-        h: type === "plugin.clock" ? 3 : 3,
+        h: type === "plugin.clock" ? 3 : type === AIR_QUALITY_WIDGET_TYPE ? 4 : 3,
       };
     const w = size.w;
     const h = size.h;
@@ -372,7 +410,7 @@ export function DashboardPage() {
     }
 
     const title =
-      type === "plugin.clock" || isGeneralWidgetType(type)
+      type === "plugin.clock" || type === AIR_QUALITY_WIDGET_TYPE || isGeneralWidgetType(type)
         ? undefined
         : type === "switch" || type === "stat" || addType === "auto"
           ? defaultWidgetTitle(cap, entry?.label || type)
@@ -395,8 +433,9 @@ export function DashboardPage() {
             minW: preset?.dataMode === "history" ? 3 : 2,
             minH: preset?.dataMode === "history" ? 3 : 2,
           },
-          bindings:
-            requiresCapability && effectiveCapId
+          bindings: hasSlots
+            ? bindingsFromSlots(addSlotValues)
+            : requiresCapability && effectiveCapId
               ? {
                   capabilityId: effectiveCapId,
                   ...(cap?.sourceId
@@ -497,6 +536,7 @@ export function DashboardPage() {
         name,
         tabIcon,
         showTabLabel,
+        showSectionNav,
         sections: sortSections(sections).map((s, i) => ({
           ...s,
           order: i,
@@ -617,6 +657,15 @@ export function DashboardPage() {
                   }
                   label="Show name on tab (off = icon only)"
                 />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showSectionNav}
+                      onChange={(e) => setShowSectionNav(e.target.checked)}
+                    />
+                  }
+                  label="Show section quick-jump row"
+                />
                 <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
               </Stack>
             </AccordionDetails>
@@ -664,7 +713,7 @@ export function DashboardPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {ordered.length > 1 && (
+      {showSectionNav && ordered.length > 1 && (
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           {ordered.map((s) => {
             const SecIcon = getDashboardIcon(s.icon);
@@ -956,6 +1005,17 @@ export function DashboardPage() {
                 onChange={(e) => {
                   const next = e.target.value;
                   setAddType(next);
+                  const plug = getWidgetContribution(next);
+                  if (plug?.bindingSlots?.length) {
+                    setAddSlotValues(
+                      suggestSlotBindings(plug.bindingSlots, capabilities, {
+                        deviceName:
+                          next === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
+                      })
+                    );
+                  } else {
+                    setAddSlotValues({});
+                  }
                   const entry = getCatalogEntry(next);
                   const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
                   let pool = capabilities;
@@ -1015,7 +1075,7 @@ export function DashboardPage() {
                 </Select>
               </FormControl>
             )}
-            {(selectedEntry?.needsCapability ?? true) && (
+            {(selectedEntry?.needsCapability ?? true) && !hasBindingSlots && (
               <FormControl fullWidth>
                 <InputLabel id="cap">
                   {addType === "switch" ? "Relay / switch" : "Capability"}
@@ -1037,6 +1097,19 @@ export function DashboardPage() {
                   ))}
                 </Select>
               </FormControl>
+            )}
+            {hasBindingSlots && (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Capability bindings</Typography>
+                <SlotBindingFields
+                  slots={bindingSlots}
+                  capabilities={capabilities}
+                  values={addSlotValues}
+                  onChange={(key, id) =>
+                    setAddSlotValues((prev) => ({ ...prev, [key]: id }))
+                  }
+                />
+              </Stack>
             )}
             {addType === "switch" && addCapabilityOptions.length === 0 && (
               <Typography variant="caption" color="warning.main">
