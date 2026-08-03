@@ -14,6 +14,83 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.171 — 03/08/2026
+
+- **UI:** Settings and dashboard tab bars use outlined/contained buttons (clearly clickable); admin sections use consistent card panels
+
+## V3.1.170 — 03/08/2026
+
+- **Settings:** fix page bouncing to home (wait for permissions before routing); tab links use relative paths
+- **Users:** My profile card at top of Users page (removed separate Profile nav item)
+
+## V3.1.169 — 03/08/2026
+
+- **Admin navigation:** replace monolithic System page with Settings tabs (Appearance, System, Backup, Automations); Profile page; Octopus setup on Devices
+
+## V3.1.168 — 03/08/2026
+
+- **Octopus Home Mini:** gas kWh meters keep Wh `consumptionDelta` conversion (÷1000); only m³ gas meters use volume conversion — matches on-meter readings
+
+## V3.1.167 — 03/08/2026
+
+- **Octopus Home Mini:** gas usage path + discover meter `consumptionUnits` (m³ vs kWh)
+
+## V3.1.166 — 03/08/2026
+
+- **Octopus Home Mini:** fix gauges showing no readings — exclude API-polled device from MQTT stale/offline logic; refresh cached values on every poll; merge live WebSocket state when dashboard loads
+
+## V3.1.165 — 03/08/2026
+
+- **Dashboard:** fix missing `WidgetRenderer` import in section grid
+
+## V3.1.164 — 03/08/2026
+
+- **Dashboard:** fix missing `DashboardIconPicker` import (white screen after login)
+
+## V3.1.163 — 03/08/2026
+
+- **Dashboard:** fix white screen (broken page export, loading states, app error boundary); home dashboard at `/` instead of UUID URL
+
+## V3.1.162 — 03/08/2026
+
+- **Dashboard:** fix white-screen crash when capabilities load (safe sensor names); per-widget error isolation; editors mount only when open
+
+## V3.1.161 — 03/08/2026
+
+- **Dashboard:** fix white screen — replace crashing Autocomplete sensor picker with grouped searchable Select
+
+## V3.1.160 — 03/08/2026
+
+- **Dashboard:** grouped searchable sensor picker (by device) when adding or editing widgets — clearer Octopus / ESP32 binding
+
+## V3.1.159 — 03/08/2026
+
+- **Octopus Home Mini:** parse GraphQL numeric strings (`demand`, `consumptionDelta`); fix live power query; discover via `smartDevices` device ID
+
+## V3.1.158 — 03/08/2026
+
+- **Octopus Home Mini:** fix “Too many requests” on Test poll — single API round-trip, 45s cooldown, clearer rate-limit message
+
+## V3.1.157 — 03/08/2026
+
+- **Octopus Home Mini:** fix live power API query (10s telemetry window); add gas usage today; test poll + auto-sync capabilities on startup
+
+## V3.1.156 — 03/08/2026
+
+- **Octopus Home Mini:** Kraken API polling for live power (W) and usage today (kWh); Admin → System setup; gauge widgets on Dashboard
+
+## V3.1.155 — 03/08/2026
+
+- **Shelly Gen 1:** fix API TypeScript build (discovery base type)
+
+## V3.1.154 — 03/08/2026
+
+- **Shelly Gen 1 (SHSW-1, …):** Add Shelly supports `shellies/…/relay/N` MQTT (discovery, live state, switch control) alongside Gen 2/3 devices
+
+## V3.1.153 — 03/08/2026
+
+- **Air quality widget:** value + unit centered together; unit text slightly larger
+
 ## V3.1.152 — 03/08/2026
 
 - **Air quality widget:** units inline with values (µg/m³, °C, %); readings aligned left in tiles

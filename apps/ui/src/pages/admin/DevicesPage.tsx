@@ -47,6 +47,7 @@ import {
   friendlyDeviceName,
 } from "../../lib/device-utils";
 import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
+import { OctopusSettingsCard } from "./OctopusSettingsCard";
 
 type AreaOption = { id: string; name: string };
 
@@ -64,6 +65,7 @@ const emptyShellyForm = {
   roomId: "",
   mqttTopicPrefix: "",
   shellyModelId: "switch_1",
+  shellyGen: 2 as 1 | 2,
 };
 
 type ShellyModelOption = {
@@ -83,6 +85,7 @@ type DiscoveredShellyRow = {
   ip: string | null;
   suggestedSwitchCount: number;
   suggestedModelId: string;
+  suggestedGen: 1 | 2;
   switchCountProbed: boolean;
   alreadyRegistered: boolean;
 };
@@ -195,6 +198,7 @@ export function DevicesPage() {
       name: f.name.trim() || label,
       mqttTopicPrefix: d.topicPrefix,
       shellyModelId: d.suggestedModelId || "switch_1",
+      shellyGen: d.suggestedGen ?? 2,
     }));
   }
 
@@ -214,6 +218,7 @@ export function DevicesPage() {
         firmwareType: "shelly",
         shellyModelId: shellyForm.shellyModelId,
         shellySwitchCount: model?.switchCount ?? 1,
+        shellyGen: shellyForm.shellyGen,
       });
       setShellyDialogOpen(false);
       setShellyForm(emptyShellyForm);
@@ -541,7 +546,11 @@ export function DevicesPage() {
                   size="small"
                   variant="outlined"
                   label={
-                    (d.firmwareType || "esphome") === "shelly" ? "Shelly" : "ESPHome"
+                    (d.firmwareType || "esphome") === "shelly"
+                      ? "Shelly"
+                      : d.firmwareType === "octopus"
+                        ? "Octopus"
+                        : "ESPHome"
                   }
                 />
                 {!d.isEnabled && <Chip size="small" label="Disabled" color="warning" />}
@@ -686,6 +695,8 @@ export function DevicesPage() {
         ))
       )}
 
+      {isAdmin && <OctopusSettingsCard />}
+
       <Dialog
         open={dialogOpen}
         onClose={() => !busy && setDialogOpen(false)}
@@ -808,7 +819,8 @@ export function DevicesPage() {
               <Alert severity="info">
                 Shellies must use this server’s MQTT (same user/password as Nexternel).
                 Use <strong>Find on MQTT</strong> to list devices that announce themselves, or
-                paste the device ID manually.
+                paste the device ID manually. For older Gen&nbsp;1 devices (e.g. SHSW-1), choose
+                <strong>Gen 1</strong> below.
               </Alert>
 
               <Stack direction="row" spacing={1} alignItems="center">
@@ -838,6 +850,7 @@ export function DevicesPage() {
                     <TableHead>
                       <TableRow>
                         <TableCell>Device</TableCell>
+                        <TableCell>Gen</TableCell>
                         <TableCell>Channels</TableCell>
                         <TableCell align="right" />
                       </TableRow>
@@ -853,6 +866,9 @@ export function DevicesPage() {
                               {d.topicPrefix}
                               {d.alreadyRegistered ? " · already added" : ""}
                             </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {d.suggestedGen === 1 ? "1" : "2+"}
                           </TableCell>
                           <TableCell>
                             {d.suggestedSwitchCount}
@@ -900,6 +916,23 @@ export function DevicesPage() {
                   ))}
                 </Select>
               </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel id="shelly-gen">Shelly generation</InputLabel>
+                <Select
+                  labelId="shelly-gen"
+                  label="Shelly generation"
+                  value={shellyForm.shellyGen}
+                  onChange={(e) =>
+                    setShellyForm((f) => ({
+                      ...f,
+                      shellyGen: Number(e.target.value) as 1 | 2,
+                    }))
+                  }
+                >
+                  <MenuItem value={2}>Gen 2+ (Plus, Mini Gen3, Pro, …)</MenuItem>
+                  <MenuItem value={1}>Gen 1 (SHSW-1, Shelly 2.5, …)</MenuItem>
+                </Select>
+              </FormControl>
               <TextField
                 label="Shelly device ID"
                 value={shellyForm.mqttTopicPrefix}
@@ -908,8 +941,16 @@ export function DevicesPage() {
                 }
                 required
                 fullWidth
-                placeholder="shelly1minig3-xxxxxxxxxxxx"
-                helperText="MQTT topic prefix from the Shelly — or pick one from Find on MQTT"
+                placeholder={
+                  shellyForm.shellyGen === 1
+                    ? "shelly1-B929CC"
+                    : "shelly1minig3-xxxxxxxxxxxx"
+                }
+                helperText={
+                  shellyForm.shellyGen === 1
+                    ? "Device ID from the Shelly web UI (shellies/… prefix is added automatically)"
+                    : "MQTT topic prefix from the Shelly — or pick one from Find on MQTT"
+                }
               />
               <FormControl fullWidth size="small">
                 <InputLabel id="shelly-model">Switches on this device</InputLabel>

@@ -143,11 +143,18 @@ export function EChartsWidgetBody({
   }, [cap, title, min, max, config.accent, chartPalette, points, range, sizePx, preset.family, live]);
 
   const option = useMemo(() => {
-    const built = preset.buildOption(ctx);
-    const gauged =
-      preset.family === "gauge" ? enforceAllGaugeSeries(built, ctx) : built;
-    const merged = buildFinalOption(gauged, config.optionOverride);
-    return applyEchartsPalette(merged, chartPalette);
+    try {
+      const built = preset.buildOption(ctx);
+      const gauged =
+        preset.family === "gauge" ? enforceAllGaugeSeries(built, ctx) : built;
+      const merged = buildFinalOption(gauged, config.optionOverride);
+      return applyEchartsPalette(merged, chartPalette);
+    } catch (err) {
+      console.error("ECharts option build failed", err);
+      return {
+        title: { text: "Chart error", left: "center", top: "center" },
+      };
+    }
   }, [preset, ctx, config.optionOverride, chartPalette]);
 
   if (preset.needsCapability && !capabilityId && preset.dataMode !== "none") {

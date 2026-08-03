@@ -101,9 +101,15 @@ export function DashboardTabBar({
               <Button
                 key={d.id}
                 size="small"
-                variant={active ? "contained" : "text"}
+                variant={active ? "contained" : "outlined"}
                 color={active ? "primary" : "inherit"}
-                onClick={() => navigate(`/dashboards/${d.id}`)}
+                onClick={() => {
+                  if (d.isDefault) {
+                    navigate("/");
+                  } else {
+                    navigate(`/dashboards/${d.id}`);
+                  }
+                }}
                 startIcon={<Icon fontSize="small" />}
                 sx={{
                   flexShrink: 0,

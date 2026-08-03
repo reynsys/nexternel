@@ -1,8 +1,28 @@
 import type { FastifyInstance } from "fastify";
 import { requirePermission } from "../auth/rbac.js";
 import { SHELLY_MODEL_PRESETS } from "../shelly/models.js";
+import {
+  buildShellyGen1TopicPrefix,
+  normalizeShellyGen1DeviceId,
+} from "../shelly/topics.js";
 import { discoverShellyDevices } from "../telemetry/mqtt.js";
 import { getPool } from "../db.js";
+
+function isShellyAlreadyRegistered(
+  topicPrefix: string,
+  registeredSet: Set<string>
+): boolean {
+  const lower = topicPrefix.toLowerCase();
+  if (registeredSet.has(lower)) return true;
+  try {
+    const gen1 = buildShellyGen1TopicPrefix(topicPrefix).toLowerCase();
+    if (registeredSet.has(gen1)) return true;
+  } catch {
+    /* ignore */
+  }
+  const deviceId = normalizeShellyGen1DeviceId(topicPrefix).toLowerCase();
+  return registeredSet.has(deviceId);
+}
 
 export async function shellyRoutes(app: FastifyInstance) {
   app.get("/api/v1/shelly/models", async (request, reply) => {
@@ -47,7 +67,7 @@ export async function shellyRoutes(app: FastifyInstance) {
       return {
         devices: devices.map((d) => ({
           ...d,
-          alreadyRegistered: registeredSet.has(d.topicPrefix.toLowerCase()),
+          alreadyRegistered: isShellyAlreadyRegistered(d.topicPrefix, registeredSet),
         })),
       };
     } catch (err) {

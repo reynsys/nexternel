@@ -2,18 +2,14 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Drawer,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import type { Capability, WidgetInstance } from "../api";
+import { CapabilityPicker } from "../components/CapabilityPicker";
 import {
   capabilityLocationLabel,
-  capabilityPickerLabel,
   defaultWidgetTitle,
 } from "../lib/capability-labels";
 import {
@@ -102,31 +98,21 @@ export function CoreWidgetEditor({
           helperText="Shown on the widget (e.g. Garden lights)"
         />
 
-        <FormControl fullWidth size="small">
-          <InputLabel id="core-cap">Capability</InputLabel>
-          <Select
-            labelId="core-cap"
-            label="Capability"
-            value={capabilityId}
-            onChange={(e) => {
-              const next = e.target.value;
-              const prevCap = capabilities.find((c) => c.id === capabilityId);
-              const nextCap = capabilities.find((c) => c.id === next);
-              setCapabilityId(next);
-              if (!nextCap) return;
-              const prevDefault = defaultWidgetTitle(prevCap, kindLabel);
-              const wasAuto =
-                isPlaceholderWidgetTitle(title, widget.type) || title === prevDefault;
-              if (wasAuto) setTitle(defaultWidgetTitle(nextCap, kindLabel));
-            }}
-          >
-            {options.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {capabilityPickerLabel(c)}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <CapabilityPicker
+          capabilities={options}
+          value={capabilityId}
+          onChange={(next) => {
+            const prevCap = capabilities.find((c) => c.id === capabilityId);
+            const nextCap = capabilities.find((c) => c.id === next);
+            setCapabilityId(next);
+            if (!nextCap) return;
+            const prevDefault = defaultWidgetTitle(prevCap, kindLabel);
+            const wasAuto =
+              isPlaceholderWidgetTitle(title, widget.type) || title === prevDefault;
+            if (wasAuto) setTitle(defaultWidgetTitle(nextCap, kindLabel));
+          }}
+          label={widget.type === "switch" ? "Relay / switch" : "Sensor"}
+        />
 
         {cap && (
           <Typography variant="body2" color="text.secondary">

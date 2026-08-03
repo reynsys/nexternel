@@ -62,8 +62,10 @@ export async function listStateTopicBindings(): Promise<
     `SELECT b.capability_id, b.state_topic, c.kind
      FROM capability_bindings b
      JOIN capabilities c ON c.id = b.capability_id
+     JOIN devices d ON d.id = c.device_id
      WHERE b.state_topic IS NOT NULL AND b.state_topic <> ''
-       AND c.is_enabled = TRUE`
+       AND c.is_enabled = TRUE
+       AND COALESCE(d.firmware_type, 'esphome') <> 'octopus'`
   );
   return result.rows;
 }
@@ -71,7 +73,8 @@ export async function listStateTopicBindings(): Promise<
 export async function listDevicePrefixes(): Promise<string[]> {
   const result = await getPool().query<{ mqtt_topic_prefix: string }>(
     `SELECT DISTINCT mqtt_topic_prefix FROM devices
-     WHERE mqtt_topic_prefix IS NOT NULL AND mqtt_topic_prefix <> ''`
+     WHERE mqtt_topic_prefix IS NOT NULL AND mqtt_topic_prefix <> ''
+       AND COALESCE(firmware_type, 'esphome') <> 'octopus'`
   );
   return result.rows.map((r) => r.mqtt_topic_prefix);
 }
@@ -94,7 +97,7 @@ export async function listShellySwitchBindings(): Promise<
      WHERE COALESCE(d.firmware_type, 'esphome') = 'shelly'
        AND c.is_enabled = TRUE
        AND d.mqtt_topic_prefix IS NOT NULL AND d.mqtt_topic_prefix <> ''
-       AND r.esphome_entity_id ~* '^switch:[0-9]+$'`
+       AND r.esphome_entity_id ~* '^(switch|relay):[0-9]+$'`
   );
   return result.rows;
 }

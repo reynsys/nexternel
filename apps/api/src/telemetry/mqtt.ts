@@ -12,14 +12,16 @@ import {
   LIVE_CAPABILITY_PRESENCE_MS,
 } from "../devices/presence.js";
 import { getPool } from "../db.js";
-import { looksLikeShellyCommandTopic } from "../shelly/topics.js";
+import { looksLikeShellyCommandTopic, isShellyGen1MqttPrefix } from "../shelly/topics.js";
 import { parseShellyMqttSwitchUpdates } from "../shelly/notify.js";
 import {
   countSwitchesInStatusResult,
   enrichDiscoveredShelly,
   parseShellyAnnouncePayload,
   type DiscoveredShelly,
+  type DiscoveredShellyBase,
 } from "../shelly/discover.js";
+import { guessShellyGen } from "../shelly/models.js";
 
 let client: MqttClient | null = null;
 let status: "disconnected" | "connecting" | "connected" | "error" = "disconnected";
@@ -125,7 +127,8 @@ async function staleCapabilitiesForPrefix(prefix: string) {
   const caps = await getPool().query<{ id: string }>(
     `SELECT c.id FROM capabilities c
      JOIN devices d ON d.id = c.device_id
-     WHERE d.mqtt_topic_prefix = $1`,
+     WHERE d.mqtt_topic_prefix = $1
+       AND COALESCE(d.firmware_type, 'esphome') <> 'octopus'`,
     [prefix]
   );
   for (const row of caps.rows) {
@@ -498,8 +501,13 @@ function handleMessage(
     return;
   }
 
-  // Avoid double-applying the same Shelly status/switch:N payload
-  if (shellyHandled && /\/status\/switch:\d+$/i.test(topic)) return;
+  // Avoid double-applying the same Shelly status payload
+  if (
+    shellyHandled &&
+    (/\/status\/switch:\d+$/i.test(topic) || /\/relay\/\d+$/i.test(topic))
+  ) {
+    return;
+  }
 
   for (const { capabilityId, kind } of entries) {
     const value = parseMqttPayload(kind, payload);
@@ -510,9 +518,21 @@ function handleMessage(
 /** Ask each Shelly to publish full status (fills cache after API restart). */
 function requestShellyStatusUpdates() {
   if (!client?.connected) return;
+  let hasGen1 = false;
   for (const prefix of shellyPrefixes) {
+    if (isShellyGen1MqttPrefix(prefix)) {
+      hasGen1 = true;
+      continue;
+    }
     try {
       client.publish(`${prefix}/command`, "status_update", { qos: 0 });
+    } catch {
+      /* ignore */
+    }
+  }
+  if (hasGen1) {
+    try {
+      client.publish("shellies/command", "update", { qos: 0 });
     } catch {
       /* ignore */
     }
@@ -534,6 +554,7 @@ async function sweepDevicePresence() {
       `UPDATE devices
        SET is_online = FALSE
        WHERE is_online = TRUE
+         AND COALESCE(firmware_type, 'esphome') <> 'octopus'
          AND (
            last_seen_at IS NULL
            OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
@@ -549,8 +570,10 @@ async function sweepDevicePresence() {
   }
 
   const staleMs = LIVE_CAPABILITY_PRESENCE_MS;
+  const octopusCapIds = await getOctopusCapabilityIdsForPresence();
   for (const state of getAllLiveStates()) {
     if (state.quality !== "good") continue;
+    if (octopusCapIds.has(state.capabilityId)) continue;
     const age = Date.now() - Date.parse(state.updatedAt);
     if (age > staleMs) {
       setLiveState(state.capabilityId, state.value, {
@@ -558,6 +581,28 @@ async function sweepDevicePresence() {
         retained: state.retained,
       });
     }
+  }
+}
+
+let octopusCapIdsCache: Set<string> | null = null;
+let octopusCapIdsCacheAt = 0;
+
+async function getOctopusCapabilityIdsForPresence(): Promise<Set<string>> {
+  const now = Date.now();
+  if (octopusCapIdsCache && now - octopusCapIdsCacheAt < 60_000) {
+    return octopusCapIdsCache;
+  }
+  try {
+    const result = await getPool().query<{ id: string }>(
+      `SELECT c.id FROM capabilities c
+       JOIN devices d ON d.id = c.device_id
+       WHERE d.slug = 'octopus-home-mini'`
+    );
+    octopusCapIdsCache = new Set(result.rows.map((r) => r.id));
+    octopusCapIdsCacheAt = now;
+    return octopusCapIdsCache;
+  } catch {
+    return octopusCapIdsCache ?? new Set();
   }
 }
 
@@ -707,13 +752,7 @@ export async function discoverShellyDevices(opts?: {
   }
 
   const timeoutMs = Math.min(15_000, Math.max(2_000, opts?.timeoutMs ?? 5_000));
-  const found = new Map<
-    string,
-    Omit<
-      DiscoveredShelly,
-      "suggestedSwitchCount" | "suggestedModelId" | "switchCountProbed"
-    >
-  >();
+  const found = new Map<string, DiscoveredShellyBase>();
 
   const collector: DiscoveryCollector = (topic, payload) => {
     if (
@@ -725,7 +764,23 @@ export async function discoverShellyDevices(opts?: {
       if (parsed) found.set(parsed.topicPrefix, parsed);
       return;
     }
-    // Online presence: shellyxxx/online → true
+    // Online presence: shellyxxx/online (Gen2+) or shellies/shelly1-xxx/online (Gen1)
+    const gen1Online = /^shellies\/([^/]+)\/online$/i.exec(topic);
+    if (gen1Online && /^(true|1|online)$/i.test(payload.trim())) {
+      const deviceId = gen1Online[1]!;
+      if (!found.has(deviceId)) {
+        found.set(deviceId, {
+          topicPrefix: deviceId,
+          model: null,
+          app: null,
+          mac: null,
+          gen: 1,
+          version: null,
+          ip: null,
+        });
+      }
+      return;
+    }
     const onlineMatch = /^([^/]+)\/online$/i.exec(topic);
     if (onlineMatch && /^(true|1|online)$/i.test(payload.trim())) {
       const prefix = onlineMatch[1]!;
@@ -765,14 +820,24 @@ export async function discoverShellyDevices(opts?: {
     // Probe switch counts in parallel via MQTT RPC GetStatus.
     const devices: DiscoveredShelly[] = await Promise.all(
       [...found.values()].map(async (base) => {
+        const suggestedGen = guessShellyGen({
+          gen: base.gen,
+          model: base.model,
+          app: base.app,
+          topicPrefix: base.topicPrefix,
+        });
+        if (suggestedGen === 1) {
+          return enrichDiscoveredShelly(base, { suggestedGen: 1 });
+        }
         const probed = await probeShellySwitchCountMqtt(base.topicPrefix, 2_000);
         if (probed != null) {
           return enrichDiscoveredShelly(base, {
             switchCount: probed,
             probed: true,
+            suggestedGen: 2,
           });
         }
-        return enrichDiscoveredShelly(base);
+        return enrichDiscoveredShelly(base, { suggestedGen: 2 });
       })
     );
 

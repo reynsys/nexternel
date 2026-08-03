@@ -28,8 +28,8 @@ export const MAIN_NAV: NavItem[] = [
     permission: "viewDashboards",
   },
   {
-    label: "System",
-    to: "/admin/system",
+    label: "Settings",
+    to: "/admin/settings",
     icon: SettingsRoundedIcon,
     auth: true,
     permission: "viewSystem",

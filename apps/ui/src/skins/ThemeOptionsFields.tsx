@@ -38,7 +38,7 @@ type Props = {
 
 /**
  * Controlled light/dark + accent + skin picker.
- * Used by System → Appearance and Users → Edit.
+ * Used by Settings → Appearance and Users → Edit.
  */
 export function ThemeOptionsFields({
   themePrefs,

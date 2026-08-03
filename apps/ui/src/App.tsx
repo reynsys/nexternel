@@ -1,18 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link as RouterLink, Navigate, Route, Routes } from "react-router-dom";
-import { Alert, Button, Stack } from "@mui/material";
+import { Alert, Button, CircularProgress, Stack } from "@mui/material";
 import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardsPage } from "./pages/DashboardsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TroubleshootPage } from "./pages/TroubleshootPage";
-import { SystemPage } from "./pages/admin/SystemPage";
+import { SettingsLayout } from "./pages/admin/settings/SettingsLayout";
+import { SettingsIndexRedirect } from "./pages/admin/settings/SettingsIndexRedirect";
+import { AppearanceSettingsPage } from "./pages/admin/settings/AppearanceSettingsPage";
+import { SystemStatusPage } from "./pages/admin/settings/SystemStatusPage";
+import { BackupSettingsPage } from "./pages/admin/settings/BackupSettingsPage";
+import { AutomationsSettingsPage } from "./pages/admin/settings/AutomationsSettingsPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { RolesPage } from "./pages/admin/RolesPage";
 import { AreasPage } from "./pages/admin/AreasPage";
 import { DevicesPage } from "./pages/admin/DevicesPage";
 import { CamerasPage } from "./pages/admin/CamerasPage";
-import { HomeRedirect } from "./pages/HomeRedirect";
 import { api, getStoredAccessToken, type User } from "./api";
 import {
   hasPermission,
@@ -49,7 +53,13 @@ function RequirePermission({
       });
   }, []);
 
-  if (user === undefined) return null;
+  if (user === undefined) {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }}>
+        <CircularProgress size={28} />
+      </Stack>
+    );
+  }
   if (failed || !user) {
     return <Navigate to="/login" replace />;
   }
@@ -64,8 +74,8 @@ function RequirePermission({
         <Alert severity="warning" sx={{ maxWidth: 480 }}>
           Your account does not have permission to open this page.
         </Alert>
-        <Button component={RouterLink} to="/admin/system" variant="contained">
-          Open System / profile
+        <Button component={RouterLink} to="/admin/users" variant="contained">
+          Open Users
         </Button>
       </Stack>
     );
@@ -85,7 +95,7 @@ export function App() {
           element={
             <RequireAuth>
               <RequirePermission permission="viewDashboards">
-                <HomeRedirect />
+                <DashboardPage />
               </RequirePermission>
             </RequireAuth>
           }
@@ -105,7 +115,7 @@ export function App() {
           element={
             <RequireAuth>
               <RequirePermission permission="viewDashboards">
-                <HomeRedirect />
+                <DashboardPage />
               </RequirePermission>
             </RequireAuth>
           }
@@ -123,16 +133,53 @@ export function App() {
         />
 
         <Route path="live" element={<Navigate to="/" replace />} />
+
         <Route
-          path="admin/system"
+          path="admin/settings"
           element={
             <RequireAuth>
-              <RequirePermission permission="viewSystem">
-                <SystemPage />
-              </RequirePermission>
+              <SettingsLayout />
             </RequireAuth>
           }
-        />
+        >
+          <Route index element={<SettingsIndexRedirect />} />
+          <Route
+            path="appearance"
+            element={
+              <RequirePermission permission="viewSystem">
+                <AppearanceSettingsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system"
+            element={
+              <RequirePermission permission="viewSystem">
+                <SystemStatusPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="backup"
+            element={
+              <RequirePermission permission="manageUsers">
+                <BackupSettingsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="automations"
+            element={
+              <RequirePermission permission="viewSystem">
+                <AutomationsSettingsPage />
+              </RequirePermission>
+            }
+          />
+        </Route>
+
+        <Route path="admin/system" element={<Navigate to="/admin/settings/system" replace />} />
+        <Route path="admin/profile" element={<Navigate to="/admin/users" replace />} />
+
         <Route
           path="admin/users"
           element={

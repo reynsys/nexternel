@@ -245,6 +245,32 @@ function rememberAuth(data: AuthResponse) {
   }
 }
 
+type LiveCapabilityState = {
+  value: unknown;
+  quality: string;
+  updatedAt: string;
+};
+
+const liveStateByCapability = new Map<string, LiveCapabilityState>();
+
+export function recordLiveCapabilityState(
+  capabilityId: string,
+  value: unknown,
+  quality: string,
+  updatedAt: string
+): void {
+  liveStateByCapability.set(capabilityId, { value, quality, updatedAt });
+}
+
+/** Merge WebSocket hello/updates received before capabilities list loaded. */
+export function mergeCapabilitiesWithLiveCache(capabilities: Capability[]): Capability[] {
+  return capabilities.map((c) => {
+    const live = liveStateByCapability.get(c.id);
+    if (!live) return c;
+    return { ...c, state: live };
+  });
+}
+
 export type LiveEvent = {
   type: string;
   state?: {
@@ -363,6 +389,19 @@ export function connectLiveSocket(onEvent: (ev: LiveEvent) => void): () => void 
       socket.onmessage = (msg) => {
         try {
           const data = JSON.parse(String(msg.data)) as LiveEvent;
+          if (data.type === "hello" && data.states) {
+            for (const s of data.states) {
+              recordLiveCapabilityState(s.capabilityId, s.value, s.quality, s.updatedAt);
+            }
+          }
+          if (data.type === "capability.updated" && data.state) {
+            recordLiveCapabilityState(
+              data.state.capabilityId,
+              data.state.value,
+              data.state.quality,
+              data.state.updatedAt
+            );
+          }
           onEvent(data);
         } catch {
           /* ignore */
@@ -540,6 +579,7 @@ export const api = {
     shellyChannel?: number;
     shellySwitchCount?: number;
     shellyModelId?: string;
+    shellyGen?: 1 | 2;
     ipAddress?: string | null;
     macAddress?: string | null;
     sensors?: EsphomeSensorInput[];
@@ -572,6 +612,7 @@ export const api = {
         ip: string | null;
         suggestedSwitchCount: number;
         suggestedModelId: string;
+        suggestedGen: 1 | 2;
         switchCountProbed: boolean;
         alreadyRegistered: boolean;
       }[];
@@ -579,6 +620,43 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body ?? {}),
     }),
+
+  octopusSettings: () =>
+    apiFetch<{ settings: OctopusSettingsPublic }>("/api/v1/octopus/settings"),
+
+  updateOctopusSettings: (body: {
+    accountNumber?: string;
+    apiKey?: string;
+    electricityDeviceId?: string;
+    enabled?: boolean;
+    pollIntervalSec?: number;
+  }) =>
+    apiFetch<{ settings: OctopusSettingsPublic }>("/api/v1/octopus/settings", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  discoverOctopusDevice: () =>
+    apiFetch<{
+      electricityDeviceId: string | null;
+      gasDeviceId: string | null;
+      settings: OctopusSettingsPublic;
+    }>("/api/v1/octopus/discover-device", { method: "POST", body: JSON.stringify({}) }),
+
+  testOctopusPoll: () =>
+    apiFetch<{
+      liveDemandW: number | null;
+      electricityTodayKwh: number | null;
+      gasTodayKwh: number | null;
+      cooldown?: boolean;
+      message?: string;
+      liveStates: {
+        power: unknown;
+        electricityToday: unknown;
+        gasToday: unknown;
+      };
+      settings: OctopusSettingsPublic;
+    }>("/api/v1/octopus/test-poll", { method: "POST", body: JSON.stringify({}) }),
 
   updateDevice: (
     id: string,
@@ -1073,6 +1151,18 @@ export type WeatherResponse = {
   timezone?: string;
   source?: string;
   forecast: WeatherForecastDay[];
+};
+
+export type OctopusSettingsPublic = {
+  accountNumber: string;
+  hasApiKey: boolean;
+  electricityDeviceId: string;
+  gasDeviceId: string;
+  enabled: boolean;
+  pollIntervalSec: number;
+  lastPollAt: string | null;
+  lastError: string | null;
+  deviceRegistered: boolean;
 };
 
 export type AdminUser = {

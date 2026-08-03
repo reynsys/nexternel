@@ -14,7 +14,7 @@ import {
   Typography,
   Alert,
 } from "@mui/material";
-import type { Capability, HistoryRange, WidgetInstance } from "../../api";
+import { CapabilityPicker } from "../../components/CapabilityPicker";
 import {
   editorTitleForBoundWidget,
   persistBoundWidgetTitle,
@@ -188,6 +188,10 @@ export function EChartsWidgetEditor({
   ]);
 
   const cap = capabilities.find((c) => c.id === capabilityId);
+  const sensorCapabilities = useMemo(
+    () => capabilities.filter((c) => c.kind !== "switch"),
+    [capabilities]
+  );
 
   function handleApply() {
     if (!widget) return;
@@ -243,6 +247,7 @@ export function EChartsWidgetEditor({
       onClose={onClose}
       PaperProps={{ sx: { width: { xs: "100%", sm: 420 }, p: 2 } }}
     >
+      {widget ? (
       <Stack spacing={2} sx={{ height: "100%" }}>
         <Typography variant="h6">{editorTitle(editScope)}</Typography>
         <Typography variant="caption" color="text.secondary">
@@ -326,27 +331,12 @@ export function EChartsWidgetEditor({
         </Typography>
 
         {preset.needsCapability && (
-          <FormControl fullWidth size="small">
-            <InputLabel id="echarts-cap">Capability</InputLabel>
-            <Select
-              labelId="echarts-cap"
-              label="Capability"
-              value={capabilityId}
-              onChange={(e) => setCapabilityId(e.target.value)}
-            >
-              {capabilities
-                .filter((c) => {
-                  if (c.kind === "switch") return false;
-                  if (preset.dataMode === "history") return true;
-                  return true;
-                })
-                .map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.deviceName} · {c.name} ({c.kind})
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
+          <CapabilityPicker
+            capabilities={sensorCapabilities}
+            value={capabilityId}
+            onChange={setCapabilityId}
+            label={preset.dataMode === "history" ? "History sensor" : "Live sensor"}
+          />
         )}
 
         {preset.dataMode === "history" && (
@@ -396,7 +386,7 @@ export function EChartsWidgetEditor({
           value={accent}
           onChange={(e) => setAccent(e.target.value)}
           placeholder="Appearance accent"
-          helperText="Optional override — leave blank to use System → Appearance accent colour"
+          helperText="Optional override — leave blank to use Settings → Appearance accent colour"
         />
 
         <Divider />
@@ -448,6 +438,7 @@ export function EChartsWidgetEditor({
           </Button>
         </Stack>
       </Stack>
+      ) : null}
     </Drawer>
   );
 }

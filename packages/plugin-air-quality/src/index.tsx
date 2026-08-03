@@ -130,9 +130,9 @@ function MetricTile({
         minWidth: 0,
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "center",
-        padding: "6px 8px",
+        padding: "6px 6px",
         borderRadius: 8,
         background: "rgba(127,127,127,0.08)",
         border: "1px solid rgba(127,127,127,0.12)",
@@ -142,6 +142,7 @@ function MetricTile({
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: 4,
           marginBottom: 6,
           fontSize: "0.68rem",
@@ -157,10 +158,9 @@ function MetricTile({
         style={{
           display: "flex",
           alignItems: "baseline",
-          justifyContent: "flex-start",
-          gap: 4,
+          justifyContent: "center",
+          gap: 5,
           width: "100%",
-          paddingLeft: 2,
         }}
       >
         <span
@@ -176,9 +176,9 @@ function MetricTile({
         {unit && (
           <span
             style={{
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              opacity: 0.7,
+              fontSize: "clamp(0.8rem, 2.8vw, 0.95rem)",
+              fontWeight: 700,
+              opacity: 0.78,
               lineHeight: 1.1,
               flexShrink: 0,
             }}

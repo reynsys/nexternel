@@ -16,10 +16,10 @@ function escapeRegExp(value: string): string {
  * "Lights - Living Room" + area "Living Room" → "Lights".
  */
 export function tidyDeviceName(
-  deviceName: string,
+  deviceName: string | null | undefined,
   roomName?: string | null
 ): string {
-  const device = deviceName.trim();
+  const device = (deviceName ?? "").trim();
   const area = roomName?.trim();
   if (!device || !area) return device;
 
@@ -50,7 +50,7 @@ export function capabilityWidgetTitle(
   fallback = "Widget"
 ): string {
   if (!cap) return fallback;
-  const entity = cap.name?.trim() || "";
+  const entity = (cap.name ?? "").trim() || "";
   const device = tidyDeviceName(cap.deviceName, cap.roomName);
   if (!entity) return device || fallback;
   if (!isGenericEntityName(entity)) return entity;
@@ -69,7 +69,7 @@ export function capabilityLocationLabel(cap: Capability | undefined): string {
   if (!cap) return "No capability bound";
   const area = cap.roomName?.trim() || "";
   const device = tidyDeviceName(cap.deviceName, cap.roomName);
-  const entity = cap.name?.trim() || "";
+  const entity = (cap.name ?? "").trim() || "";
   const title = capabilityWidgetTitle(cap);
 
   const needsBoardContext =
@@ -94,13 +94,17 @@ export function capabilityLocationLabel(cap: Capability | undefined): string {
   return area || (device !== title ? device : "") || "";
 }
 
-/** Dropdown label: Title — location (skips empty / duplicate bits). */
+/** Dropdown label: Device › Sensor (unit). */
 export function capabilityPickerLabel(cap: Capability): string {
-  const title = capabilityWidgetTitle(cap);
-  const loc = capabilityLocationLabel(cap);
-  if (!loc) return title;
-  if (loc.toLowerCase() === title.toLowerCase()) return title;
-  return `${title} — ${loc}`;
+  const device = tidyDeviceName(cap.deviceName, cap.roomName);
+  const area = cap.roomName?.trim();
+  const group =
+    area && device && !deviceMentionsArea(device, area)
+      ? `${device} · ${area}`
+      : device || "Unassigned device";
+  const name = cap.name?.trim() || capabilityWidgetTitle(cap);
+  const primary = cap.unit?.trim() ? `${name} (${cap.unit.trim()})` : name;
+  return `${group} › ${primary}`;
 }
 
 /** Default widget title from the bound entity (not the catalog type name). */

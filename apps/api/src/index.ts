@@ -7,6 +7,7 @@ import { attachUser } from "./auth/plugin.js";
 import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
 import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
 import { ensureCameraSchema } from "./cameras/ensure-schema.js";
+import { ensureOctopusSchema } from "./octopus/ensure-schema.js";
 import { ensureDevicesSchema } from "./devices/ensure-schema.js";
 import { syncAllCamerasToGo2rtc } from "./cameras/service.js";
 import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
@@ -31,6 +32,7 @@ import { systemRoutes } from "./routes/system.js";
 import { migrateRoutes } from "./migrate/routes.js";
 import { weatherRoutes } from "./routes/weather.js";
 import { shellyRoutes } from "./routes/shelly.js";
+import { octopusRoutes } from "./routes/octopus.js";
 import { wsRoutes } from "./telemetry/ws.js";
 import { APP_VERSION } from "./version.js";
 
@@ -76,6 +78,7 @@ await app.register(async (api) => {
   await api.register(migrateRoutes);
   await api.register(weatherRoutes);
   await api.register(shellyRoutes);
+  await api.register(octopusRoutes);
   await api.register(wsRoutes);
 });
 
@@ -92,10 +95,26 @@ try {
   await ensureCapabilitySchema();
   await ensureDashboardSchema();
   await ensureCameraSchema();
+  await ensureOctopusSchema();
   const adminSeed = await ensureAdminFromEnv();
   app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
   const synced = await syncCapabilitiesFromLegacy();
   app.log.info(synced, "capabilities synced from sensors/relays");
+  try {
+    const { getOctopusSettings, ensureOctopusDeviceAndSensors } = await import(
+      "./octopus/service.js"
+    );
+    const { triggerOctopusPoll } = await import("./octopus/poll.js");
+    const oct = await getOctopusSettings();
+    if (oct?.enabled && oct.api_key.trim() && oct.account_number.trim()) {
+      await ensureOctopusDeviceAndSensors();
+      await syncCapabilitiesFromLegacy();
+      await triggerOctopusPoll(true);
+      app.log.info("octopus integration startup poll completed");
+    }
+  } catch (err) {
+    app.log.warn({ err }, "octopus startup poll skipped");
+  }
   try {
     const { repairDashboardCapabilityBindings } = await import(
       "./migrate/repair-dashboard-bindings.js"
@@ -115,6 +134,9 @@ try {
   }
   await startTelemetry();
   app.log.info(getMqttLogSafe(), "telemetry started");
+  const { startOctopusPoller } = await import("./octopus/poll.js");
+  startOctopusPoller();
+  app.log.info("octopus poller started");
 
   await app.listen({ port: config.port, host: config.host });
   app.log.info(`Nexternel API ${APP_VERSION} listening on ${config.host}:${config.port}`);

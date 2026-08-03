@@ -181,10 +181,12 @@ export function SideMenu({
                 title={user?.displayName?.trim() || user?.username || "User"}
                 placement="right"
               >
-                <Avatar
-                  src={user?.avatarData ?? undefined}
-                  sx={{ width: 36, height: 36, bgcolor: "primary.dark" }}
-                >
+              <Avatar
+                src={user?.avatarData ?? undefined}
+                sx={{ width: 36, height: 36, bgcolor: "primary.dark", cursor: "pointer" }}
+                component={RouterLink}
+                to="/admin/users"
+              >
                   {(user?.displayName || user?.username || "?")
                     .trim()
                     .slice(0, 1)

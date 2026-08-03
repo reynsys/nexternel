@@ -44,8 +44,8 @@ export const PERMISSION_META: {
   },
   {
     key: "viewSystem",
-    label: "View System / profile",
-    help: "System page, own profile, appearance, and theme",
+    label: "View Settings",
+    help: "Settings hub — appearance, system status, automations",
     group: "System",
   },
   {
@@ -75,7 +75,7 @@ export const PERMISSION_META: {
   {
     key: "manageUsers",
     label: "Manage users",
-    help: "Users page — create/edit accounts and assign roles",
+    help: "Users page — accounts, your profile, and role assignment",
     group: "Admin",
   },
   {

@@ -16,6 +16,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
+import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
 import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
 import { AirQualityWidgetEditor } from "../widgets/AirQualityWidgetEditor";
 import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
@@ -379,13 +380,15 @@ export function SectionGrid({
                       boxSizing: "border-box",
                     }}
                   >
-                    <WidgetRenderer
-                      widget={w}
-                      capabilities={capabilities}
-                      editMode={editMode}
-                      chrome={false}
-                      onCapabilityState={onCapabilityState}
-                    />
+                    <WidgetErrorBoundary widgetId={w.id} widgetType={w.type}>
+                      <WidgetRenderer
+                        widget={w}
+                        capabilities={capabilities}
+                        editMode={editMode}
+                        chrome={false}
+                        onCapabilityState={onCapabilityState}
+                      />
+                    </WidgetErrorBoundary>
                   </Box>
                 </Paper>
               </div>
@@ -399,76 +402,81 @@ export function SectionGrid({
         </Typography>
       )}
 
-      <EChartsWidgetEditor
-        open={Boolean(editing) && editingEcharts}
-        widget={editingEcharts ? editing : null}
-        capabilities={capabilities}
-        onClose={() => setEditWidgetId(null)}
-        onSave={(patch) => {
-          if (!editing) return;
-          const nextConfig = { ...(patch.config ?? {}) };
-          onUpdateWidget(sectionId, editing.id, {
-            title: patch.title,
-            type: patch.type ?? "echarts",
-            bindings: patch.bindings ?? editing.bindings,
-            config: nextConfig,
-          });
-        }}
-      />
+      {editingEcharts && editing && (
+        <EChartsWidgetEditor
+          open
+          widget={editing}
+          capabilities={capabilities}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            const nextConfig = { ...(patch.config ?? {}) };
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              type: patch.type ?? "echarts",
+              bindings: patch.bindings ?? editing.bindings,
+              config: nextConfig,
+            });
+          }}
+        />
+      )}
 
-      <CoreWidgetEditor
-        open={Boolean(editing) && editingCore}
-        widget={editingCore ? editing : null}
-        capabilities={capabilities}
-        onClose={() => setEditWidgetId(null)}
-        onSave={(patch) => {
-          if (!editing) return;
-          onUpdateWidget(sectionId, editing.id, {
-            title: patch.title,
-            bindings: patch.bindings ?? editing.bindings,
-          });
-        }}
-      />
+      {editingCore && editing && (
+        <CoreWidgetEditor
+          open
+          widget={editing}
+          capabilities={capabilities}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              bindings: patch.bindings ?? editing.bindings,
+            });
+          }}
+        />
+      )}
 
-      <ClockWidgetEditor
-        open={Boolean(editing) && editingClock}
-        widget={editingClock ? editing : null}
-        onClose={() => setEditWidgetId(null)}
-        onSave={(patch) => {
-          if (!editing) return;
-          onUpdateWidget(sectionId, editing.id, {
-            title: patch.title,
-            config: patch.config ?? editing.config,
-          });
-        }}
-      />
+      {editingClock && editing && (
+        <ClockWidgetEditor
+          open
+          widget={editing}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              config: patch.config ?? editing.config,
+            });
+          }}
+        />
+      )}
 
-      <AirQualityWidgetEditor
-        open={Boolean(editing) && editingAirQuality}
-        widget={editingAirQuality ? editing : null}
-        capabilities={capabilities}
-        onClose={() => setEditWidgetId(null)}
-        onSave={(patch) => {
-          if (!editing) return;
-          onUpdateWidget(sectionId, editing.id, {
-            title: patch.title,
-            bindings: patch.bindings ?? editing.bindings,
-          });
-        }}
-      />
+      {editingAirQuality && editing && (
+        <AirQualityWidgetEditor
+          open
+          widget={editing}
+          capabilities={capabilities}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              bindings: patch.bindings ?? editing.bindings,
+            });
+          }}
+        />
+      )}
 
-      <GeneralWidgetEditor
-        open={Boolean(editing) && editingGeneral}
-        widget={editingGeneral ? editing : null}
-        onClose={() => setEditWidgetId(null)}
-        onSave={(patch) => {
-          if (!editing) return;
-          onUpdateWidget(sectionId, editing.id, {
-            title: patch.title,
-            config: patch.config ?? editing.config,
-          });
-        }}
-      />
+      {editingGeneral && editing && (
+        <GeneralWidgetEditor
+          open
+          widget={editing}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              config: patch.config ?? editing.config,
+            });
+          }}
+        />
+      )}
     </Box>
   );
 }

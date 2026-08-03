@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Container,
-  Link,
   Stack,
   Toolbar,
   Typography,
@@ -58,25 +57,36 @@ export function ClassicLayout() {
             flexWrap="wrap"
             useFlexGap
           >
-            {[...main, ...secondary].map((item) => {
+            {main.map((item) => {
               const active = navItemActive(pathname, item.to);
               return (
-                <Link
+                <Button
                   key={item.to}
                   component={RouterLink}
                   to={item.to}
-                  underline={active ? "always" : "hover"}
-                  className={active ? "nexternel-nav-active" : undefined}
+                  size="small"
+                  variant={active ? "contained" : "outlined"}
                   color={active ? "primary" : "inherit"}
-                  sx={{
-                    fontWeight: active ? 700 : 500,
-                    borderBottom: active ? "2px solid" : "2px solid transparent",
-                    borderColor: active ? "primary.main" : "transparent",
-                    pb: 0.25,
-                  }}
+                  sx={{ textTransform: "none" }}
                 >
                   {item.label}
-                </Link>
+                </Button>
+              );
+            })}
+            {secondary.map((item) => {
+              const active = navItemActive(pathname, item.to);
+              return (
+                <Button
+                  key={item.to}
+                  component={RouterLink}
+                  to={item.to}
+                  size="small"
+                  variant={active ? "contained" : "outlined"}
+                  color={active ? "primary" : "inherit"}
+                  sx={{ textTransform: "none" }}
+                >
+                  {item.label}
+                </Button>
               );
             })}
           </Stack>
@@ -88,9 +98,9 @@ export function ClassicLayout() {
                 : ""}
             </Button>
           ) : (
-            <Link component={RouterLink} to="/login" color="inherit" underline="hover">
+            <Button component={RouterLink} to="/login" variant="outlined" size="small">
               Login
-            </Link>
+            </Button>
           )}
         </Toolbar>
       </AppBar>

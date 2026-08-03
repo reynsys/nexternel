@@ -3,12 +3,13 @@
  */
 
 import {
+  guessShellyGen,
   guessShellySwitchCount,
   shellyPresetIdForSwitchCount,
 } from "./models.js";
 
 export type DiscoveredShelly = {
-  /** MQTT topic prefix (usually the device id). */
+  /** Device id from announce (e.g. shelly1-B929CC) — display / manual entry. */
   topicPrefix: string;
   model: string | null;
   app: string | null;
@@ -16,12 +17,19 @@ export type DiscoveredShelly = {
   gen: number | null;
   version: string | null;
   ip: string | null;
+  /** 1 = Gen1 (SHSW-1, …), 2 = Gen2/Gen3 (Plus, Mini Gen3, …). */
+  suggestedGen: 1 | 2;
   /** Suggested switch channels (guessed or probed). */
   suggestedSwitchCount: number;
   suggestedModelId: string;
   /** True when we confirmed switch count via GetStatus over MQTT RPC. */
   switchCountProbed: boolean;
 };
+
+export type DiscoveredShellyBase = Omit<
+  DiscoveredShelly,
+  "suggestedSwitchCount" | "suggestedModelId" | "switchCountProbed" | "suggestedGen"
+>;
 
 function asString(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -32,9 +40,7 @@ function asNumber(v: unknown): number | null {
 }
 
 /** Parse shellies/announce or {id}/announce JSON. */
-export function parseShellyAnnouncePayload(
-  payload: string
-): Omit<DiscoveredShelly, "suggestedSwitchCount" | "suggestedModelId" | "switchCountProbed"> | null {
+export function parseShellyAnnouncePayload(payload: string): DiscoveredShellyBase | null {
   const raw = payload.trim();
   if (!raw.startsWith("{")) return null;
   try {
@@ -56,17 +62,23 @@ export function parseShellyAnnouncePayload(
 }
 
 export function enrichDiscoveredShelly(
-  base: Omit<
-    DiscoveredShelly,
-    "suggestedSwitchCount" | "suggestedModelId" | "switchCountProbed"
-  >,
-  opts?: { switchCount?: number; probed?: boolean }
+  base: DiscoveredShellyBase,
+  opts?: { switchCount?: number; probed?: boolean; suggestedGen?: 1 | 2 }
 ): DiscoveredShelly {
+  const suggestedGen =
+    opts?.suggestedGen ??
+    guessShellyGen({
+      gen: base.gen,
+      model: base.model,
+      app: base.app,
+      topicPrefix: base.topicPrefix,
+    });
   const suggestedSwitchCount =
     opts?.switchCount ??
     guessShellySwitchCount({ app: base.app, model: base.model });
   return {
     ...base,
+    suggestedGen,
     suggestedSwitchCount,
     suggestedModelId: shellyPresetIdForSwitchCount(suggestedSwitchCount),
     switchCountProbed: Boolean(opts?.probed),

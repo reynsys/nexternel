@@ -43,6 +43,8 @@ import {
   type ThemePrefs,
 } from "../../skins/themePrefs";
 import { useShellAuth } from "../../skins/useShellAuth";
+import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
+import { ProfileSection } from "./sections/ProfileSection";
 
 function prefsFromUser(u: AdminUser | null): { theme: ThemePrefs; skinId: string } {
   const n = normalizeThemePrefs(u?.themePrefs ?? DEFAULT_THEME_PREFS);
@@ -54,6 +56,7 @@ function prefsFromUser(u: AdminUser | null): { theme: ThemePrefs; skinId: string
 
 export function UsersPage() {
   const { user: me } = useShellAuth();
+  const surfaceSx = useContentSurfaceSx();
   const skins = listSkins();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<RoleDef[]>([]);
@@ -206,14 +209,15 @@ export function UsersPage() {
         </Stack>
       </Stack>
       <Typography variant="body2" color="text.secondary">
-        Create accounts and assign roles. Manage what each role can do under{" "}
+        Manage accounts and assign roles. Manage what each role can do under{" "}
         <Button component={RouterLink} to="/admin/roles" size="small" sx={{ px: 0.5 }}>
           Roles
         </Button>
         .
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      <Card>
+      <ProfileSection />
+      <Card sx={surfaceSx}>
         <CardContent sx={{ px: { xs: 1, sm: 2 }, "&:last-child": { pb: 2 } }}>
           <Table size="small">
             <TableHead>

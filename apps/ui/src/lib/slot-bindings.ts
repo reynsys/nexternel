@@ -3,7 +3,7 @@ import type { Capability } from "../api";
 
 function nameMatches(cap: Capability, hints?: string[]): boolean {
   if (!hints?.length) return true;
-  const name = cap.name.toLowerCase();
+  const name = (cap.name ?? "").toLowerCase();
   return hints.some((h) => name.includes(h.toLowerCase()));
 }
 
@@ -23,7 +23,9 @@ export function suggestSlotBindings(
     pool = pool.filter((c) => c.deviceId === opts.deviceId);
   } else if (opts?.deviceName) {
     const needle = opts.deviceName.toLowerCase();
-    const onDevice = pool.filter((c) => c.deviceName.toLowerCase().includes(needle));
+    const onDevice = pool.filter((c) =>
+      (c.deviceName ?? "").toLowerCase().includes(needle)
+    );
     if (onDevice.length > 0) pool = onDevice;
   }
 

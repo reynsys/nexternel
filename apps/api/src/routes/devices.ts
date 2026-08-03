@@ -116,6 +116,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       shellyChannel?: unknown;
       shellySwitchCount?: unknown;
       shellyModelId?: unknown;
+      shellyGen?: unknown;
       ipAddress?: unknown;
       macAddress?: unknown;
       sensors?: EsphomeImportSuggestion["sensors"];
@@ -164,6 +165,15 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const shellyModelId =
       typeof body.shellyModelId === "string" ? body.shellyModelId.trim() : null;
 
+    const shellyGenRaw =
+      typeof body.shellyGen === "number"
+        ? body.shellyGen
+        : typeof body.shellyGen === "string"
+          ? Number(body.shellyGen)
+          : undefined;
+    const shellyGen =
+      shellyGenRaw === 1 || shellyGenRaw === 2 ? shellyGenRaw : undefined;
+
     try {
       const device = await createDevice({
         name,
@@ -176,6 +186,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
           ? (shellySwitchCount as number)
           : undefined,
         shellyModelId,
+        shellyGen,
         ipAddress: typeof body.ipAddress === "string" ? body.ipAddress : null,
         macAddress: typeof body.macAddress === "string" ? body.macAddress : null,
         sensors: Array.isArray(body.sensors) ? body.sensors : [],

@@ -1,7 +1,13 @@
 import type { PoolClient } from "pg";
 import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
-import { buildShellySwitchTopics } from "../shelly/topics.js";
+import {
+  buildShellyGen1RelayTopics,
+  buildShellyGen1TopicPrefix,
+  buildShellySwitchTopics,
+  isShellyGen1MqttPrefix,
+  resolveShellyGen,
+} from "../shelly/topics.js";
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
@@ -380,13 +386,23 @@ export async function createDevice(input: {
   /** Phase 3: number of switch outputs (overrides single-channel default). */
   shellySwitchCount?: number;
   shellyModelId?: string | null;
+  /** 1 = Gen1 (SHSW-1, …), 2 = Gen2/Gen3. */
+  shellyGen?: number;
   ipAddress?: string | null;
   macAddress?: string | null;
   sensors?: EsphomeImportSuggestion["sensors"];
   relays?: RelayInsert[];
 }): Promise<DeviceDetail> {
-  const mqttTopicPrefix = input.mqttTopicPrefix.trim().replace(/\/+$/, "");
   const firmwareType = (input.firmwareType || "esphome").trim().toLowerCase();
+  let mqttTopicPrefix = input.mqttTopicPrefix.trim().replace(/\/+$/, "");
+  if (firmwareType === "shelly") {
+    const shellyGen = resolveShellyGen(input.shellyGen, mqttTopicPrefix);
+    if (shellyGen === 1) {
+      mqttTopicPrefix = isShellyGen1MqttPrefix(mqttTopicPrefix)
+        ? mqttTopicPrefix
+        : buildShellyGen1TopicPrefix(mqttTopicPrefix);
+    }
+  }
   const slug = deviceSlugFromTopicPrefix(mqttTopicPrefix) || slugify(input.name);
   const esphomeName =
     firmwareType === "shelly"
@@ -397,6 +413,7 @@ export async function createDevice(input: {
   let relays = input.relays ?? [];
 
   if (firmwareType === "shelly" && relays.length === 0) {
+    const shellyGen = resolveShellyGen(input.shellyGen, mqttTopicPrefix);
     const switchCount = resolveShellySwitchCount({
       shellyModelId: input.shellyModelId,
       shellySwitchCount: input.shellySwitchCount,
@@ -410,7 +427,10 @@ export async function createDevice(input: {
       !input.shellyModelId &&
       input.shellySwitchCount == null
     ) {
-      const topics = buildShellySwitchTopics(mqttTopicPrefix, input.shellyChannel);
+      const topics =
+        shellyGen === 1
+          ? buildShellyGen1RelayTopics(mqttTopicPrefix, input.shellyChannel)
+          : buildShellySwitchTopics(mqttTopicPrefix, input.shellyChannel);
       relays = [
         {
           name: input.name.trim() || "Switch",
@@ -425,6 +445,7 @@ export async function createDevice(input: {
         deviceName: input.name.trim() || "Shelly",
         topicPrefix: mqttTopicPrefix,
         switchCount,
+        shellyGen,
       });
     }
   }
@@ -562,10 +583,15 @@ export async function updateDevice(
         id: string;
         esphome_entity_id: string | null;
       }>(`SELECT id, esphome_entity_id FROM relays WHERE device_id = $1`, [id]);
+      const shellyGen = resolveShellyGen(undefined, mqttTopicPrefix);
       for (const r of relays.rows) {
-        const m = /^switch:(\d+)$/i.exec(r.esphome_entity_id || "");
-        const channel = m ? Number(m[1]) : 0;
-        const topics = buildShellySwitchTopics(mqttTopicPrefix, channel);
+        const relayM = /^relay:(\d+)$/i.exec(r.esphome_entity_id || "");
+        const switchM = /^switch:(\d+)$/i.exec(r.esphome_entity_id || "");
+        const channel = relayM ? Number(relayM[1]) : switchM ? Number(switchM[1]) : 0;
+        const useGen1 = shellyGen === 1 || relayM != null;
+        const topics = useGen1
+          ? buildShellyGen1RelayTopics(mqttTopicPrefix, channel)
+          : buildShellySwitchTopics(mqttTopicPrefix, channel);
         await getPool().query(
           `UPDATE relays SET
              mqtt_state_topic = $2,

@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -36,6 +37,8 @@ import TabRoundedIcon from "@mui/icons-material/TabRounded";
 import {
   api,
   connectLiveSocket,
+  mergeCapabilitiesWithLiveCache,
+  recordLiveCapabilityState,
   type Capability,
   type DashboardDocument,
   type DashboardSection,
@@ -73,6 +76,7 @@ import { DashboardTabBar } from "../components/DashboardTabBar";
 import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
 import { DashboardErrorBoundary } from "../components/DashboardErrorBoundary";
 import { DashboardIconPicker } from "../components/DashboardIconPicker";
+import { CapabilityPicker } from "../components/CapabilityPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 import {
   defaultPresetForKind,
@@ -80,17 +84,20 @@ import {
   presetIdFromCatalogType,
 } from "../widgets/echarts";
 import {
-  capabilityPickerLabel,
   defaultWidgetTitle,
 } from "../lib/capability-labels";
 import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
 import { chromeSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive } from "../skins/useSurfaceStyles";
+import { resolveHomeDashboardId } from "../lib/home-dashboard";
 import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
 
 export function DashboardPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeDashboardId } = useParams<{ id?: string }>();
+  const [dashboardId, setDashboardId] = useState<string | null>(routeDashboardId ?? null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [bootError, setBootError] = useState<string | null>(null);
   const { permissions, isAdmin } = useShellAuth();
   const canEditDashboards = hasPermission(
     permissions,
@@ -155,6 +162,7 @@ export function DashboardPage() {
   const ordered = useMemo(() => sortSections(sections), [sections]);
 
   function applyLive(capabilityId: string, value: unknown, quality: string, updatedAt: string) {
+    recordLiveCapabilityState(capabilityId, value, quality, updatedAt);
     setCapabilities((prev) =>
       prev.map((c) =>
         c.id === capabilityId ? { ...c, state: { value, quality, updatedAt } } : c
@@ -187,21 +195,60 @@ export function DashboardPage() {
   }, [addOpen, addType, capabilities]);
 
   useEffect(() => {
-    if (!id) return;
+    let cancelled = false;
     void (async () => {
+      setPageLoading(true);
+      setBootError(null);
       try {
+        let targetId = routeDashboardId?.trim() || null;
+        if (!targetId) {
+          targetId = await resolveHomeDashboardId();
+        }
+        if (!targetId) {
+          if (!cancelled) {
+            setDashboardId(null);
+            setBootError("No dashboards yet — open Manage dashboards to create one.");
+          }
+          return;
+        }
         const [dash, caps] = await Promise.all([
-          api.getDashboard(id),
+          api.getDashboard(targetId),
           api.capabilities(),
         ]);
+        if (cancelled) return;
+        setDashboardId(targetId);
         loadDocument(dash.dashboard.document, dash.dashboard.name);
-        setCapabilities(caps.capabilities);
+        setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
         if (caps.capabilities[0]) setAddCapId(caps.capabilities[0].id);
+        setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        if (!cancelled) {
+          setBootError(err instanceof Error ? err.message : "Failed to load dashboard");
+        }
+      } finally {
+        if (!cancelled) setPageLoading(false);
       }
     })();
-  }, [id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [routeDashboardId]);
+
+  /** Default dashboard → clean `/` URL (hide internal UUID). */
+  useEffect(() => {
+    if (pageLoading || !dashboardId || !routeDashboardId) return;
+    let cancelled = false;
+    void api.dashboards().then((res) => {
+      if (cancelled) return;
+      const def = res.dashboards.find((d) => d.isDefault);
+      if (def?.id === dashboardId) {
+        window.history.replaceState(null, "", "/");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageLoading, dashboardId, routeDashboardId]);
 
   /** Reload capabilities when opening Add widget (picks up devices added after page load). */
   useEffect(() => {
@@ -209,7 +256,7 @@ export function DashboardPage() {
     void (async () => {
       try {
         const caps = await api.capabilities();
-        setCapabilities(caps.capabilities);
+        setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
         const switches = caps.capabilities.filter((c) => c.kind === "switch");
         if (addType === "switch" || addCategory === "controls") {
           setAddCapId((prev) =>
@@ -527,7 +574,7 @@ export function DashboardPage() {
   }
 
   async function save() {
-    if (!id) return;
+    if (!dashboardId) return;
     setSaving(true);
     setError(null);
     try {
@@ -543,7 +590,7 @@ export function DashboardPage() {
           colSpan: normalizeSectionColSpan(s.colSpan),
         })),
       };
-      await api.saveDashboard(id, { name, document });
+      await api.saveDashboard(dashboardId, { name, document });
       setEditMode(false);
       setTabRefreshKey((k) => k + 1);
     } catch (err) {
@@ -556,8 +603,21 @@ export function DashboardPage() {
   return (
     <DashboardErrorBoundary>
     <Stack spacing={2}>
+      {pageLoading && (
+        <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }} spacing={1}>
+          <CircularProgress size={28} />
+          <Typography variant="body2" color="text.secondary">
+            Loading dashboard…
+          </Typography>
+        </Stack>
+      )}
+      {!pageLoading && bootError && (
+        <Alert severity="error">{bootError}</Alert>
+      )}
+      {!pageLoading && !bootError && (
+      <>
       <DashboardTabBar
-        activeId={id}
+        activeId={dashboardId ?? undefined}
         refreshKey={tabRefreshKey}
         editMode={editMode}
         canEdit={canEditDashboards}
@@ -605,8 +665,8 @@ export function DashboardPage() {
                   setEditMode(false);
                   setTabMetaExpanded(false);
                   setManageExpanded(false);
-                  if (id) {
-                    void api.getDashboard(id).then((d) => {
+                  if (dashboardId) {
+                    void api.getDashboard(dashboardId).then((d) => {
                       loadDocument(d.dashboard.document, d.dashboard.name);
                     });
                   }
@@ -695,7 +755,7 @@ export function DashboardPage() {
             <AccordionDetails sx={{ pt: 0 }}>
               <ManageDashboardsPanel
                 compact
-                currentDashboardId={id}
+                currentDashboardId={dashboardId ?? undefined}
                 onDashboardsChanged={() => {
                   setTabRefreshKey((k) => k + 1);
                 }}
@@ -950,7 +1010,7 @@ export function DashboardPage() {
         </Box>
       </Popover>
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm" keepMounted={false}>
         <DialogTitle>Add widget</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -1076,27 +1136,17 @@ export function DashboardPage() {
               </FormControl>
             )}
             {(selectedEntry?.needsCapability ?? true) && !hasBindingSlots && (
-              <FormControl fullWidth>
-                <InputLabel id="cap">
-                  {addType === "switch" ? "Relay / switch" : "Capability"}
-                </InputLabel>
-                <Select
-                  labelId="cap"
-                  label={addType === "switch" ? "Relay / switch" : "Capability"}
-                  value={
-                    addCapabilityOptions.some((c) => c.id === addCapId)
-                      ? addCapId
-                      : addCapabilityOptions[0]?.id || ""
-                  }
-                  onChange={(e) => setAddCapId(e.target.value)}
-                >
-                  {addCapabilityOptions.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {capabilityPickerLabel(c)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <CapabilityPicker
+                capabilities={addCapabilityOptions}
+                value={
+                  addCapabilityOptions.some((c) => c.id === addCapId)
+                    ? addCapId
+                    : addCapabilityOptions[0]?.id ?? ""
+                }
+                onChange={setAddCapId}
+                label={addType === "switch" ? "Relay / switch" : "Sensor"}
+                disabled={addCapabilityOptions.length === 0}
+              />
             )}
             {hasBindingSlots && (
               <Stack spacing={1}>
@@ -1148,6 +1198,8 @@ export function DashboardPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      </>
+      )}
     </Stack>
     </DashboardErrorBoundary>
   );

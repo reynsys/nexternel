@@ -18,6 +18,10 @@ function capabilityIdOf(widget: WidgetInstance): string | null {
   return id ?? null;
 }
 
+function capName(cap: Capability): string {
+  return (cap.name ?? "").trim();
+}
+
 function findCap(caps: Capability[], widget: WidgetInstance): Capability | undefined {
   const id = capabilityIdOf(widget);
   if (id) {
@@ -36,7 +40,7 @@ function findCap(caps: Capability[], widget: WidgetInstance): Capability | undef
   }
   const title = widget.title?.trim().toLowerCase();
   if (title) {
-    const named = caps.filter((c) => c.name.trim().toLowerCase() === title);
+    const named = caps.filter((c) => capName(c).toLowerCase() === title);
     if (named.length === 1) return named[0];
     if (
       (title.includes("meter") || title.includes("gauge")) &&
@@ -47,9 +51,10 @@ function findCap(caps: Capability[], widget: WidgetInstance): Capability | undef
       if (power.length === 1) return power[0];
     }
     const partial = caps.filter(
-      (c) =>
-        title.includes(c.name.trim().toLowerCase()) ||
-        c.name.trim().toLowerCase().includes(title)
+      (c) => {
+        const name = capName(c).toLowerCase();
+        return name && (title.includes(name) || name.includes(title));
+      }
     );
     if (partial.length === 1) return partial[0];
     if (title.includes("power")) {
