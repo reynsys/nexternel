@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type SystemInfo, type WidgetInstance } from "../../api";
+import { APP_VERSION } from "../../version";
 import { generalWidgetHeading } from "./config";
 
 function formatUptime(seconds: number): string {
@@ -66,6 +67,11 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
         ? Math.round((mem.usedMb / mem.totalMb) * 100)
         : null;
 
+  const uptimeSeconds =
+    info?.hostUptimeSeconds != null && info.hostUptimeSeconds > 0
+      ? info.hostUptimeSeconds
+      : info?.uptimeSeconds;
+
   return (
     <Box
       sx={{
@@ -85,8 +91,8 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
         </Typography>
       )}
       <Stack spacing={0.5} sx={{ flex: 1, justifyContent: "center", minHeight: 0 }}>
-        <Row label="Version" value={info?.version ?? "—"} />
-        <Row label="Uptime" value={info ? formatUptime(info.uptimeSeconds) : "—"} />
+        <Row label="Version" value={APP_VERSION} />
+        <Row label="Uptime" value={uptimeSeconds != null ? formatUptime(uptimeSeconds) : "—"} />
         <Row label="CPU" value={info ? `${info.cpu.loadPercent}%` : "—"} />
         <Row label="RAM" value={memPercent != null ? `${memPercent}%` : "—"} />
         <Row

@@ -95,3 +95,15 @@ export async function readMemoryStats(): Promise<MemoryStats> {
       totalMem > 0 ? Math.min(100, Math.round((usedMem / totalMem) * 100)) : 0,
   };
 }
+
+/** Linux host uptime from /proc/uptime (seconds), or null outside Linux. */
+export async function readHostUptimeSeconds(): Promise<number | null> {
+  try {
+    const raw = await readFile("/proc/uptime", "utf8");
+    const sec = Number.parseFloat(raw.split(/\s+/)[0] ?? "");
+    if (!Number.isFinite(sec) || sec < 0) return null;
+    return Math.floor(sec);
+  } catch {
+    return null;
+  }
+}

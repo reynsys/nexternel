@@ -1,12 +1,19 @@
+import { useTheme } from "@mui/material/styles";
 import { useSkin } from "./SkinProvider";
 import { gradientCss } from "./gradientPalettes";
-import { contentSurfaceSx } from "./surfaceStyles";
+import {
+  contentSurfaceSx,
+  metricTileSurfaceSx,
+  nestedContentPanelSx,
+} from "./surfaceStyles";
 
 export {
   chromeSurfaceSx,
   contentSurfaceSx,
   isGradientActive,
   contentPanelStyles,
+  metricTileSurfaceSx,
+  nestedContentPanelSx,
 } from "./surfaceStyles";
 
 /** True when Appearance has a page gradient selected (not Off). */
@@ -26,4 +33,19 @@ export function useContentSurfaceSx() {
   const gradientActive = useGradientActive();
   const solidContentPanels = useSolidContentPanels();
   return contentSurfaceSx(gradientActive, solidContentPanels);
+}
+
+export function useNestedContentPanelSx() {
+  const theme = useTheme();
+  const gradientActive = useGradientActive();
+  const solidContentPanels = useSolidContentPanels();
+  return nestedContentPanelSx(theme, gradientActive, solidContentPanels);
+}
+
+/** Air quality / nested metric tiles inside widget cards. */
+export function useMetricTileSurfaceSx() {
+  const theme = useTheme();
+  const gradientActive = useGradientActive();
+  const solidContentPanels = useSolidContentPanels();
+  return metricTileSurfaceSx(theme, gradientActive, solidContentPanels);
 }

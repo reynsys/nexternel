@@ -8,7 +8,10 @@ import {
 import { resolveWidgetTitle } from "../lib/widget-title";
 import { primaryCapabilityId } from "../lib/widget-bindings";
 import { contentSurfaceSx } from "../skins/surfaceStyles";
-import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
+import {
+  useGradientActive,
+  useSolidContentPanels,
+} from "../skins/useSurfaceStyles";
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
 import { getWidgetContribution } from "../plugins/registry";

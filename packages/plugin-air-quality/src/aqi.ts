@@ -38,57 +38,50 @@ export function aqiColor(aqi: number): string {
   return "#7e0023";
 }
 
-/** Tinted badge colours — readable on light and dark dashboard panels. */
-export function aqiBadgeStyle(aqi: number): {
+/** Band pill colours for the AQI label (Good / Moderate / …). */
+export function aqiBandPillStyle(aqi: number): {
   background: string;
   border: string;
-  labelColor: string;
-  valueColor: string;
+  text: string;
 } {
   if (aqi <= 50) {
     return {
-      background: "rgba(0, 168, 56, 0.22)",
-      border: "rgba(0, 168, 56, 0.55)",
-      labelColor: "#0b5d2e",
-      valueColor: "#064a24",
+      background: "#00ff55",
+      border: "rgba(0, 204, 68, 0.55)",
+      text: "#052e16",
     };
   }
   if (aqi <= 100) {
     return {
-      background: "rgba(255, 214, 0, 0.28)",
+      background: "#ffd600",
       border: "rgba(180, 140, 0, 0.55)",
-      labelColor: "#6b4e00",
-      valueColor: "#4a3600",
+      text: "#3d2f00",
     };
   }
   if (aqi <= 150) {
     return {
-      background: "rgba(255, 126, 0, 0.24)",
+      background: "#ff9100",
       border: "rgba(200, 90, 0, 0.55)",
-      labelColor: "#8a3d00",
-      valueColor: "#6b2f00",
+      text: "#3d1a00",
     };
   }
   if (aqi <= 200) {
     return {
-      background: "rgba(255, 0, 0, 0.18)",
+      background: "#ff1744",
       border: "rgba(200, 0, 0, 0.5)",
-      labelColor: "#8b0000",
-      valueColor: "#6b0000",
+      text: "#fff",
     };
   }
   if (aqi <= 300) {
     return {
-      background: "rgba(143, 63, 151, 0.22)",
+      background: "#8f3f97",
       border: "rgba(110, 48, 118, 0.55)",
-      labelColor: "#5c2860",
-      valueColor: "#421d45",
+      text: "#fff",
     };
   }
   return {
-    background: "rgba(126, 0, 35, 0.22)",
+    background: "#7e0023",
     border: "rgba(100, 0, 28, 0.55)",
-    labelColor: "#5c0018",
-    valueColor: "#420012",
+    text: "#fff",
   };
 }

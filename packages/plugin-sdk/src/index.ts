@@ -63,7 +63,7 @@ export interface PluginHostContext {
   registerDriver(driverId: string): void;
 }
 
-/** Optional props the UI host may pass to plugin widget components. */
+  /** Optional props the UI host may pass to plugin widget components. */
 export type PluginWidgetHostProps = {
   editMode?: boolean;
   onCapabilityCommand?: (

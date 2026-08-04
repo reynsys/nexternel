@@ -6,7 +6,7 @@ import { getMqttStatus } from "../telemetry/mqtt.js";
 import { config } from "../config.js";
 import { APP_VERSION } from "../version.js";
 import { readServerTemperatureC } from "../lib/server-temperature.js";
-import { readMemoryStats, sampleCpuLoadPercent } from "../lib/host-metrics.js";
+import { readMemoryStats, readHostUptimeSeconds, sampleCpuLoadPercent } from "../lib/host-metrics.js";
 
 const WAN_CACHE_TTL_MS = 5 * 60_000;
 let wanCache: { ip: string | null; at: number } | null = null;
@@ -58,11 +58,12 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
     const cpuCount = cpus.length || 1;
     const loadPercent = sampleCpuLoadPercent();
 
-    const [database, wanIp, temperatureC, memory] = await Promise.all([
+    const [database, wanIp, temperatureC, memory, hostUptimeSeconds] = await Promise.all([
       checkDatabase(),
       resolveWanIp(),
       readServerTemperatureC(),
       readMemoryStats(),
+      readHostUptimeSeconds(),
     ]);
     const mqtt = getMqttStatus();
     const lan = lanIp();
@@ -71,8 +72,10 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
     return {
       version: APP_VERSION,
       service: "api",
-      /** API container process uptime (not host OS uptime). */
+      /** API container process uptime (resets when the api service restarts). */
       uptimeSeconds: Math.floor(process.uptime()),
+      /** Host OS uptime when /proc/uptime is available. */
+      hostUptimeSeconds,
       cpu: {
         model: cpus[0]?.model?.trim() || "CPU",
         cores: cpuCount,

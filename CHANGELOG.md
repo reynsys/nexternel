@@ -14,6 +14,55 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.183 — 04/08/2026
+
+- **System information widget:** Version matches sidebar (UI release); uptime uses host OS uptime when available
+- **API:** expose `hostUptimeSeconds` on `/api/v1/system` (CPU/RAM/temperature unchanged)
+
+## V3.1.182 — 04/08/2026
+
+- **Air quality widget:** numeric values use Appearance accent colour (same as gauge/chart widgets)
+
+## V3.1.181 — 04/08/2026
+
+- **Air quality widget:** text colours from theme palette (same as ECharts widgets); metric tiles use accent-tinted borders/backgrounds
+
+## V3.1.180 — 04/08/2026
+
+- **Air quality widget:** metric tiles use Appearance-aware nested surfaces (frosted gradient / grey.50) via skin hooks
+
+## V3.1.179 — 04/08/2026
+
+- **Air quality widget:** metric tiles use theme `Card` surfaces (gradient / solid Appearance); outlined `Paper` widgets match dashboard panel styling
+
+## V3.1.178 — 04/08/2026
+
+- **Air quality widget:** fix UI Docker build (MUI widget component lives in apps/ui)
+
+## V3.1.177 — 04/08/2026
+
+- **Air quality widget:** vertically balanced layout; MUI theme + Appearance nested panels on metric tiles; primary Measure button
+
+## V3.1.176 — 04/08/2026
+
+- **Air quality widget:** AQI row sits closer to PM tiles; label/value use theme text colours (band pill unchanged)
+
+## V3.1.175 — 04/08/2026
+
+- **Air quality widget:** remove duplicate title below area; remove outer AQI row tinted box (band pill unchanged)
+
+## V3.1.174 — 04/08/2026
+
+- **Air quality widget:** restore original AQI row layout and area line; Good band pill uses `#00ff55`; hide duplicate in-widget “Air quality” title
+
+## V3.1.173 — 04/08/2026
+
+- **Air quality widget:** fix UI build (quoted CSS minWidth in AQI pills)
+
+## V3.1.172 — 04/08/2026
+
+- **Air quality widget:** centered AQI row with vivid value/band pills; removed duplicate title/area chrome
+
 ## V3.1.171 — 03/08/2026
 
 - **UI:** Settings and dashboard tab bars use outlined/contained buttons (clearly clickable); admin sections use consistent card panels

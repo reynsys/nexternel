@@ -10,6 +10,7 @@ const GENERAL_PLACEHOLDERS: Record<string, string[]> = {
   system_info: ["System information", "System", "system_info"],
   device_status: ["Device status", "Devices", "device_status"],
   "plugin.clock": ["Clock", "plugin.clock"],
+  "plugin.air-quality": ["Air quality", "Air Quality", "plugin.air-quality"],
 };
 
 export function kindLabelForWidgetType(type: string): string {

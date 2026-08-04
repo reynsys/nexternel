@@ -1075,6 +1075,7 @@ export type SystemInfo = {
   version: string;
   service: string;
   uptimeSeconds: number;
+  hostUptimeSeconds?: number | null;
   cpu: { model: string; cores: number; loadPercent: number };
   memory: { totalMb: number; usedMb: number; freeMb: number; percent?: number };
   /** Host CPU / board temperature (°C), when thermal zones are available */

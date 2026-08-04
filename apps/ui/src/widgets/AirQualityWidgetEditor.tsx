@@ -29,7 +29,9 @@ export function AirQualityWidgetEditor({ open, widget, capabilities, onClose, on
   useEffect(() => {
     if (!open || !widget) return;
     const raw = widget.title?.trim() ?? "";
-    setTitle(raw && raw !== "Air quality" && raw !== AIR_QUALITY_WIDGET_TYPE ? raw : "");
+    setTitle(
+      raw && raw.toLowerCase() !== "air quality" && raw !== AIR_QUALITY_WIDGET_TYPE ? raw : ""
+    );
     const b = parseWidgetBindings(widget.bindings);
     setSlots({ ...(b.slots ?? {}) });
   }, [open, widget]);
