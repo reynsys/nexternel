@@ -22,6 +22,8 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import EditIcon from "@mui/icons-material/Edit";
@@ -117,6 +119,26 @@ export function ManageDashboardsPanel({
     }
   }
 
+  async function moveDashboard(id: string, dir: -1 | 1) {
+    const idx = dashboards.findIndex((d) => d.id === id);
+    if (idx < 0) return;
+    const swap = idx + dir;
+    if (swap < 0 || swap >= dashboards.length) return;
+    const next = [...dashboards];
+    const [item] = next.splice(idx, 1);
+    next.splice(swap, 0, item);
+    setDashboards(next);
+    setError(null);
+    try {
+      const res = await api.reorderDashboards(next.map((d) => d.id));
+      setDashboards(res.dashboards);
+      notifyChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reorder tabs");
+      await load();
+    }
+  }
+
   async function openEdit(d: DashboardSummary) {
     setError(null);
     try {
@@ -180,7 +202,8 @@ export function ManageDashboardsPanel({
       )}
       {compact && (
         <Typography variant="body2" color="text.secondary">
-          Create dashboards, set the login default (star), and choose tab icons.
+          Create dashboards, set the login default (star), choose tab icons, and use the arrows
+          to set tab bar order.
         </Typography>
       )}
       {error && <Alert severity="error">{error}</Alert>}
@@ -203,13 +226,31 @@ export function ManageDashboardsPanel({
       </Stack>
 
       <List dense={compact}>
-        {dashboards.map((d) => {
+        {dashboards.map((d, index) => {
           const Icon = getDashboardIcon(d.tabIcon);
           return (
             <ListItem
               key={d.id}
               secondaryAction={
                 <Stack direction="row" spacing={0.5}>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    aria-label="Move tab left"
+                    disabled={index === 0}
+                    onClick={() => void moveDashboard(d.id, -1)}
+                  >
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    aria-label="Move tab right"
+                    disabled={index === dashboards.length - 1}
+                    onClick={() => void moveDashboard(d.id, 1)}
+                  >
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
                   <IconButton
                     edge="end"
                     aria-label="Open"

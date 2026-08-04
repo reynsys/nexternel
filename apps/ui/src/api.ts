@@ -812,6 +812,12 @@ export const api = {
   deleteDashboard: (id: string) =>
     apiFetch<{ ok: boolean }>(`/api/v1/dashboards/${id}`, { method: "DELETE" }),
 
+  reorderDashboards: (orderedIds: string[]) =>
+    apiFetch<{ dashboards: DashboardSummary[] }>("/api/v1/dashboards/reorder", {
+      method: "POST",
+      body: JSON.stringify({ orderedIds }),
+    }),
+
   history: (capabilityId: string, range: HistoryRange = "24h") =>
     apiFetch<HistoryResponse>(
       `/api/v1/history?capabilityId=${encodeURIComponent(capabilityId)}&range=${encodeURIComponent(range)}`

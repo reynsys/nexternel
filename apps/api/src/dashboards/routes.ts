@@ -6,6 +6,7 @@ import {
   deleteDashboard,
   getDashboard,
   listDashboards,
+  reorderDashboards,
   updateDashboard,
 } from "../dashboards/store.js";
 
@@ -45,6 +46,28 @@ export const dashboardsRoutes: FastifyPluginAsync = async (app) => {
     });
     return { dashboard: toDto(row) };
   });
+
+  app.post<{ Body: { orderedIds?: string[] } }>(
+    "/api/v1/dashboards/reorder",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDashboards")) return;
+      const orderedIds = request.body?.orderedIds;
+      if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return reply.code(400).send({
+          error: { code: "bad_request", message: "orderedIds must be a non-empty array" },
+        });
+      }
+      const ids = orderedIds.filter((id) => typeof id === "string" && id.trim());
+      if (ids.length === 0) {
+        return reply.code(400).send({
+          error: { code: "bad_request", message: "orderedIds must contain dashboard ids" },
+        });
+      }
+      await reorderDashboards(ids);
+      const rows = await listDashboards(request.user!.id);
+      return { dashboards: rows.map((r) => toDto(r)) };
+    }
+  );
 
   app.get<{ Params: { id: string } }>("/api/v1/dashboards/:id", async (request, reply) => {
     if (!requirePermission(request, reply, "viewDashboards")) return;

@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.184 — 04/08/2026
+
+- **Dashboard tabs:** reorder top navigation tabs (Dashboard options → arrow buttons); order persisted in database
+
 ## V3.1.183 — 04/08/2026
 
 - **System information widget:** Version matches sidebar (UI release); uptime uses host OS uptime when available
