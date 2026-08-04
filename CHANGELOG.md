@@ -14,6 +14,14 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.187 — 04/08/2026
+
+- **Controls:** Action button widget (filled / outline / flat, optional icon, Appearance accent when on) and Momentary pulse widget (timed ON then OFF for gates and latching relays)
+
+## V3.1.186 — 04/08/2026
+
+- **Switch widgets:** five MUI styles — classic toggle, icon tile (accent when on), power button, ON/OFF buttons, compact icon + toggle; icon picker in edit mode uses dashboard icon catalog and Appearance accent
+
 ## V3.1.185 — 04/08/2026
 
 - **Switch widget picker:** hide internal ESPHome outputs (Glow status LED GPIO, output green/red) and ghost relays no longer in YAML (e.g. Fan Relay); API reconciles ESPHome YAML on startup and prunes stale relay rows

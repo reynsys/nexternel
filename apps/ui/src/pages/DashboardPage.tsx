@@ -87,6 +87,10 @@ import {
   defaultWidgetTitle,
   controllableSwitches,
 } from "../lib/capability-labels";
+import {
+  isSwitchWidgetType,
+  switchDefaultLayout,
+} from "../widgets/switch";
 import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
 import { chromeSurfaceSx } from "../skins/surfaceStyles";
@@ -151,7 +155,7 @@ export function DashboardPage() {
     if (presetId && getEchartsPreset(presetId).dataMode === "history") {
       return capabilities.filter((c) => c.kind !== "switch");
     }
-    if (addType === "switch") {
+    if (isSwitchWidgetType(addType)) {
       return controllableSwitches(capabilities);
     }
     if (addType === "stat") {
@@ -259,7 +263,7 @@ export function DashboardPage() {
         const caps = await api.capabilities();
         setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
         const switches = controllableSwitches(caps.capabilities);
-        if (addType === "switch" || addCategory === "controls") {
+        if (isSwitchWidgetType(addType) || addCategory === "controls") {
           setAddCapId((prev) =>
             switches.some((c) => c.id === prev) ? prev : switches[0]?.id ?? ""
           );
@@ -392,7 +396,7 @@ export function DashboardPage() {
 
     if (requiresCapability && !effectiveCapId) {
       setError(
-        addType === "switch"
+        isSwitchWidgetType(addType)
           ? "No switch/relay capability available — register a device first"
           : "Choose a capability first"
       );
@@ -428,9 +432,11 @@ export function DashboardPage() {
     const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
     const generalSize = isGeneralWidgetType(type) ? generalDefaultSize(type) : null;
     const pluginSize = plugin?.defaultSize;
+    const switchLayout = isSwitchWidgetType(type) ? switchDefaultLayout(type) : null;
     const size = preset?.defaultSize ??
       pluginSize ??
-      generalSize ?? {
+      generalSize ??
+      (switchLayout ? { w: switchLayout.w, h: switchLayout.h } : null) ?? {
         w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
         h: type === "plugin.clock" ? 3 : type === AIR_QUALITY_WIDGET_TYPE ? 4 : 3,
       };
@@ -460,7 +466,7 @@ export function DashboardPage() {
     const title =
       type === "plugin.clock" || type === AIR_QUALITY_WIDGET_TYPE || isGeneralWidgetType(type)
         ? undefined
-        : type === "switch" || type === "stat" || addType === "auto"
+        : isSwitchWidgetType(type) || type === "stat" || addType === "auto"
           ? defaultWidgetTitle(cap, entry?.label || type)
           : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
 
@@ -478,8 +484,8 @@ export function DashboardPage() {
             y: pos.y,
             w,
             h,
-            minW: preset?.dataMode === "history" ? 3 : 2,
-            minH: preset?.dataMode === "history" ? 3 : 2,
+            minW: preset?.dataMode === "history" ? 3 : switchLayout?.minW ?? 2,
+            minH: preset?.dataMode === "history" ? 3 : switchLayout?.minH ?? 2,
           },
           bindings: hasSlots
             ? bindingsFromSlots(addSlotValues)
@@ -1080,7 +1086,7 @@ export function DashboardPage() {
                   const entry = getCatalogEntry(next);
                   const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
                   let pool = capabilities;
-                  if (next === "switch") {
+                  if (isSwitchWidgetType(next)) {
                     pool = controllableSwitches(capabilities);
                   } else if (
                     next === "stat" ||
@@ -1145,7 +1151,7 @@ export function DashboardPage() {
                     : addCapabilityOptions[0]?.id ?? ""
                 }
                 onChange={setAddCapId}
-                label={addType === "switch" ? "Relay / switch" : "Sensor"}
+                label={isSwitchWidgetType(addType) ? "Relay / switch" : "Sensor"}
                 disabled={addCapabilityOptions.length === 0}
               />
             )}
@@ -1162,7 +1168,7 @@ export function DashboardPage() {
                 />
               </Stack>
             )}
-            {addType === "switch" && addCapabilityOptions.length === 0 && (
+            {isSwitchWidgetType(addType) && addCapabilityOptions.length === 0 && (
               <Typography variant="caption" color="warning.main">
                 No switches found. Add a device under Devices (ESPHome or Shelly), then
                 open Add widget again.

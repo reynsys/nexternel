@@ -1,6 +1,8 @@
 import type { Capability, WidgetInstance } from "../api";
 import { defaultWidgetTitle } from "./capability-labels";
 
+import { switchWidgetLabel, isSwitchWidgetType } from "../widgets/switch";
+
 const CORE_PLACEHOLDERS = new Set(["Switch", "Stat", "Auto", "Widget"]);
 
 /** Catalog / type labels that should not count as a custom title. */
@@ -14,7 +16,7 @@ const GENERAL_PLACEHOLDERS: Record<string, string[]> = {
 };
 
 export function kindLabelForWidgetType(type: string): string {
-  if (type === "switch") return "Switch";
+  if (isSwitchWidgetType(type)) return switchWidgetLabel(type);
   if (type === "stat") return "Stat";
   if (type === "auto") return "Auto";
   return type;
@@ -31,6 +33,7 @@ export function isPlaceholderWidgetTitle(
   if (/^(switch|relay)([_\s-]?\d+)?$/i.test(t)) return true;
   const extras = GENERAL_PLACEHOLDERS[type];
   if (extras?.includes(t)) return true;
+  if (isSwitchWidgetType(type) && t === switchWidgetLabel(type)) return true;
   return false;
 }
 

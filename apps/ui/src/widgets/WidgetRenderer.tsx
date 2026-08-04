@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Box, Paper, Stack, Switch, Typography } from "@mui/material";
+import { Box, Paper, Stack, Typography } from "@mui/material";
 import type { Capability } from "../api";
 import { api, type WidgetInstance } from "../api";
 import {
@@ -15,6 +14,7 @@ import {
 import { EChartsWidgetBody, isEchartsWidgetType, migrateWidgetToEcharts } from "./echarts";
 import { GeneralWidgetBody, isGeneralWidgetType } from "./general";
 import { getWidgetContribution } from "../plugins/registry";
+import { SwitchWidgetBody, isSwitchWidgetType } from "./switch";
 
 function capabilityIdOf(widget: WidgetInstance): string | null {
   const id = primaryCapabilityId(widget.bindings);
@@ -116,15 +116,16 @@ export function WidgetRenderer({
   const PluginComponent = plugin?.Component;
   const isClock = rawWidget.type === "plugin.clock";
   const isGeneral = isGeneralWidgetType(widget.type);
+  const isSwitch = isSwitchWidgetType(widget.type);
   const showHeader =
     !isClock &&
     !isGeneral &&
     (chrome
       ? Boolean(title) ||
-        widget.type === "switch" ||
+        isSwitch ||
         widget.type === "stat" ||
         Boolean(cap)
-      : Boolean(title) || widget.type === "switch" || widget.type === "stat");
+      : Boolean(title) || isSwitch || widget.type === "stat");
 
   const body = (
     <>
@@ -184,8 +185,9 @@ export function WidgetRenderer({
           />
         ) : isGeneralWidgetType(widget.type) ? (
           <GeneralWidgetBody widget={widget} />
-        ) : widget.type === "switch" ? (
+        ) : isSwitch ? (
           <SwitchWidgetBody
+            widget={widget}
             cap={cap}
             disabled={editMode}
             onCapabilityState={onCapabilityState}
@@ -255,87 +257,6 @@ function StatWidgetBody({ cap }: { cap: Capability | undefined }) {
       <Typography variant="caption" color="text.secondary">
         {cap ? cap.kind : "No capability bound"}
       </Typography>
-    </Stack>
-  );
-}
-
-function SwitchWidgetBody({
-  cap,
-  disabled,
-  onCapabilityState,
-}: {
-  cap: Capability | undefined;
-  disabled: boolean;
-  onCapabilityState?: (
-    capabilityId: string,
-    value: unknown,
-    quality?: string,
-    updatedAt?: string
-  ) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /** Optimistic override until parent/WS confirms (covers dead live socket). */
-  const [pending, setPending] = useState<boolean | null>(null);
-  const remoteOn = cap?.state?.value === true;
-  const on = pending ?? remoteOn;
-
-  useEffect(() => {
-    if (pending !== null && remoteOn === pending) {
-      setPending(null);
-    }
-  }, [pending, remoteOn]);
-
-  async function toggle() {
-    if (!cap?.hasCommand || disabled || busy) return;
-    const previous = on;
-    const next = !previous;
-    setBusy(true);
-    setError(null);
-    setPending(next);
-    onCapabilityState?.(cap.id, next, "good", new Date().toISOString());
-    try {
-      // Explicit on/off from what the user sees — not server-side toggle of a possibly stale cache.
-      const res = await api.command(cap.id, next ? "on" : "off");
-      const value = res.value;
-      setPending(value);
-      onCapabilityState?.(cap.id, value, "good", new Date().toISOString());
-    } catch (err) {
-      setPending(null);
-      onCapabilityState?.(
-        cap.id,
-        previous,
-        cap.state?.quality ?? "unknown",
-        cap.state?.updatedAt ?? new Date().toISOString()
-      );
-      setError(err instanceof Error ? err.message : "Command failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Stack height="100%" justifyContent="center" spacing={0.5}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="h6" color={on ? "success.main" : "text.secondary"}>
-          {cap ? (on ? "ON" : "OFF") : "—"}
-        </Typography>
-        <Switch
-          checked={on}
-          disabled={disabled || busy || !cap?.hasCommand}
-          onChange={() => void toggle()}
-          inputProps={{
-            "aria-label": cap
-              ? `Toggle ${cap.name} on ${cap.deviceName}`
-              : "Toggle switch",
-          }}
-        />
-      </Stack>
-      {error && (
-        <Typography variant="caption" color="error">
-          {error}
-        </Typography>
-      )}
     </Stack>
   );
 }

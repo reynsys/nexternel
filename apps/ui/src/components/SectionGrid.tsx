@@ -18,6 +18,7 @@ import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
 import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
 import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
+import { SwitchWidgetEditor, isSwitchWidgetType, switchWidgetLabel } from "../widgets/switch";
 import { AirQualityWidgetEditor } from "../widgets/AirQualityWidgetEditor";
 import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
 import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
@@ -53,7 +54,7 @@ type Props = {
 };
 
 function isCoreEditable(type: string): boolean {
-  return type === "switch" || type === "stat";
+  return type === "stat";
 }
 
 function isClockWidget(type: string): boolean {
@@ -137,6 +138,7 @@ export function SectionGrid({
     : null;
   const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
   const editingCore = editing ? isCoreEditable(editing.type) : false;
+  const editingSwitch = editing ? isSwitchWidgetType(editing.type) : false;
   const editingClock = editing ? isClockWidget(editing.type) : false;
   const editingAirQuality = editing ? isAirQualityWidget(editing.type) : false;
   const editingGeneral = editing ? isGeneralWidgetType(editing.type) : false;
@@ -247,11 +249,12 @@ export function SectionGrid({
         >
           {widgets.map((w) => {
             const echarts = isEchartsWidgetType(w.type);
+            const switchWidget = isSwitchWidgetType(w.type);
             const core = isCoreEditable(w.type);
             const clock = isClockWidget(w.type);
             const airQuality = isAirQualityWidget(w.type);
             const general = isGeneralWidgetType(w.type);
-            const canEdit = echarts || core || clock || airQuality || general;
+            const canEdit = echarts || core || switchWidget || clock || airQuality || general;
             return (
               <div key={w.id} data-nx-grid-widget={w.id}>
                 <Paper
@@ -338,8 +341,8 @@ export function SectionGrid({
                                       : w.type === "camera"
                                         ? "Camera"
                                         : "General"
-                              : w.type === "switch"
-                                ? "Switch"
+                              : switchWidget
+                                ? switchWidgetLabel(w.type)
                                 : w.type === "stat"
                                   ? "Stat"
                                   : "Widget"}
@@ -415,6 +418,22 @@ export function SectionGrid({
               type: patch.type ?? "echarts",
               bindings: patch.bindings ?? editing.bindings,
               config: nextConfig,
+            });
+          }}
+        />
+      )}
+
+      {editingSwitch && editing && (
+        <SwitchWidgetEditor
+          open
+          widget={editing}
+          capabilities={capabilities}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
+            onUpdateWidget(sectionId, editing.id, {
+              title: patch.title,
+              bindings: patch.bindings ?? editing.bindings,
+              config: patch.config ?? editing.config,
             });
           }}
         />
