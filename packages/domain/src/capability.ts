@@ -64,3 +64,28 @@ export const CapabilityMetaSchema = z.object({
 });
 
 export type CapabilityMeta = z.infer<typeof CapabilityMetaSchema>;
+
+/** ESPHome internal GPIO outputs / status LEDs — not user-facing relays. */
+export function isInternalRelayEntity(
+  name: string,
+  entityId?: string | null
+): boolean {
+  const n = name.trim().toLowerCase();
+  const id = (entityId ?? "").trim().toLowerCase();
+  if (id.startsWith("output_") || id.startsWith("led_")) return true;
+  if (/^output\s/.test(n)) return true;
+  if (n === "red" || n === "green") return true;
+  return false;
+}
+
+/** Switch capabilities that can be toggled from the dashboard (not internal GPIO). */
+export function isUserControllableSwitch(
+  kind: string,
+  hasCommand: boolean,
+  name: string,
+  entityId?: string | null
+): boolean {
+  if (kind !== "switch") return false;
+  if (!hasCommand) return false;
+  return !isInternalRelayEntity(name, entityId);
+}

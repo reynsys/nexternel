@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { getPool } from "../db.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
+import { suggestFromEsphomeCandidates } from "../esphome/yaml.js";
 import {
   buildShellyGen1RelayTopics,
   buildShellyGen1TopicPrefix,
@@ -628,6 +629,43 @@ export async function deleteDevice(id: string): Promise<boolean> {
     id,
   ]);
   return (result.rowCount ?? 0) > 0;
+}
+
+/** Re-import YAML for every ESPHome device — prunes ghost relays (e.g. removed Fan Relay). */
+export async function reconcileAllEsphomeDevicesFromYaml(): Promise<{
+  reconciled: number;
+  skipped: number;
+  errors: number;
+}> {
+  const devices = await listDevicesDetailed();
+  let reconciled = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const d of devices) {
+    if (d.firmwareType !== "esphome") {
+      skipped += 1;
+      continue;
+    }
+    const candidates = [
+      d.esphomeName,
+      d.slug,
+      d.mqttTopicPrefix?.split("/").pop(),
+    ].filter((c): c is string => Boolean(c?.trim()));
+    const suggestion = await suggestFromEsphomeCandidates(candidates);
+    if (!suggestion) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      await syncDeviceFromEsphomeSuggestion(d.id, suggestion);
+      reconciled += 1;
+    } catch {
+      errors += 1;
+    }
+  }
+
+  return { reconciled, skipped, errors };
 }
 
 export async function syncDeviceFromEsphomeSuggestion(

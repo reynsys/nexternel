@@ -98,6 +98,28 @@ try {
   await ensureOctopusSchema();
   const adminSeed = await ensureAdminFromEnv();
   app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
+  try {
+    const { reconcileAllEsphomeDevicesFromYaml } = await import(
+      "./devices/service.js"
+    );
+    const { pruneInternalRelayRows } = await import(
+      "./capabilities/cleanup.js"
+    );
+    const reconciled = await reconcileAllEsphomeDevicesFromYaml();
+    const prunedInternal = await pruneInternalRelayRows();
+    if (
+      reconciled.reconciled > 0 ||
+      reconciled.errors > 0 ||
+      prunedInternal > 0
+    ) {
+      app.log.info(
+        { reconciled, prunedInternal },
+        "ESPHome YAML reconcile / internal relay prune"
+      );
+    }
+  } catch (err) {
+    app.log.warn({ err }, "ESPHome YAML reconcile skipped");
+  }
   const synced = await syncCapabilitiesFromLegacy();
   app.log.info(synced, "capabilities synced from sensors/relays");
   try {

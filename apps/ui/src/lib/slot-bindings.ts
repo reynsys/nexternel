@@ -1,5 +1,6 @@
 import type { WidgetBindingSlotDef } from "@nexternel/plugin-sdk";
 import type { Capability } from "../api";
+import { isControllableSwitch } from "./capability-labels";
 
 function nameMatches(cap: Capability, hints?: string[]): boolean {
   if (!hints?.length) return true;
@@ -34,7 +35,11 @@ export function suggestSlotBindings(
 
   for (const slot of slots) {
     const candidates = pool.filter(
-      (c) => !used.has(c.id) && kindMatches(c, slot.kinds) && nameMatches(c, slot.nameHints)
+      (c) =>
+        !used.has(c.id) &&
+        kindMatches(c, slot.kinds) &&
+        nameMatches(c, slot.nameHints) &&
+        (c.kind !== "switch" || isControllableSwitch(c))
     );
     const match = candidates[0];
     if (match) {
@@ -50,5 +55,10 @@ export function capabilitiesForSlot(
   capabilities: Capability[],
   slot: WidgetBindingSlotDef
 ): Capability[] {
-  return capabilities.filter((c) => kindMatches(c, slot.kinds) && nameMatches(c, slot.nameHints));
+  return capabilities.filter(
+    (c) =>
+      kindMatches(c, slot.kinds) &&
+      nameMatches(c, slot.nameHints) &&
+      (c.kind !== "switch" || isControllableSwitch(c))
+  );
 }

@@ -105,5 +105,8 @@ export async function syncCapabilitiesFromLegacy(): Promise<{
        AND NOT EXISTS (SELECT 1 FROM relays r WHERE r.id = c.source_id)`
   );
 
+  const { pruneInternalRelayRows } = await import("./cleanup.js");
+  await pruneInternalRelayRows();
+
   return { sensors: sensorCount, relays: relayCount };
 }

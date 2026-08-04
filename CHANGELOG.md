@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V3.1.185 — 04/08/2026
+
+- **Switch widget picker:** hide internal ESPHome outputs (Glow status LED GPIO, output green/red) and ghost relays no longer in YAML (e.g. Fan Relay); API reconciles ESPHome YAML on startup and prunes stale relay rows
+
 ## V3.1.184 — 04/08/2026
 
 - **Dashboard tabs:** reorder top navigation tabs (Dashboard options → arrow buttons); order persisted in database

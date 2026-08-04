@@ -1,5 +1,29 @@
 import type { Capability } from "../api";
 
+/** ESPHome internal GPIO outputs / status LEDs — not user-facing relays. */
+export function isInternalRelayEntity(
+  name: string,
+  entityId?: string | null
+): boolean {
+  const n = name.trim().toLowerCase();
+  const id = (entityId ?? "").trim().toLowerCase();
+  if (id.startsWith("output_") || id.startsWith("led_")) return true;
+  if (/^output\s/.test(n)) return true;
+  if (n === "red" || n === "green") return true;
+  return false;
+}
+
+/** Switch capabilities eligible for relay widgets and the add-widget picker. */
+export function isControllableSwitch(cap: Capability): boolean {
+  if (cap.kind !== "switch") return false;
+  if (!cap.hasCommand) return false;
+  return !isInternalRelayEntity(cap.name);
+}
+
+export function controllableSwitches(capabilities: Capability[]): Capability[] {
+  return capabilities.filter(isControllableSwitch);
+}
+
 /** Entity names that are channel placeholders, not useful titles on their own. */
 function isGenericEntityName(name: string): boolean {
   const n = name.trim();

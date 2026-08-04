@@ -85,6 +85,7 @@ import {
 } from "../widgets/echarts";
 import {
   defaultWidgetTitle,
+  controllableSwitches,
 } from "../lib/capability-labels";
 import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
@@ -151,7 +152,7 @@ export function DashboardPage() {
       return capabilities.filter((c) => c.kind !== "switch");
     }
     if (addType === "switch") {
-      return capabilities.filter((c) => c.kind === "switch");
+      return controllableSwitches(capabilities);
     }
     if (addType === "stat") {
       return capabilities.filter((c) => c.kind !== "switch");
@@ -257,7 +258,7 @@ export function DashboardPage() {
       try {
         const caps = await api.capabilities();
         setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
-        const switches = caps.capabilities.filter((c) => c.kind === "switch");
+        const switches = controllableSwitches(caps.capabilities);
         if (addType === "switch" || addCategory === "controls") {
           setAddCapId((prev) =>
             switches.some((c) => c.id === prev) ? prev : switches[0]?.id ?? ""
@@ -1080,7 +1081,7 @@ export function DashboardPage() {
                   const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
                   let pool = capabilities;
                   if (next === "switch") {
-                    pool = capabilities.filter((c) => c.kind === "switch");
+                    pool = controllableSwitches(capabilities);
                   } else if (
                     next === "stat" ||
                     (presetId && getEchartsPreset(presetId).dataMode === "history")

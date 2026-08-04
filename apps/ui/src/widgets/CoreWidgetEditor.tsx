@@ -11,6 +11,7 @@ import { CapabilityPicker } from "../components/CapabilityPicker";
 import {
   capabilityLocationLabel,
   defaultWidgetTitle,
+  controllableSwitches,
 } from "../lib/capability-labels";
 import {
   editorTitleForBoundWidget,
@@ -28,7 +29,7 @@ type Props = {
 };
 
 function capsForWidgetType(type: string, capabilities: Capability[]): Capability[] {
-  if (type === "switch") return capabilities.filter((c) => c.kind === "switch");
+  if (type === "switch") return controllableSwitches(capabilities);
   if (type === "stat") return capabilities.filter((c) => c.kind !== "switch");
   return capabilities;
 }
