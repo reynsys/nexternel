@@ -5,6 +5,7 @@ import {
   normalizeBuilderConfig,
   validateEsphomeBuilderConfig,
 } from "./validate.js";
+import { parseManagedBuilderConfigFromYaml } from "./parse-config.js";
 import { parseEsphomeYaml } from "../yaml.js";
 
 const baseConfig = {
@@ -102,5 +103,19 @@ describe("esphome builder generate", () => {
     assert.equal(parsed.sensors.length, 2);
     assert.equal(parsed.relays.length, 1);
     assert.equal(parsed.esphomeName, "garden-controller");
+  });
+
+  it("parses builder YAML back into managed config", () => {
+    const config = normalizeBuilderConfig(baseConfig);
+    const yaml = generateEsphomeYaml(config);
+    const roundTrip = parseManagedBuilderConfigFromYaml(
+      yaml,
+      "garden-controller",
+      "Garden Controller"
+    );
+    assert.ok(roundTrip);
+    assert.equal(roundTrip!.components.length, 2);
+    assert.equal(roundTrip!.components[0]?.kind, "dht");
+    assert.equal(roundTrip!.components[1]?.kind, "gpio_switch");
   });
 });

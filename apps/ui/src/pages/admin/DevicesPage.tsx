@@ -190,6 +190,22 @@ export function DevicesPage() {
     setWizardOpen(true);
   }
 
+  async function adoptToBuilder(d: DeviceRecord) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.esphomeAdoptManaged(d.id);
+      setInfo(
+        `Adopted ${d.name} into the Device Builder. You can now use Edit configuration.`
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Adopt to builder failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function openShellyCreate() {
     setShellyForm(emptyShellyForm);
     setDiscoveredShellies([]);
@@ -651,6 +667,15 @@ export function DevicesPage() {
                             onClick={() => openEditBuilder(d)}
                           >
                             Edit configuration
+                          </Button>
+                        )}
+                        {d.esphomeManagementMode !== "managed" && (
+                          <Button
+                            size="small"
+                            disabled={busy}
+                            onClick={() => void adoptToBuilder(d)}
+                          >
+                            Adopt to builder
                           </Button>
                         )}
                         <Button

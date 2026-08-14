@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.096 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 8)** — Background orphan prune every 15 min; lifecycle chips sync online/offline from MQTT; **Adopt to builder** for imported/advanced devices with builder-generated YAML
+
 ## V4.0.095 — 14/08/2026
 
 - **ESPHome Device Builder (Phase 7)** — ESPHome panel: Download flash YAML + link to web.esphome.io for first-time USB install; devices whose YAML was deleted from the server are auto-removed from Nexternel on Devices page refresh

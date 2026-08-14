@@ -7,6 +7,11 @@ import { loadEsphomeYaml } from "./yaml.js";
 
 const ESPHOME_DIRS = ["/esphome", join(process.cwd(), "..", "..", "esphome")];
 
+const DEFAULT_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
+const STARTUP_PRUNE_DELAY_MS = 60 * 1000;
+
+let pruneTimer: ReturnType<typeof setInterval> | null = null;
+
 async function esphomeDirReadable(): Promise<boolean> {
   for (const dir of ESPHOME_DIRS) {
     try {
@@ -79,4 +84,32 @@ export async function pruneEsphomeDevicesMissingYaml(): Promise<{
   }
 
   return { removed };
+}
+
+function pruneIntervalMs(): number {
+  const raw = process.env.ESPHOME_ORPHAN_PRUNE_INTERVAL_MS?.trim();
+  if (!raw) return DEFAULT_PRUNE_INTERVAL_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 60_000 ? parsed : DEFAULT_PRUNE_INTERVAL_MS;
+}
+
+/** Periodic background check — complements Devices page catalog prune. */
+export function startEsphomeOrphanPruneLoop(
+  log: { info: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void }
+): void {
+  if (pruneTimer) return;
+
+  const run = async () => {
+    try {
+      const { removed } = await pruneEsphomeDevicesMissingYaml();
+      if (removed.length > 0) {
+        log.info({ removed }, "ESPHome orphan prune removed devices");
+      }
+    } catch (err) {
+      log.warn({ err }, "ESPHome orphan prune failed");
+    }
+  };
+
+  setTimeout(() => void run(), STARTUP_PRUNE_DELAY_MS);
+  pruneTimer = setInterval(() => void run(), pruneIntervalMs());
 }

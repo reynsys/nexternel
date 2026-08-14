@@ -16,6 +16,7 @@ import {
 } from "./device-registry.js";
 import {
   builderCatalogPayload,
+  adoptEsphomeDeviceToManaged,
   createManagedEsphomeDevice,
   getManagedBuilderConfig,
   previewManagedEsphomeDevice,
@@ -360,6 +361,30 @@ export const v4Routes: FastifyPluginAsync = async (app) => {
       });
     }
   });
+
+  app.post<{ Params: { deviceId: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/adopt-managed",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      if (!deviceId) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId is required" },
+        });
+      }
+      try {
+        const result = await adoptEsphomeDeviceToManaged(deviceId);
+        return { ok: true, ...result };
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "adopt_managed_failed",
+            message: err instanceof Error ? err.message : "Adopt failed",
+          },
+        });
+      }
+    }
+  );
 
   app.get<{ Params: { deviceId: string } }>(
     "/api/v1/v4/devices/esphome/:deviceId/yaml",

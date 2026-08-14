@@ -12,7 +12,7 @@ import {
   getDeviceDetailed,
   syncDeviceFromEsphomeSuggestion,
 } from "../../devices/service.js";
-import { parseEsphomeYaml, suggestFromEsphome } from "../yaml.js";
+import { loadEsphomeYaml, parseEsphomeYaml, suggestFromEsphome } from "../yaml.js";
 import { buildEsphomeDriverManifest } from "../../v4/drivers/esphome.js";
 import {
   mapCandidatesToCapabilities,
@@ -21,6 +21,7 @@ import {
 import { refreshTelemetrySubscriptions } from "../../telemetry/mqtt.js";
 import { installationMqttRoot } from "../../migrate/align-mqtt-topics.js";
 import { generateEsphomeYaml } from "./generate.js";
+import { parseManagedBuilderConfigFromYaml } from "./parse-config.js";
 import { writeManagedEsphomeYaml } from "./storage.js";
 import {
   normalizeBuilderConfig,
@@ -257,4 +258,50 @@ export async function updateManagedEsphomeDevice(input: {
     sync,
     classified,
   };
+}
+
+export async function adoptEsphomeDeviceToManaged(deviceId: string): Promise<{
+  deviceId: string;
+  config: EsphomeDeviceBuilderConfig;
+  managementMode: EsphomeManagementMode;
+}> {
+  const device = await getDeviceDetailed(deviceId);
+  if (!device) throw new Error("Device not found");
+  if ((device.firmwareType || "esphome") !== "esphome") {
+    throw new Error("Only ESPHome devices can be adopted into the Device Builder");
+  }
+  if (device.esphomeManagementMode === "managed") {
+    throw new Error("Device is already managed by the Device Builder");
+  }
+
+  const slug = device.esphomeName?.trim() || device.slug;
+  const yaml = await loadEsphomeYaml(slug);
+  if (!yaml) throw new Error("ESPHome YAML not found for this device");
+
+  const parsed = parseManagedBuilderConfigFromYaml(yaml, slug, device.name);
+  if (!parsed) {
+    throw new Error(
+      "This YAML was not created by the Device Builder — use Advanced edit or import as-is"
+    );
+  }
+
+  const validation = validateEsphomeBuilderConfig({ ...parsed, slug });
+  if (!validation.valid) {
+    const first = validation.issues[0];
+    throw new Error(first?.message ?? "Could not adopt YAML into builder configuration");
+  }
+
+  const config = normalizeBuilderConfig({ ...parsed, slug });
+
+  await getPool().query(
+    `UPDATE devices SET
+       esphome_builder_config = $2::jsonb,
+       esphome_management_mode = 'managed',
+       esphome_yaml_path = COALESCE(esphome_yaml_path, $3),
+       updated_at = NOW()
+     WHERE id = $1`,
+    [deviceId, JSON.stringify(config), `${slug}.yaml`]
+  );
+
+  return { deviceId, config, managementMode: "managed" };
 }

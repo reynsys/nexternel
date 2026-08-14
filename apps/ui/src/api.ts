@@ -892,6 +892,12 @@ export const api = {
       { method: "PUT", body: JSON.stringify({ config, roomId: roomId ?? null }) }
     ),
 
+  esphomeAdoptManaged: (deviceId: string) =>
+    apiFetch<{ ok: boolean; deviceId: string; managementMode: string }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/adopt-managed`,
+      { method: "POST" }
+    ),
+
   esphomeDeviceYaml: (deviceId: string) =>
     apiFetch<{ yaml: string; path: string; managementMode?: string | null }>(
       `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/yaml`

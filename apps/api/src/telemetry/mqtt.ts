@@ -201,11 +201,21 @@ function markDeviceOnline(prefix: string) {
     .catch(() => {
       /* ignore */
     });
+  void import("../esphome/lifecycle.js")
+    .then((m) => m.syncEsphomeLifecycleForPrefix(prefix, true))
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function markDeviceOffline(prefix: string) {
   void getPool()
     .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
+    .catch(() => {
+      /* ignore */
+    });
+  void import("../esphome/lifecycle.js")
+    .then((m) => m.syncEsphomeLifecycleForPrefix(prefix, false))
     .catch(() => {
       /* ignore */
     });

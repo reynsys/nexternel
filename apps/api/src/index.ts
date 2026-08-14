@@ -190,6 +190,12 @@ try {
   } catch (err) {
     app.log.warn({ err }, "ESPHome YAML reconcile skipped");
   }
+  try {
+    const { startEsphomeOrphanPruneLoop } = await import("./esphome/orphan-prune.js");
+    startEsphomeOrphanPruneLoop(app.log);
+  } catch (err) {
+    app.log.warn({ err }, "ESPHome orphan prune scheduler skipped");
+  }
   const synced = await syncCapabilitiesFromLegacy();
   if (
     synced.topicAlignment.devicesUpdated > 0 ||
