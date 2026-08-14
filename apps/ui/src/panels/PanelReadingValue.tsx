@@ -1,5 +1,6 @@
-import { Stack, Typography, useTheme } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 import type { ResolvedPanelCapability } from "../api";
+import { useMetricAppearance } from "../skins/useMetricAppearance";
 import { parseCapabilityReading } from "./parse-capability-reading";
 
 type Props = {
@@ -11,9 +12,8 @@ type Props = {
  * Scales with the tile via container query units — matches plugin metric styling.
  */
 export function PanelReadingValue({ cap }: Props) {
-  const theme = useTheme();
+  const { valueColor } = useMetricAppearance();
   const { value, unit } = parseCapabilityReading(cap);
-  const accent = theme.palette.primary.main;
 
   return (
     <Stack
@@ -30,7 +30,7 @@ export function PanelReadingValue({ cap }: Props) {
           fontWeight: 800,
           lineHeight: 1.05,
           fontVariantNumeric: "tabular-nums",
-          color: accent,
+          color: valueColor,
         }}
       >
         {value}

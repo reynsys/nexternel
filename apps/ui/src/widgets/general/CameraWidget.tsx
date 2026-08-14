@@ -59,8 +59,9 @@ function waitForVideoPlaying(
 }
 
 export function CameraWidget({ widget }: { widget: WidgetInstance }) {
-  const { cameraId } = parseCameraConfig(widget.config);
+  const { cameraId, embeddedInPanel } = parseCameraConfig(widget.config);
   const { showBodyHeading } = useDashboardTileChrome();
+  const showHeading = showBodyHeading && !embeddedInPanel;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [title, setTitle] = useState(generalWidgetHeading(widget, "Camera"));
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +289,7 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
         gap: 0.5,
       }}
     >
-      {showBodyHeading && (
+      {showHeading && (
         <Typography variant="subtitle2" noWrap title={title} sx={{ fontWeight: 600 }}>
           {title}
         </Typography>

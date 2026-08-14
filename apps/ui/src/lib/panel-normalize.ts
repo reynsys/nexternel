@@ -7,9 +7,15 @@ import {
 import { applyPanelMigration, planPanelMigration } from "./panel-migration";
 import { isPanelWidgetType } from "../widgets/panel";
 
-function readScope(widget: WidgetInstance) {
+function readRawScope(widget: WidgetInstance): Record<string, unknown> | null {
   const raw = widget.config?.panelScope ?? widget.config?.viewScope;
-  if (!raw || typeof raw !== "object") {
+  if (!raw || typeof raw !== "object") return null;
+  return raw as Record<string, unknown>;
+}
+
+function readScope(widget: WidgetInstance) {
+  const raw = readRawScope(widget);
+  if (!raw) {
     return {
       inheritSectionArea: false,
       areaIds: [] as string[],
@@ -28,6 +34,21 @@ function readScope(widget: WidgetInstance) {
     areaIds: scope.areaIds ?? [],
     systemIds: scope.systemIds ?? [],
     groupIds: scope.groupIds ?? [],
+  };
+}
+
+function panelScopeWithSystemIds(
+  widget: WidgetInstance,
+  scope: ReturnType<typeof readScope>,
+  systemIds: string[]
+) {
+  const raw = readRawScope(widget);
+  return {
+    ...(raw ?? {}),
+    inheritSectionArea: scope.inheritSectionArea,
+    areaIds: scope.areaIds,
+    systemIds,
+    groupIds: scope.groupIds,
   };
 }
 
@@ -66,12 +87,7 @@ export function normalizeDashboardPanelWidgets(
         type: replacementKind,
         config: {
           ...widget.config,
-          panelScope: {
-            inheritSectionArea: scope.inheritSectionArea,
-            areaIds: scope.areaIds,
-            systemIds,
-            groupIds: scope.groupIds,
-          },
+          panelScope: panelScopeWithSystemIds(widget, scope, systemIds),
         },
       };
     });

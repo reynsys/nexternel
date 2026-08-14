@@ -30,10 +30,10 @@ export function fmtAxisLabel(v: number): string {
   return (Math.round(rounded * 100) / 100).toFixed(2);
 }
 
-export function accentOf(ctx: EchartsBuildCtx, fallback = "#5470c6"): string {
+export function accentOf(ctx: EchartsBuildCtx, fallback?: string): string {
   if (ctx.accent) return ctx.accent;
   if (ctx.palette?.accent) return ctx.palette.accent;
-  return fallback;
+  return fallback ?? ctx.palette?.textPrimary ?? "#5470c6";
 }
 
 /** Round a rough step to 1 / 2 / 5 × 10^n (classic “nice” tick step). */

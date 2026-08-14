@@ -4,7 +4,7 @@ export const CLOCK_WIDGET_TYPE = "plugin.clock";
 
 export const clockPluginManifest: PluginManifest = {
   id: "nexternel.example-clock",
-  version: "1.1.0",
+  version: "1.1.1",
   pluginApi: 1,
   name: "Clock",
   description: "Digital or analog clock that fills the widget",

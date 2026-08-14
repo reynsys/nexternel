@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { api, type RoleDef } from "../../api";
+import { useConfirm } from "../../components/confirm";
 import {
   ALL_PERMISSIONS_ON,
   PERMISSION_META,
@@ -113,6 +114,7 @@ function PermissionEditor({
 }
 
 export function RolesPage() {
+  const { confirm } = useConfirm();
   const [roles, setRoles] = useState<RoleDef[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -194,13 +196,12 @@ export function RolesPage() {
 
   async function onDelete(r: RoleDef) {
     if (r.isSystem) return;
-    if (
-      !window.confirm(
-        `Delete role “${r.name}”? Users must be reassigned first.`
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete role?",
+      message: `Delete role “${r.name}”? Users must be reassigned first.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await api.deleteRole(r.id);
       await load();

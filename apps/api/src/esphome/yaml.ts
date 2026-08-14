@@ -1,4 +1,4 @@
-import { readFile, readdir } from "fs/promises";
+import { access, readFile, readdir, unlink } from "fs/promises";
 import { join } from "path";
 
 export interface EsphomeImportSuggestion {
@@ -494,25 +494,71 @@ export function parseEsphomeYaml(
   return { esphomeName, mqttTopicPrefix, yamlFile, sensors, relays };
 }
 
-export async function listEsphomeYamlFiles(): Promise<string[]> {
-  const names = new Set<string>();
+export type EsphomeYamlFileEntry = {
+  /** File stem (no path, no extension) — ESPHome node name when set in YAML. */
+  stem: string;
+  /** Path under esphome/, e.g. `living-room.yaml` or `devices/test.yaml`. */
+  relativePath: string;
+};
+
+/** List YAML files on the server ESPHome config folder (not the ESPHome dashboard). */
+export async function listEsphomeYamlFileEntries(): Promise<EsphomeYamlFileEntry[]> {
+  const entries: EsphomeYamlFileEntry[] = [];
+  const seenPaths = new Set<string>();
+
   for (const dir of ESPHOME_DIRS) {
     for (const sub of ["", "devices"]) {
       try {
         const scanDir = sub ? join(dir, sub) : dir;
-        const entries = await readdir(scanDir);
-        for (const file of entries) {
+        const files = await readdir(scanDir);
+        for (const file of files) {
           if (!file.endsWith(".yaml")) continue;
-          const base = file.replace(/\.yaml$/, "");
-          if (SKIP_YAML.has(base)) continue;
-          names.add(base);
+          const stem = file.replace(/\.yaml$/, "");
+          if (SKIP_YAML.has(stem)) continue;
+          const relativePath = (sub ? `${sub}/${file}` : file).replace(/\\/g, "/");
+          if (seenPaths.has(relativePath)) continue;
+          try {
+            await access(join(scanDir, file));
+          } catch {
+            continue;
+          }
+          seenPaths.add(relativePath);
+          entries.push({ stem, relativePath });
         }
       } catch {
         /* try next path */
       }
     }
   }
-  return Array.from(names).sort((a, b) => a.localeCompare(b));
+
+  return entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+export async function listEsphomeYamlFiles(): Promise<string[]> {
+  const stems = new Set<string>();
+  for (const entry of await listEsphomeYamlFileEntries()) {
+    stems.add(entry.stem);
+  }
+  return Array.from(stems).sort((a, b) => a.localeCompare(b));
+}
+
+/** Delete an unregistered YAML file from the server esphome/ folder. */
+export async function deleteEsphomeYamlByRelativePath(relativePath: string): Promise<boolean> {
+  const clean = relativePath.trim().replace(/^\/+/, "").replace(/\\/g, "/");
+  if (!clean || clean.includes("..") || /^secrets\.yaml$/i.test(clean)) {
+    return false;
+  }
+  const fileName = clean.endsWith(".yaml") ? clean : `${clean}.yaml`;
+
+  for (const dir of ESPHOME_DIRS) {
+    try {
+      await unlink(join(dir, fileName));
+      return true;
+    } catch {
+      /* try next path */
+    }
+  }
+  return false;
 }
 
 export async function loadEsphomeYaml(esphomeName: string): Promise<string | null> {

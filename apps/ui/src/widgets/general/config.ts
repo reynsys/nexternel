@@ -26,6 +26,8 @@ export type DeviceStatusConfig = {
 
 export type CameraConfig = {
   cameraId?: string;
+  /** Set by Cameras panel — suppress in-widget titles; panel chrome owns the label. */
+  embeddedInPanel?: boolean;
 };
 
 /** Coerce number | numeric string — string coords used to fall back to London silently. */
@@ -65,12 +67,15 @@ export function parseDeviceStatusConfig(
 
 export function parseCameraConfig(
   config: Record<string, unknown> | undefined
-): { cameraId: string } {
+): { cameraId: string; embeddedInPanel: boolean } {
   const cameraId =
     typeof config?.cameraId === "string" && config.cameraId.trim()
       ? config.cameraId.trim()
       : "";
-  return { cameraId };
+  return {
+    cameraId,
+    embeddedInPanel: config?.embeddedInPanel === true,
+  };
 }
 
 export function generalDefaultSize(type: GeneralWidgetType): { w: number; h: number } {

@@ -7,6 +7,8 @@ import {
   nestedContentPanelSx,
 } from "./surfaceStyles";
 
+export { useMetricAppearance } from "./useMetricAppearance";
+export { metricValueColorFromTheme, readableOnBackground } from "./metricColors";
 export {
   chromeSurfaceSx,
   contentSurfaceSx,

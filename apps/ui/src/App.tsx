@@ -15,6 +15,7 @@ import { PluginsSettingsPage } from "./pages/admin/settings/PluginsSettingsPage"
 import { BackupSettingsPage } from "./pages/admin/settings/BackupSettingsPage";
 import { ConfigurationSettingsPage } from "./pages/admin/settings/ConfigurationSettingsPage";
 import { AutomationsSettingsPage } from "./pages/admin/settings/AutomationsSettingsPage";
+import { AdvancedSettingsPage } from "./pages/admin/settings/AdvancedSettingsPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { RolesPage } from "./pages/admin/RolesPage";
 import { AreasPage } from "./pages/admin/AreasPage";
@@ -230,6 +231,14 @@ export function App() {
             element={
               <RequirePermission permission="manageUsers">
                 <BackupSettingsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="advanced"
+            element={
+              <RequirePermission permission="manageUsers">
+                <AdvancedSettingsPage />
               </RequirePermission>
             }
           />

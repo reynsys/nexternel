@@ -22,6 +22,7 @@ import {
   type PipelineStageStatus,
 } from "../../../api";
 import { useContentSurfaceSx } from "../../../skins/useSurfaceStyles";
+import { connectivityChipColor, connectivityLabel, deviceConnectivityState } from "../../../lib/device-utils";
 
 function stageColor(status: PipelineStageStatus): "success" | "error" | "warning" | "default" {
   if (status === "pass") return "success";
@@ -32,6 +33,7 @@ function stageColor(status: PipelineStageStatus): "success" | "error" | "warning
 
 function DeviceRow({ device }: { device: DevicePipelineDiagnostic }) {
   const [open, setOpen] = useState(false);
+  const connectivity = deviceConnectivityState(device);
   return (
     <>
       <TableRow hover sx={{ cursor: "pointer" }} onClick={() => setOpen((v) => !v)}>
@@ -41,8 +43,8 @@ function DeviceRow({ device }: { device: DevicePipelineDiagnostic }) {
         <TableCell>
           <Chip
             size="small"
-            label={device.isOnline ? "online" : "offline"}
-            color={device.isOnline ? "success" : "default"}
+            label={connectivityLabel(connectivity)}
+            color={connectivityChipColor(connectivity)}
           />
         </TableCell>
         <TableCell>{device.messagesObserved}</TableCell>

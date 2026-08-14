@@ -5,7 +5,8 @@ import { refreshTelemetrySubscriptions } from "../telemetry/mqtt.js";
 import { installationMqttRoot } from "../migrate/align-mqtt-topics.js";
 import { getPool } from "../db.js";
 import {
-  listEsphomeYamlFiles,
+  deleteEsphomeYamlByRelativePath,
+  listEsphomeYamlFileEntries,
   suggestFromEsphome,
   type EsphomeImportSuggestion,
 } from "../esphome/yaml.js";
@@ -57,28 +58,31 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         ? await syncEsphomeYamlConfigStatus()
         : { markedMissing: [] as { id: string; name: string }[], restored: [] as { id: string; name: string }[] };
 
-    const files = await listEsphomeYamlFiles();
+    const fileEntries = await listEsphomeYamlFileEntries();
     const registered = await getPool().query<{
       esphome_name: string | null;
       slug: string;
       mqtt_topic_prefix: string;
-    }>(`SELECT esphome_name, slug, mqtt_topic_prefix FROM devices`);
+      esphome_yaml_path: string | null;
+    }>(`SELECT esphome_name, slug, mqtt_topic_prefix, esphome_yaml_path FROM devices`);
 
     const configs = await Promise.all(
-      files.map(async (fileName) => {
-        const suggestion = await suggestFromEsphome(fileName);
-        const esphomeName = suggestion?.esphomeName || fileName;
+      fileEntries.map(async ({ stem, relativePath }) => {
+        const suggestion = await suggestFromEsphome(stem);
+        const esphomeName = suggestion?.esphomeName || stem;
         const mqttTopicPrefix =
-          suggestion?.mqttTopicPrefix || `${installationMqttRoot()}/${fileName}`;
+          suggestion?.mqttTopicPrefix || `${installationMqttRoot()}/${stem}`;
         const isRegistered = registered.rows.some(
           (d) =>
+            d.esphome_yaml_path?.replace(/\\/g, "/") === relativePath ||
             d.esphome_name === esphomeName ||
-            d.esphome_name === fileName ||
-            d.slug === fileName ||
+            d.esphome_name === stem ||
+            d.slug === stem ||
             d.mqtt_topic_prefix === mqttTopicPrefix
         );
         return {
-          fileName,
+          fileName: stem,
+          yamlPath: relativePath,
           esphomeName,
           mqttTopicPrefix,
           registered: isRegistered,
@@ -92,13 +96,32 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     return {
       configs,
       esphomeDirHint:
-        files.length === 0
+        fileEntries.length === 0
           ? "No YAML files found in /esphome — create a device in ESPHome Builder first, then ensure the esphome/ folder is on the server."
           : null,
       yamlStatus,
       /** @deprecated use yamlStatus.markedMissing */
       pruned: yamlStatus.markedMissing,
     };
+  });
+
+  app.delete("/api/v1/devices/esphome-yaml", async (request, reply) => {
+    if (!requirePermission(request, reply, "editDevices")) return;
+    const q = request.query as { path?: string };
+    const yamlPath = typeof q.path === "string" ? q.path.trim() : "";
+    if (!yamlPath) {
+      return reply.code(400).send({
+        error: { code: "validation_error", message: "path query is required" },
+      });
+    }
+
+    const removed = await deleteEsphomeYamlByRelativePath(yamlPath);
+    if (!removed) {
+      return reply.code(404).send({
+        error: { code: "not_found", message: "YAML file not found on server" },
+      });
+    }
+    return { ok: true, yamlPath };
   });
 
   app.get("/api/v1/devices/esphome-suggest", async (request, reply) => {

@@ -38,8 +38,13 @@ export const diagnosticsRoutes: FastifyPluginAsync = async (app) => {
     ]);
 
     const enabledDevices = devices.filter((d) => d.isEnabled);
-    const devicesOnline = enabledDevices.filter((d) => d.isOnline).length;
-    const devicesOffline = enabledDevices.length - devicesOnline;
+    const devicesOnline = enabledDevices.filter((d) => d.connectivityState === "online").length;
+    const devicesOffline = enabledDevices.filter(
+      (d) => d.connectivityState === "offline"
+    ).length;
+    const devicesNoRecentData = enabledDevices.filter(
+      (d) => d.connectivityState === "no_recent_data"
+    ).length;
 
     return {
       status: database === "ok" && mqttOk ? "ok" : "degraded",
@@ -56,6 +61,7 @@ export const diagnosticsRoutes: FastifyPluginAsync = async (app) => {
         devicesEnabled: enabledDevices.length,
         devicesOnline,
         devicesOffline,
+        devicesNoRecentData,
       },
       process: {
         uptimeSeconds: Math.floor(process.uptime()),

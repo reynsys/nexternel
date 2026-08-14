@@ -14,6 +14,84 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.119 — 14/08/2026
+
+- **Dashboard Options** — removed duplicate top “Add Panel”; “Remove this Section” sits beside the section name; width, reorder, and per-section Add Panel stay on the right
+
+## V4.0.118 — 14/08/2026
+
+- **Confirmations** — shared remove/delete confirmation dialog across dashboards, devices, roles, profile picture, panel editors, and device builder
+
+## V4.0.117 — 14/08/2026
+
+- **Dashboard Options** — gear tooltip always says “Dashboard Options”; section toolbar arrows have move hints; “Remove section” and “Add Panel” use outlined buttons with clearer labels
+
+## V4.0.116 — 14/08/2026
+
+- **Cameras panel** — manual camera selection now applies on the dashboard (panel was not passing saved cameraIds to the renderer); camera picker shows camera name only (no duplicate area line)
+
+## V4.0.115 — 14/08/2026
+
+- **Cameras panel** — manual camera selection now persists on Save (cameraIds were not written to panel scope)
+
+## V4.0.114 — 14/08/2026
+
+- **Build** — fixed `GlobalStyles` import in `AppearanceCssVars`
+
+## V4.0.113 — 14/08/2026
+
+- **Appearance CSS variables** — global `--nx-accent`, `--nx-metric-value`, etc. for all widgets/plugins (Clock now follows Appearance)
+- **Cameras panel** — one camera name line per tile for every camera; no duplicate area label; panel-embedded streams never add a second title
+
+## V4.0.112 — 14/08/2026
+
+- **Build** — fixed Devices panel widget import path (`DeviceStatusWidget`)
+
+## V4.0.111 — 14/08/2026
+
+- **Global appearance** — shared metric colours with contrast checking; gauge values no longer inherit unreadable band/background colours; panel item tiles use nested content surfaces; Devices/Weather/System panels follow Appearance styling
+
+## V4.0.110 — 14/08/2026
+
+- **Cameras panel** — Edit panel: choose specific cameras (any count, reorderable) or show all in scope; duplicate area/camera labels hidden when the name matches the area
+
+## V4.0.109 — 14/08/2026
+
+- **Devices UI** — unified panel styling for navigator and detail pane; consistent selected rows, outlined/contained action buttons, grouped sections, and empty-state layout
+
+## V4.0.108 — 14/08/2026
+
+- **Cleanup** — removed dead presence helpers and empty sweeper stub; MQTT handlers no longer write legacy `is_online` (connectivity derived from `mqtt_availability` + `last_seen_at`); troubleshoot treats idle devices as warn not fail
+
+## V4.0.107 — 14/08/2026
+
+- **Device connectivity** — three states: **Online**, **No recent data**, **Offline** (derived at read time; silence no longer marks devices offline after 3 minutes)
+- **MQTT availability** — explicit online/offline from ESPHome `status` and Shelly `online` topics stored on device row
+- **Needs attention** — only proven **Offline** and lifecycle errors (idle switches/sensors no longer flagged)
+- **Devices UI** — connectivity chips and status filter; device list widget counts **no recent data** separately
+- Includes V4.0.105–106 work: Devices navigator/detail pane, Octopus in Connected services, Shelly presence fixes
+
+## V4.0.106 — 14/08/2026
+
+- **Devices** — Octopus excluded from area device list (slug + type); Connected services hidden when status/type filters are active
+- **Shelly presence** — mark device online from switch state (including retained Shelly status), `/online` topic, and successful switch commands — fixes “Offline” while switches still work
+
+## V4.0.105 — 14/08/2026
+
+- **Devices** — navigator + detail pane layout: devices grouped by area, **Needs attention** section, **Connected services** (Octopus), search and status/type filters, URL `?device=` / `?service=octopus`, mobile back navigation; detail tabs Overview · Capabilities · Configuration · Advanced
+
+## V4.0.104 — 14/08/2026
+
+- **Settings → Advanced** — proper maintenance tab (sync capabilities, repair MQTT, fix dashboard panels, repair live data); removed accordion-style block from Devices; **Sync capabilities** restored on Devices top bar
+
+## V4.0.103 — 14/08/2026
+
+- **Devices** — **Add device** opens ESPHome or Shelly chooser (Shelly removed from top bar); **Advanced / repair** section with **Sync capabilities** and explanation
+
+## V4.0.102 — 14/08/2026
+
+- **Devices** — “Server YAML not registered” section scans the server esphome/ folder (shows file path); **Remove file** deletes leftover orphan YAML; clarifies this is not the ESPHome dashboard list
+
 ## V4.0.101 — 14/08/2026
 
 - **ESPHome Device Builder (Phase 12)** — missing server YAML marks device `configuration_missing` instead of auto-deleting; managed devices can **Regenerate YAML**; delete keeps imported/advanced YAML unless opted in; Advanced YAML clears builder config; adopt confirmation; connectivity vs provisioning lifecycle chips

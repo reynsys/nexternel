@@ -1,5 +1,29 @@
 /** Client-safe device helpers. */
 
+export type DeviceConnectivityState = "online" | "no_recent_data" | "offline";
+
+export function deviceConnectivityState(device: {
+  connectivityState?: DeviceConnectivityState;
+  isOnline?: boolean;
+}): DeviceConnectivityState {
+  if (device.connectivityState) return device.connectivityState;
+  return device.isOnline ? "online" : "offline";
+}
+
+export function connectivityLabel(state: DeviceConnectivityState): string {
+  if (state === "online") return "Online";
+  if (state === "no_recent_data") return "No recent data";
+  return "Offline";
+}
+
+export function connectivityChipColor(
+  state: DeviceConnectivityState
+): "success" | "default" | "warning" {
+  if (state === "online") return "success";
+  if (state === "no_recent_data") return "default";
+  return "warning";
+}
+
 export function formatLastSeen(iso: string | Date | null | undefined): string {
   if (!iso) return "Never";
   const ageMs = Date.now() - new Date(iso).getTime();

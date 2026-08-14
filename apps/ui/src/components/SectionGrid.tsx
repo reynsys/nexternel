@@ -35,6 +35,7 @@ import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
 import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
 import { contentSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive, useSolidContentPanels } from "../skins/useSurfaceStyles";
+import { useConfirm } from "./confirm";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -105,6 +106,7 @@ export function SectionGrid({
   const [dropHighlight, setDropHighlight] = useState(false);
   const gradientActive = useGradientActive();
   const solidContentPanels = useSolidContentPanels();
+  const { confirm } = useConfirm();
 
   const mutedLabel = alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.62 : 0.55);
   const canAcceptDrop =
@@ -353,7 +355,17 @@ export function SectionGrid({
                           color="error"
                           aria-label={`Remove ${itemKind}`}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onClick={() => onRemoveWidget(sectionId, w.id)}
+                          onClick={() => {
+                            void (async () => {
+                              const label = tileTitle || widgetTypeLabel(w.type);
+                              const ok = await confirm({
+                                title: `Remove ${itemKind}?`,
+                                message: `Remove “${label}” from this section? Save the dashboard to keep this change.`,
+                                confirmLabel: `Remove ${itemKind}`,
+                              });
+                              if (ok) onRemoveWidget(sectionId, w.id);
+                            })();
+                          }}
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>

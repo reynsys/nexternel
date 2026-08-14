@@ -310,7 +310,9 @@ export async function recordOctopusPollResult(opts: {
        WHERE id = 1`
     );
     await getPool().query(
-      `UPDATE devices SET is_online = TRUE, last_seen_at = NOW()
+      `UPDATE devices
+       SET mqtt_availability = 'online',
+           last_seen_at = NOW()
        WHERE slug = $1`,
       [OCTOPUS_DEVICE_SLUG]
     );
@@ -321,6 +323,12 @@ export async function recordOctopusPollResult(opts: {
          updated_at = NOW()
        WHERE id = 1`,
       [opts.error?.slice(0, 500) ?? "Poll failed"]
+    );
+    await getPool().query(
+      `UPDATE devices
+       SET mqtt_availability = 'offline'
+       WHERE slug = $1`,
+      [OCTOPUS_DEVICE_SLUG]
     );
   }
 }

@@ -22,6 +22,7 @@ import {
   type ThemePrefs,
   DEFAULT_THEME_PREFS,
 } from "./themePrefs";
+import { AppearanceCssVars } from "./AppearanceCssVars";
 
 type SkinContextValue = {
   skin: UiSkin;
@@ -137,6 +138,7 @@ export function SkinProvider({ children }: { children: ReactNode }) {
     <SkinContext.Provider value={value}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <AppearanceCssVars />
         <GlobalStyles
           styles={{
             html: {

@@ -14,6 +14,12 @@ import {
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
 import { assertValidShellyMqttPrefix } from "../shelly/validate.js";
 import { installationMqttRoot } from "../migrate/align-mqtt-topics.js";
+import {
+  deriveDeviceConnectivityState,
+  type DeviceConnectivityState,
+  type MqttAvailability,
+} from "./connectivity.js";
+import { getLiveState } from "../telemetry/state-cache.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
@@ -35,6 +41,7 @@ export type DeviceDetail = {
   macAddress: string | null;
   isEnabled: boolean;
   isOnline: boolean;
+  connectivityState: DeviceConnectivityState;
   lastSeenAt: string | null;
   esphomeManagementMode?: string | null;
   esphomeLifecycleState?: string | null;
@@ -77,7 +84,7 @@ type DeviceRow = {
   ip_address: string | null;
   mac_address: string | null;
   is_enabled: boolean;
-  is_online: boolean;
+  mqtt_availability: string;
   last_seen_at: Date | null;
   esphome_management_mode: string | null;
   esphome_lifecycle_state: string | null;
@@ -92,7 +99,7 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
             COALESCE(d.firmware_type, 'esphome') AS firmware_type,
             host(d.ip_address)::text AS ip_address, d.mac_address,
             COALESCE(d.is_enabled, TRUE) AS is_enabled,
-            d.is_online, d.last_seen_at,
+            d.mqtt_availability, d.last_seen_at,
             d.esphome_management_mode, d.esphome_lifecycle_state, d.esphome_yaml_path
      FROM devices d
      LEFT JOIN rooms r ON r.id = d.room_id
@@ -184,26 +191,69 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     relaysByDevice.set(r.device_id, list);
   }
 
-  return devices.rows.map((d) => ({
-    id: d.id,
-    roomId: d.room_id,
-    roomName: d.room_name,
-    name: d.name,
-    slug: d.slug,
-    mqttTopicPrefix: d.mqtt_topic_prefix,
-    esphomeName: d.esphome_name,
-    firmwareType: d.firmware_type || "esphome",
-    ipAddress: d.ip_address,
-    macAddress: d.mac_address,
-    isEnabled: d.is_enabled,
-    isOnline: Boolean(d.is_online),
-    lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
-    esphomeManagementMode: d.esphome_management_mode,
-    esphomeLifecycleState: d.esphome_lifecycle_state,
-    esphomeYamlPath: d.esphome_yaml_path,
-    sensors: sensorsByDevice.get(d.id) ?? [],
-    relays: relaysByDevice.get(d.id) ?? [],
-  }));
+  return devices.rows.map((d) => {
+    const sensors = sensorsByDevice.get(d.id) ?? [];
+    const relays = relaysByDevice.get(d.id) ?? [];
+    const capabilityLive = [];
+    for (const s of sensors) {
+      if (!s.capabilityId) continue;
+      const live = getLiveState(s.capabilityId);
+      if (live) {
+        capabilityLive.push({
+          kind: "sensor",
+          quality: live.quality,
+          updatedAt: live.updatedAt,
+        });
+      }
+    }
+    for (const r of relays) {
+      if (!r.capabilityId) continue;
+      const live = getLiveState(r.capabilityId);
+      if (live) {
+        capabilityLive.push({
+          kind: "switch",
+          quality: live.quality,
+          updatedAt: live.updatedAt,
+        });
+      }
+    }
+    const mqttAvailability = normalizeMqttAvailability(d.mqtt_availability);
+    const connectivityState = deriveDeviceConnectivityState({
+      firmwareType: d.firmware_type || "esphome",
+      isEnabled: d.is_enabled,
+      mqttAvailability,
+      lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
+      sensorCount: sensors.length,
+      relayCount: relays.length,
+      capabilityLive,
+    });
+    return {
+      id: d.id,
+      roomId: d.room_id,
+      roomName: d.room_name,
+      name: d.name,
+      slug: d.slug,
+      mqttTopicPrefix: d.mqtt_topic_prefix,
+      esphomeName: d.esphome_name,
+      firmwareType: d.firmware_type || "esphome",
+      ipAddress: d.ip_address,
+      macAddress: d.mac_address,
+      isEnabled: d.is_enabled,
+      connectivityState,
+      isOnline: connectivityState === "online",
+      lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
+      esphomeManagementMode: d.esphome_management_mode,
+      esphomeLifecycleState: d.esphome_lifecycle_state,
+      esphomeYamlPath: d.esphome_yaml_path,
+      sensors,
+      relays,
+    };
+  });
+}
+
+function normalizeMqttAvailability(value: string | null | undefined): MqttAvailability {
+  if (value === "online" || value === "offline") return value;
+  return "unknown";
 }
 
 export async function getDeviceDetailed(id: string): Promise<DeviceDetail | null> {

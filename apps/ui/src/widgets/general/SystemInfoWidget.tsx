@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type SystemInfo, type WidgetInstance } from "../../api";
 import { APP_VERSION } from "../../version";
+import { useMetricAppearance } from "../../skins/useMetricAppearance";
 import { useWidgetBodyHeading } from "./heading";
 
 function formatUptime(seconds: number): string {
@@ -14,17 +15,13 @@ function formatUptime(seconds: number): string {
 }
 
 function Row({ label, value }: { label: string; value: string }) {
+  const { valueSx, labelSx } = useMetricAppearance();
   return (
     <Stack direction="row" justifyContent="space-between" spacing={1}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={labelSx}>
         {label}
       </Typography>
-      <Typography
-        variant="caption"
-        fontWeight={600}
-        noWrap
-        sx={{ fontVariantNumeric: "tabular-nums" }}
-      >
+      <Typography variant="caption" noWrap sx={{ ...valueSx, fontWeight: 600 }}>
         {value}
       </Typography>
     </Stack>

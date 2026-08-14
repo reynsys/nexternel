@@ -25,6 +25,7 @@ import {
   capabilityOptionPrimary,
 } from "../lib/capability-picker";
 import { asSwitchCapability } from "../panels/panel-capabilities";
+import { useConfirm } from "./confirm";
 
 type Props = {
   options: ResolvedPanelCapability[];
@@ -53,6 +54,7 @@ export function PanelCapabilityOrderList({
 }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [addId, setAddId] = useState("");
+  const { confirm } = useConfirm();
 
   const byId = useMemo(() => new Map(options.map((c) => [c.id, c])), [options]);
 
@@ -67,7 +69,17 @@ export function PanelCapabilityOrderList({
   );
 
   function removeId(id: string) {
-    onChange(value.filter((v) => v !== id));
+    void (async () => {
+      const cap = byId.get(id);
+      const ok = await confirm({
+        title: "Remove item?",
+        message: cap
+          ? `Remove “${capabilityOptionPrimary(cap)}” from this panel’s item list?`
+          : "Remove this item from the list?",
+        confirmLabel: "Remove",
+      });
+      if (ok) onChange(value.filter((v) => v !== id));
+    })();
   }
 
   function addSelected() {

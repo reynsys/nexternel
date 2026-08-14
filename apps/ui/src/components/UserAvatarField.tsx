@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Avatar, Button, Stack, Typography } from "@mui/material";
 import { fileToAvatarDataUrl, userInitial } from "../lib/user-display";
+import { useConfirm } from "./confirm";
 
 type Props = {
   avatarData: string | null;
@@ -18,6 +19,7 @@ export function UserAvatarField({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirm();
 
   async function onPick(file: File | undefined) {
     if (!file) return;
@@ -59,7 +61,20 @@ export function UserAvatarField({
             Upload image
           </Button>
           {avatarData && (
-            <Button size="small" color="inherit" onClick={() => onChange(null)}>
+            <Button
+              size="small"
+              color="inherit"
+              onClick={() => {
+                void (async () => {
+                  const ok = await confirm({
+                    title: "Remove picture?",
+                    message: "Remove your profile picture?",
+                    confirmLabel: "Remove picture",
+                  });
+                  if (ok) onChange(null);
+                })();
+              }}
+            >
               Remove picture
             </Button>
           )}

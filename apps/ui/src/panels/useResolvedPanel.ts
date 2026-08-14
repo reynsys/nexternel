@@ -31,7 +31,8 @@ export function useResolvedPanel(
   const scopeKey = `${resolvedScope.contentMode}|${resolvedScope.areaIds.join(",")}|${resolvedScope.systemIds.join(",")}|${resolvedScope.groupIds.join(",")}|${resolvedScope.capabilityIds.join(",")}`;
 
   const load = useCallback(async () => {
-    if (isIntegrationPanelKind(normalizePanelKind(panelKind))) {
+    const kind = normalizePanelKind(panelKind);
+    if (isIntegrationPanelKind(kind) || kind === "panel.camera") {
       setCapabilities([]);
       setLoading(false);
       setError(null);

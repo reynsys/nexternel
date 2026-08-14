@@ -71,6 +71,8 @@ export const PanelScopeSchema = z.object({
   contentMode: PanelContentModeSchema.optional(),
   /** Manual mode only — order preserved for display. Ignored when contentMode is auto. */
   capabilityIds: z.array(z.string().uuid()).default([]),
+  /** Camera panel manual mode — order preserved. Ignored when contentMode is auto. */
+  cameraIds: z.array(z.string().uuid()).default([]),
 });
 
 export type PanelScope = z.infer<typeof PanelScopeSchema>;
@@ -80,7 +82,10 @@ export function resolvePanelContentMode(scope: PanelScope): PanelContentMode {
   if (scope.contentMode === "auto" || scope.contentMode === "manual") {
     return scope.contentMode;
   }
-  return scope.capabilityIds.length > 0 ? "manual" : "auto";
+  if (scope.capabilityIds.length > 0 || scope.cameraIds.length > 0) {
+    return "manual";
+  }
+  return "auto";
 }
 
 /** Default content mode when creating a new panel of this kind. */

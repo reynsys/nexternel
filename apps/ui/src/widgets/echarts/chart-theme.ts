@@ -1,5 +1,5 @@
-import type { Theme } from "@mui/material/styles";
-import { alpha } from "@mui/material/styles";
+import { alpha, type Theme } from "@mui/material/styles";
+import { metricValueColorFromPalette, readableOnBackground } from "../../skins/metricColors";
 
 /** Colours derived from System → Appearance (MUI theme). */
 export type EchartsThemePalette = {
@@ -26,6 +26,47 @@ function shouldReplaceMutedColor(color: unknown): boolean {
   if (typeof color !== "string") return false;
   if (color === "inherit" || color === "auto") return false;
   return MUTED_PRESET_COLORS.has(color.toLowerCase());
+}
+
+function isLightDetailBackground(color: unknown): boolean {
+  if (typeof color !== "string") return false;
+  const c = color.toLowerCase().replace(/\s/g, "");
+  return (
+    c === "#fff" ||
+    c === "#ffffff" ||
+    c === "white" ||
+    c.startsWith("rgba(255,255,255") ||
+    c.startsWith("rgb(255,255,255")
+  );
+}
+
+function shouldReplaceDetailColor(color: unknown): boolean {
+  if (color === undefined || color === null) return true;
+  if (color === "inherit" || color === "auto") return true;
+  if (typeof color !== "string") return true;
+  const lower = color.toLowerCase();
+  if (MUTED_PRESET_COLORS.has(lower)) return true;
+  if (lower === "#fff" || lower === "#ffffff" || lower === "white") return true;
+  return false;
+}
+
+function patchGaugeDetail(detail: Record<string, unknown>, palette: EchartsThemePalette): void {
+  const preferred = shouldReplaceDetailColor(detail.color)
+    ? metricValueColorFromPalette(palette)
+    : readableOnBackground(String(detail.color), palette.background, palette.textPrimary);
+  detail.color = preferred;
+
+  if (detail.backgroundColor && isLightDetailBackground(detail.backgroundColor)) {
+    detail.backgroundColor = alpha(
+      palette.background,
+      palette.isDark ? 0.72 : 0.88
+    );
+    if (!detail.borderColor || shouldReplaceMutedColor(detail.borderColor)) {
+      detail.borderColor = palette.splitLine;
+    }
+  } else if (detail.backgroundColor === "inherit") {
+    delete detail.backgroundColor;
+  }
 }
 
 export function echartsPaletteFromTheme(theme: Theme): EchartsThemePalette {
@@ -90,6 +131,13 @@ function patchTextStyle(textStyle: unknown, palette: EchartsThemePalette): void 
 
 function patchGaugeSeries(series: Record<string, unknown>, palette: EchartsThemePalette): void {
   patchAxisLabel(series.axisLabel, palette);
+  const axisLabel = series.axisLabel;
+  if (axisLabel && typeof axisLabel === "object" && !Array.isArray(axisLabel)) {
+    const al = axisLabel as Record<string, unknown>;
+    if (al.color === "inherit" || al.color === "auto") {
+      al.color = palette.textMuted;
+    }
+  }
   const splitLine = series.splitLine;
   if (splitLine && typeof splitLine === "object" && !Array.isArray(splitLine)) {
     patchLineStyle((splitLine as Record<string, unknown>).lineStyle, palette, true);
@@ -100,9 +148,17 @@ function patchGaugeSeries(series: Record<string, unknown>, palette: EchartsTheme
   }
   const detail = series.detail;
   if (detail && typeof detail === "object" && !Array.isArray(detail)) {
-    const d = detail as Record<string, unknown>;
-    if (!d.color || shouldReplaceMutedColor(d.color)) {
-      d.color = palette.textPrimary;
+    patchGaugeDetail(detail as Record<string, unknown>, palette);
+  }
+  const data = series.data;
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const row = item as Record<string, unknown>;
+      const rowDetail = row.detail;
+      if (rowDetail && typeof rowDetail === "object" && !Array.isArray(rowDetail)) {
+        patchGaugeDetail(rowDetail as Record<string, unknown>, palette);
+      }
     }
   }
   const title = series.title;

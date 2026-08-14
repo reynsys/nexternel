@@ -3,6 +3,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Capability, WidgetInstance } from "../../api";
 import { gradientCss } from "../../skins/gradientPalettes";
+import { metricValueColorFromPalette } from "../../skins/metricColors";
 import { nestedContentPanelSx } from "../../skins/surfaceStyles";
 import { useSkin } from "../../skins/SkinProvider";
 import { echartsPaletteFromTheme } from "../echarts/chart-theme";
@@ -158,6 +159,7 @@ export function AirQualityWidget({
   const theme = useTheme();
   const { themePrefs } = useSkin();
   const palette = echartsPaletteFromTheme(theme);
+  const valueColor = useMemo(() => metricValueColorFromPalette(palette), [palette]);
   const gradientActive = Boolean(gradientCss(themePrefs.gradientId));
   const solidContentPanels = Boolean(themePrefs.solidContentPanels);
   const tileSx = useMemo(
@@ -271,7 +273,7 @@ export function AirQualityWidget({
                 fontWeight: 800,
                 lineHeight: 1.1,
                 fontVariantNumeric: "tabular-nums",
-                color: palette.accent,
+                color: valueColor,
               }}
             >
               {aqi}
@@ -301,7 +303,7 @@ export function AirQualityWidget({
             cap={pm1}
             tileSx={tileSx}
             labelColor={palette.textSecondary}
-            valueColor={palette.accent}
+            valueColor={valueColor}
             unitColor={palette.textSecondary}
           />
           <MetricTile
@@ -310,7 +312,7 @@ export function AirQualityWidget({
             cap={pm25}
             tileSx={tileSx}
             labelColor={palette.textSecondary}
-            valueColor={palette.accent}
+            valueColor={valueColor}
             unitColor={palette.textSecondary}
           />
           <MetricTile
@@ -319,7 +321,7 @@ export function AirQualityWidget({
             cap={pm10}
             tileSx={tileSx}
             labelColor={palette.textSecondary}
-            valueColor={palette.accent}
+            valueColor={valueColor}
             unitColor={palette.textSecondary}
           />
         </Stack>
@@ -330,7 +332,7 @@ export function AirQualityWidget({
             cap={temperature}
             tileSx={tileSx}
             labelColor={palette.textSecondary}
-            valueColor={palette.accent}
+            valueColor={valueColor}
             unitColor={palette.textSecondary}
           />
           <MetricTile
@@ -339,7 +341,7 @@ export function AirQualityWidget({
             cap={humidity}
             tileSx={tileSx}
             labelColor={palette.textSecondary}
-            valueColor={palette.accent}
+            valueColor={valueColor}
             unitColor={palette.textSecondary}
           />
         </Stack>

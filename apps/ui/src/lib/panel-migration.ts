@@ -336,6 +336,8 @@ export function planPanelMigration(sections: DashboardSection[]): PanelMigration
     for (const widget of deprecatedPanels) {
       const replacement = replaceDeprecatedPanelKind(widget.type);
       const scope = widget.config?.panelScope ?? widget.config?.viewScope;
+      const scopeObj =
+        scope && typeof scope === "object" ? (scope as Record<string, unknown>) : {};
       const systemIds =
         scope && typeof scope === "object" && Array.isArray((scope as { systemIds?: string[] }).systemIds)
           ? (scope as { systemIds: string[] }).systemIds
@@ -352,6 +354,7 @@ export function planPanelMigration(sections: DashboardSection[]): PanelMigration
           config: {
             ...widget.config,
             panelScope: {
+              ...scopeObj,
               inheritSectionArea:
                 scope && typeof scope === "object"
                   ? Boolean((scope as { inheritSectionArea?: boolean }).inheritSectionArea)

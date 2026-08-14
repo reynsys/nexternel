@@ -14,6 +14,7 @@ describe("resolvePanelContentMode", () => {
       groupIds: [],
       contentMode: "auto",
       capabilityIds: ["00000000-0000-4000-8000-000000000001"],
+      cameraIds: [],
     };
     assert.equal(resolvePanelContentMode(scope), "auto");
   });
@@ -24,6 +25,18 @@ describe("resolvePanelContentMode", () => {
       systemIds: [],
       groupIds: [],
       capabilityIds: ["00000000-0000-4000-8000-000000000001"],
+      cameraIds: [],
+    };
+    assert.equal(resolvePanelContentMode(scope), "manual");
+  });
+
+  it("infers manual from non-empty cameraIds when contentMode omitted", () => {
+    const scope: PanelScope = {
+      areaIds: [],
+      systemIds: [],
+      groupIds: [],
+      capabilityIds: [],
+      cameraIds: ["00000000-0000-4000-8000-000000000002"],
     };
     assert.equal(resolvePanelContentMode(scope), "manual");
   });
@@ -34,6 +47,7 @@ describe("resolvePanelContentMode", () => {
       systemIds: [],
       groupIds: [],
       capabilityIds: [],
+      cameraIds: [],
     };
     assert.equal(resolvePanelContentMode(scope), "auto");
   });

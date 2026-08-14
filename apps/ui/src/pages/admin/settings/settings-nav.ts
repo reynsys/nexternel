@@ -10,6 +10,7 @@ export const SETTINGS_TABS: {
   { label: "Plugins", segment: "plugins", permission: "viewSystem" },
   { label: "Configuration", segment: "configuration", permission: "manageUsers" },
   { label: "Backup & Restore", segment: "backup", permission: "manageUsers" },
+  { label: "Advanced", segment: "advanced", permission: "manageUsers" },
   { label: "Automations", segment: "automations", permission: "viewSystem" },
 ];
 

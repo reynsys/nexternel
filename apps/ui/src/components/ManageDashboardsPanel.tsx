@@ -29,6 +29,7 @@ import StarBorderIcon from "@mui/icons-material/StarBorder";
 import EditIcon from "@mui/icons-material/Edit";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { api, type DashboardSummary } from "../api";
+import { useConfirm } from "./confirm";
 import { DashboardIconPicker } from "./DashboardIconPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 import { normalizeDocument } from "../lib/dashboard-document";
@@ -56,6 +57,7 @@ export function ManageDashboardsPanel({
   onCurrentTabMeta,
 }: Props) {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [name, setName] = useState("Home");
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +101,13 @@ export function ManageDashboardsPanel({
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this dashboard?")) return;
+    const dashboard = dashboards.find((d) => d.id === id);
+    const ok = await confirm({
+      title: "Delete dashboard?",
+      message: `Delete “${dashboard?.name ?? "this dashboard"}”? This cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await api.deleteDashboard(id);
       await load();

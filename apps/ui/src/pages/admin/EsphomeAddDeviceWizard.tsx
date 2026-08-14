@@ -45,6 +45,7 @@ import {
   ESPHOME_WIZARD_INSTALL_TITLE,
 } from "../../lib/device-utils";
 import { InstallWorkflowStepper } from "./InstallWorkflowStepper";
+import { useConfirm } from "../../components/confirm";
 
 type AreaOption = { id: string; name: string };
 
@@ -143,6 +144,7 @@ export function EsphomeAddDeviceWizard({
   onCreated,
   onOpenEsphomePanel,
 }: Props) {
+  const { confirm } = useConfirm();
   const [path, setPath] = useState<Path>("choose");
   const [newStep, setNewStep] = useState<NewStep>("hardware");
   const [platform, setPlatform] = useState<EsphomePlatform>("esp32");
@@ -567,11 +569,20 @@ export function EsphomeAddDeviceWizard({
                         <IconButton
                           size="small"
                           aria-label="Remove component"
-                          onClick={() =>
-                            setComponents((list) =>
-                              list.filter((_, i) => i !== index)
-                            )
-                          }
+                          onClick={() => {
+                            void (async () => {
+                              const ok = await confirm({
+                                title: "Remove component?",
+                                message: `Remove ${componentLabel(comp)} from this device configuration?`,
+                                confirmLabel: "Remove",
+                              });
+                              if (ok) {
+                                setComponents((list) =>
+                                  list.filter((_, i) => i !== index)
+                                );
+                              }
+                            })();
+                          }}
                           disabled={components.length <= 1}
                         >
                           <DeleteOutlineIcon fontSize="small" />

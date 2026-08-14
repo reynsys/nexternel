@@ -525,6 +525,7 @@ export type DevicePipelineDiagnostic = {
   mqttTopicPrefix: string;
   ipAddress: string | null;
   isOnline: boolean;
+  connectivityState?: "online" | "no_recent_data" | "offline";
   lastSeenAt: string | null;
   subscriptionTopic: string;
   apiSubscribed: boolean;
@@ -868,6 +869,12 @@ export const api = {
       };
       pruned?: { id: string; name: string }[];
     }>("/api/v1/devices/esphome-catalog"),
+
+  deleteEsphomeYaml: (yamlPath: string) =>
+    apiFetch<{ ok: boolean; yamlPath: string }>(
+      `/api/v1/devices/esphome-yaml?path=${encodeURIComponent(yamlPath)}`,
+      { method: "DELETE" }
+    ),
 
   esphomeSuggest: (name: string) =>
     apiFetch<EsphomeImportSuggestion>(
@@ -1808,6 +1815,8 @@ export type EsphomeImportSuggestion = {
 
 export type EsphomeCatalogEntry = {
   fileName: string;
+  /** Server path under esphome/, e.g. living-room.yaml or devices/test.yaml */
+  yamlPath: string;
   esphomeName: string;
   mqttTopicPrefix: string;
   registered: boolean;
@@ -1898,6 +1907,7 @@ export type DeviceRecord = {
   macAddress: string | null;
   isEnabled: boolean;
   isOnline: boolean;
+  connectivityState?: "online" | "no_recent_data" | "offline";
   lastSeenAt: string | null;
   esphomeManagementMode?: string | null;
   esphomeLifecycleState?: string | null;

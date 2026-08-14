@@ -1,26 +1,20 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Checkbox,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  FormControlLabel,
-  IconButton,
   InputLabel,
   Link,
   MenuItem,
   Select,
   Stack,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -28,29 +22,32 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import SyncRoundedIcon from "@mui/icons-material/SyncRounded";
-import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import {
   api,
   type DeviceRecord,
   type EsphomeCatalogEntry,
 } from "../../api";
 import { AREA } from "../../lib/area-labels";
-import {
-  esphomeDashboardUrl,
-  esphomeProvisioningLifecycleLabel,
-  formatLastSeen,
-} from "../../lib/device-utils";
+import { esphomeDashboardUrl } from "../../lib/device-utils";
 import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
-import { OctopusSettingsCard } from "./OctopusSettingsCard";
+import { useConfirm } from "../../components/confirm";
 import { EsphomeAddDeviceWizard } from "./EsphomeAddDeviceWizard";
 import { EsphomeDevicePanelDialog } from "./EsphomeDevicePanelDialog";
+import { DeviceDetailPane } from "./devices/DeviceDetailPane";
+import { DeviceNavigator } from "./devices/DeviceNavigator";
+import {
+  isPhysicalDevice,
+  parseSelectionFromSearchParams,
+  selectionToSearchParams,
+  type DeviceSelection,
+  type StatusFilter,
+  type TypeFilter,
+} from "./devices/device-nav-utils";
 
 type AreaOption = { id: string; name: string };
 
@@ -93,6 +90,10 @@ type DiscoveredShellyRow = {
 };
 
 export function DevicesPage() {
+  const { confirm } = useConfirm();
+  const theme = useTheme();
+  const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
+  const [searchParams, setSearchParams] = useSearchParams();
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [areas, setAreas] = useState<AreaOption[]>([]);
   const [catalog, setCatalog] = useState<EsphomeCatalogEntry[]>([]);
@@ -119,12 +120,43 @@ export function DevicesPage() {
   const [discoverBusy, setDiscoverBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRecord | null>(null);
   const [deleteYamlToo, setDeleteYamlToo] = useState(false);
+  const [addDeviceChooserOpen, setAddDeviceChooserOpen] = useState(false);
   const [esphomePanelDevice, setEsphomePanelDevice] = useState<DeviceRecord | null>(null);
   const [systems, setSystems] = useState<{ id: string; label: string }[]>([]);
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [octopusNeedsAttention, setOctopusNeedsAttention] = useState(false);
+
+  const selection = useMemo(
+    () => parseSelectionFromSearchParams(searchParams),
+    [searchParams]
+  );
+
+  const setSelection = useCallback(
+    (next: DeviceSelection) => {
+      setSearchParams(selectionToSearchParams(next), { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  const selectedDevice = useMemo(() => {
+    if (selection?.kind !== "device") return null;
+    return devices.find((d) => d.id === selection.deviceId) ?? null;
+  }, [devices, selection]);
 
   useEffect(() => {
     setHostname(window.location.hostname);
   }, []);
+
+  useEffect(() => {
+    if (!selection) return;
+    if (selection.kind === "device" && devices.length > 0) {
+      if (!devices.some((d) => d.id === selection.deviceId)) {
+        setSelection(null);
+      }
+    }
+  }, [devices, selection, setSelection]);
 
   async function load() {
     try {
@@ -148,8 +180,17 @@ export function DevicesPage() {
             .filter((s) => s.operatorVisible !== false && s.tier !== "deprecated")
             .map((s) => ({ id: s.id, label: s.label }))
         );
+        try {
+          const octRes = await api.octopusSettings();
+          setOctopusNeedsAttention(
+            Boolean(octRes.settings.enabled && octRes.settings.lastError)
+          );
+        } catch {
+          setOctopusNeedsAttention(false);
+        }
       } else {
         setSystems([]);
+        setOctopusNeedsAttention(false);
       }
       setCatalog(catRes.configs);
       setCatalogHint(catRes.esphomeDirHint);
@@ -188,7 +229,12 @@ export function DevicesPage() {
     [catalog]
   );
 
+  function openAddDeviceChooser() {
+    setAddDeviceChooserOpen(true);
+  }
+
   function openAddDeviceWizard(fileName?: string) {
+    setAddDeviceChooserOpen(false);
     setWizardEditDeviceId(null);
     setWizardImportFile(fileName ?? null);
     setWizardOpen(true);
@@ -224,6 +270,7 @@ export function DevicesPage() {
   }
 
   function openShellyCreate() {
+    setAddDeviceChooserOpen(false);
     setShellyForm(emptyShellyForm);
     setDiscoveredShellies([]);
     setShellyDialogOpen(true);
@@ -338,6 +385,27 @@ export function DevicesPage() {
     }
   }
 
+  async function removeOrphanYaml(entry: EsphomeCatalogEntry) {
+    const ok = await confirm({
+      title: "Remove YAML file?",
+      message:
+        `Remove esphome/${entry.yamlPath} from the server? This only deletes the YAML file — it does not remove a registered Nexternel device.`,
+      confirmLabel: "Remove file",
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteEsphomeYaml(entry.yamlPath);
+      setInfo(`Removed esphome/${entry.yamlPath}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remove YAML failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function restoreYaml(d: DeviceRecord) {
     setBusy(true);
     setError(null);
@@ -360,6 +428,9 @@ export function DevicesPage() {
       await api.deleteDevice(deleteTarget.id, {
         deleteYaml: managed ? true : deleteYamlToo,
       });
+      if (selection?.kind === "device" && selection.deviceId === deleteTarget.id) {
+        setSelection(null);
+      }
       setDeleteTarget(null);
       setInfo(`Deleted ${deleteTarget.name}`);
       await load();
@@ -481,13 +552,12 @@ export function DevicesPage() {
 
   async function removeEntity(kind: "sensor" | "relay", deviceId: string, entityId: string, name: string) {
     const label = kind === "relay" ? "relay" : "sensor";
-    if (
-      !window.confirm(
-        `Remove ${label} "${name}" from this device? Dashboard bindings to it will stop working until you sync again.`
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Remove ${label}?`,
+      message: `Remove ${label} “${name}” from this device? Dashboard bindings to it will stop working until you sync again.`,
+      confirmLabel: "Remove",
+    });
+    if (!ok) return;
     try {
       if (kind === "relay") await api.deleteRelay(deviceId, entityId);
       else await api.deleteSensor(deviceId, entityId);
@@ -499,6 +569,28 @@ export function DevicesPage() {
   }
 
   const esphomeUrl = esphomeDashboardUrl(hostname);
+  const physicalDeviceCount = devices.filter(isPhysicalDevice).length;
+  const showConnectedServices = statusFilter === "all" && typeFilter === "all";
+  const showNavigator = !isNarrow || !selection;
+  const showDetail = !isNarrow || Boolean(selection);
+
+  const detailActions = {
+    onEdit: openEdit,
+    onToggleEnabled: toggleEnabled,
+    onRestoreYaml: restoreYaml,
+    onEditBuilder: openEditBuilder,
+    onAdoptToBuilder: adoptToBuilder,
+    onOpenEsphomePanel: setEsphomePanelDevice,
+    onSyncEsphome: syncEsphome,
+    onDownloadFlashYaml: downloadFlashYaml,
+    onDelete: (d: DeviceRecord) => {
+      setDeleteYamlToo(false);
+      setDeleteTarget(d);
+    },
+    onUpdateCapabilitySystem: updateCapabilitySystem,
+    onRenameEntity: renameEntity,
+    onRemoveEntity: removeEntity,
+  };
 
   return (
     <Stack spacing={2}>
@@ -529,10 +621,7 @@ export function DevicesPage() {
               >
                 Sync capabilities
               </Button>
-              <Button variant="outlined" onClick={() => openShellyCreate()}>
-                Add Shelly
-              </Button>
-              <Button variant="contained" onClick={() => openAddDeviceWizard()}>
+              <Button variant="contained" onClick={() => openAddDeviceChooser()}>
                 Add device
               </Button>
             </>
@@ -541,7 +630,7 @@ export function DevicesPage() {
       </Stack>
 
       <Typography color="text.secondary">
-        Register ESPHome boards and Shelly switches for dashboards.
+        Register ESPHome boards and Shelly switches for dashboards and Live.
       </Typography>
 
       {error && (
@@ -567,15 +656,17 @@ export function DevicesPage() {
           }}
         >
           <Typography variant="subtitle1" fontWeight={600}>
-            Found in ESPHome, not registered yet
+            Server YAML not registered
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Device configs found on the server that are not registered yet.
+            YAML files on the server under esphome/ that are not registered in Nexternel yet. This
+            list is from the server folder — not the ESPHome dashboard. Leftover files (for example
+            in esphome/devices/) can appear here after a test or deleted device.
           </Typography>
           <Stack spacing={1}>
             {unregistered.map((entry) => (
               <Stack
-                key={entry.fileName}
+                key={entry.yamlPath}
                 direction={{ xs: "column", sm: "row" }}
                 justifyContent="space-between"
                 alignItems={{ xs: "stretch", sm: "center" }}
@@ -594,347 +685,94 @@ export function DevicesPage() {
                     {entry.suggestion?.esphomeName || entry.fileName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                    esphome/{entry.yamlPath}
+                  </Typography>
+                  <Typography variant="caption" display="block" color="text.secondary" fontFamily="monospace">
                     {entry.mqttTopicPrefix}
                   </Typography>
                   <Typography variant="caption" display="block" color="text.secondary">
                     {entry.sensorCount} sensor(s), {entry.relayCount} relay(s)
                   </Typography>
                 </Box>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => openAddDeviceWizard(entry.fileName)}
-                >
-                  Register
-                </Button>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => openAddDeviceWizard(entry.fileName)}
+                  >
+                    Register
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    disabled={busy}
+                    onClick={() => void removeOrphanYaml(entry)}
+                  >
+                    Remove file
+                  </Button>
+                </Stack>
               </Stack>
             ))}
           </Stack>
         </Box>
       )}
 
-      {devices.length === 0 ? (
+      {physicalDeviceCount === 0 && !isAdmin ? (
         <Typography color="text.secondary">No devices registered yet.</Typography>
       ) : (
-        devices.map((d) => (
-          <Accordion key={d.id} disableGutters>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
-                useFlexGap
-                sx={{ width: "100%", pr: 1 }}
-              >
-                <Typography fontWeight={600}>{d.name}</Typography>
-                <Chip
-                  size="small"
-                  label={d.isOnline ? "Online" : "Offline"}
-                  color={d.isOnline ? "success" : "default"}
-                />
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={
-                    (d.firmwareType || "esphome") === "shelly"
-                      ? "Shelly"
-                      : d.firmwareType === "octopus"
-                        ? "Octopus"
-                        : "ESPHome"
-                  }
-                />
-                {!d.isEnabled && <Chip size="small" label="Disabled" color="warning" />}
-                {esphomeProvisioningLifecycleLabel(d.esphomeLifecycleState) && (
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    color={
-                      d.esphomeLifecycleState === "firmware_ready"
-                        ? "success"
-                        : d.esphomeLifecycleState === "error" ||
-                            d.esphomeLifecycleState === "validation_failed" ||
-                            d.esphomeLifecycleState === "configuration_missing"
-                          ? "error"
-                          : d.esphomeLifecycleState === "building"
-                            ? "info"
-                            : d.esphomeLifecycleState === "connecting"
-                              ? "warning"
-                              : "default"
-                    }
-                    label={esphomeProvisioningLifecycleLabel(d.esphomeLifecycleState)}
-                  />
-                )}
-                <Chip size="small" variant="outlined" label={d.roomName ?? `No ${AREA.singular}`} />
-                <Typography variant="caption" color="text.secondary">
-                  {d.sensors.length} sensor(s) · {d.relays.length} relay(s) · last seen{" "}
-                  {formatLastSeen(d.lastSeenAt)}
-                  {d.esphomeLifecycleState === "connecting" && !d.isOnline
-                    ? " · waiting for device on MQTT"
-                    : ""}
-                </Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Stack spacing={2}>
-                {d.esphomeLifecycleState === "configuration_missing" && (
-                  <Alert severity="warning">
-                    ESPHome YAML file is missing on the server. The device row is kept in Nexternel.
-                    {d.esphomeManagementMode === "managed"
-                      ? " Use Regenerate YAML to recreate it from the builder configuration, or restore the file on the server."
-                      : " Restore the YAML file on the server, or delete this registration."}
-                  </Alert>
-                )}
-                <Typography variant="body2" fontFamily="monospace" color="text.secondary">
-                  {d.mqttTopicPrefix}
-                  {d.ipAddress ? ` · ${d.ipAddress}` : ""}
-                </Typography>
-
-                {isAdmin && (
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={d.isEnabled}
-                          onChange={() => void toggleEnabled(d)}
-                          size="small"
-                        />
-                      }
-                      label="Enabled"
-                    />
-                    <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEdit(d)}>
-                      Edit
-                    </Button>
-                    {(d.firmwareType || "esphome") === "esphome" && (
-                      <>
-                        {d.esphomeLifecycleState === "configuration_missing" &&
-                          d.esphomeManagementMode === "managed" && (
-                            <Button
-                              size="small"
-                              disabled={busy}
-                              onClick={() => void restoreYaml(d)}
-                            >
-                              Regenerate YAML
-                            </Button>
-                          )}
-                        {d.esphomeManagementMode === "managed" && (
-                          <Button
-                            size="small"
-                            startIcon={<EditRoundedIcon />}
-                            disabled={busy}
-                            onClick={() => openEditBuilder(d)}
-                          >
-                            Edit configuration
-                          </Button>
-                        )}
-                        {d.esphomeManagementMode !== "managed" && (
-                          <Button
-                            size="small"
-                            disabled={busy}
-                            onClick={() => void adoptToBuilder(d)}
-                          >
-                            Adopt to builder
-                          </Button>
-                        )}
-                        <Button
-                          size="small"
-                          startIcon={<BuildRoundedIcon />}
-                          disabled={busy}
-                          onClick={() => setEsphomePanelDevice(d)}
-                        >
-                          ESPHome
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<SyncRoundedIcon />}
-                          disabled={busy}
-                          onClick={() => void syncEsphome(d)}
-                        >
-                          Sync from YAML
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<DownloadRoundedIcon />}
-                          disabled={busy}
-                          onClick={() => void downloadFlashYaml(d)}
-                        >
-                          Flash YAML
-                        </Button>
-                        <Button
-                          size="small"
-                          href={esphomeDashboardUrl(hostname, d.esphomeName || d.slug)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          endIcon={<OpenInNewRoundedIcon />}
-                        >
-                          ESPHome
-                        </Button>
-                      </>
-                    )}
-                    <IconButton
-                      size="small"
-                      color="error"
-                      aria-label="Delete device"
-                      onClick={() => {
-                        setDeleteYamlToo(false);
-                        setDeleteTarget(d);
-                      }}
-                    >
-                      <DeleteRoundedIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                )}
-
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Entity</TableCell>
-                      <TableCell>Type</TableCell>
-                      {isAdmin && <TableCell>Function</TableCell>}
-                      <TableCell>MQTT</TableCell>
-                      {isAdmin && <TableCell align="right">Actions</TableCell>}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {d.sensors.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell>{s.name}</TableCell>
-                        <TableCell>sensor · {s.sensorType}</TableCell>
-                        {isAdmin && (
-                          <TableCell sx={{ minWidth: 140 }}>
-                            {s.capabilityId ? (
-                              <FormControl size="small" fullWidth>
-                                <Select
-                                  value={s.systemId ?? ""}
-                                  displayEmpty
-                                  onChange={(e) =>
-                                    void updateCapabilitySystem(
-                                      s.capabilityId!,
-                                      e.target.value ? String(e.target.value) : null
-                                    )
-                                  }
-                                >
-                                  <MenuItem value="">—</MenuItem>
-                                  {systems.map((sys) => (
-                                    <MenuItem key={sys.id} value={sys.id}>
-                                      {sys.label}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                Sync capabilities
-                              </Typography>
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <Typography variant="caption" fontFamily="monospace">
-                            {s.mqttStateTopic}
-                          </Typography>
-                        </TableCell>
-                        {isAdmin && (
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                              <Button
-                                size="small"
-                                onClick={() => void renameEntity("sensor", d.id, s.id, s.name)}
-                              >
-                                Rename
-                              </Button>
-                              <Button
-                                size="small"
-                                color="error"
-                                onClick={() => void removeEntity("sensor", d.id, s.id, s.name)}
-                              >
-                                Remove
-                              </Button>
-                            </Stack>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                    {d.relays.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell>
-                          {r.name}
-                          {r.lastState ? ` (${r.lastState})` : ""}
-                        </TableCell>
-                        <TableCell>relay</TableCell>
-                        {isAdmin && (
-                          <TableCell sx={{ minWidth: 140 }}>
-                            {r.capabilityId ? (
-                              <FormControl size="small" fullWidth>
-                                <Select
-                                  value={r.systemId ?? ""}
-                                  displayEmpty
-                                  onChange={(e) =>
-                                    void updateCapabilitySystem(
-                                      r.capabilityId!,
-                                      e.target.value ? String(e.target.value) : null
-                                    )
-                                  }
-                                >
-                                  <MenuItem value="">—</MenuItem>
-                                  {systems.map((sys) => (
-                                    <MenuItem key={sys.id} value={sys.id}>
-                                      {sys.label}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                Sync capabilities
-                              </Typography>
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <Typography variant="caption" fontFamily="monospace">
-                            {r.mqttStateTopic}
-                          </Typography>
-                        </TableCell>
-                        {isAdmin && (
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                              <Button
-                                size="small"
-                                onClick={() => void renameEntity("relay", d.id, r.id, r.name)}
-                              >
-                                Rename
-                              </Button>
-                              <Button
-                                size="small"
-                                color="error"
-                                onClick={() => void removeEntity("relay", d.id, r.id, r.name)}
-                              >
-                                Remove
-                              </Button>
-                            </Stack>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                    {d.sensors.length === 0 && d.relays.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={isAdmin ? 5 : 3}>
-                          <Typography variant="body2" color="text.secondary">
-                            No sensors or relays — import from ESPHome YAML or sync.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
-        ))
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            gap: 2,
+            minHeight: { md: 520 },
+            height: { md: "calc(100vh - 280px)" },
+            maxHeight: { md: 900 },
+          }}
+        >
+          {showNavigator && (
+            <Box
+              sx={{
+                width: { xs: "100%", md: 360 },
+                flexShrink: 0,
+                minHeight: { xs: 320, md: 0 },
+                height: { md: "100%" },
+              }}
+            >
+              <DeviceNavigator
+                devices={devices}
+                areas={areas}
+                selection={selection}
+                onSelect={setSelection}
+                search={deviceSearch}
+                onSearchChange={setDeviceSearch}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                typeFilter={typeFilter}
+                onTypeFilterChange={setTypeFilter}
+                octopusNeedsAttention={octopusNeedsAttention}
+                showOctopus={isAdmin}
+                showConnectedServices={showConnectedServices}
+              />
+            </Box>
+          )}
+          {showDetail && (
+            <Box sx={{ flex: 1, minWidth: 0, minHeight: { xs: 360, md: 0 }, height: { md: "100%" } }}>
+              <DeviceDetailPane
+                selection={selection}
+                device={selectedDevice}
+                isAdmin={isAdmin}
+                busy={busy}
+                hostname={hostname}
+                systems={systems}
+                showBack={isNarrow && Boolean(selection)}
+                onBack={() => setSelection(null)}
+                actions={detailActions}
+              />
+            </Box>
+          )}
+        </Box>
       )}
-
-      {isAdmin && <OctopusSettingsCard />}
 
       {isAdmin && (
         <EsphomeAddDeviceWizard
@@ -1259,6 +1097,51 @@ export function DevicesPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={addDeviceChooserOpen}
+        onClose={() => setAddDeviceChooserOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Add device</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              Choose how this device connects to Nexternel.
+            </Typography>
+            <Button
+              variant="outlined"
+              fullWidth
+              sx={{ justifyContent: "flex-start", textAlign: "left", py: 1.5, px: 2 }}
+              onClick={() => openAddDeviceWizard()}
+            >
+              <Stack alignItems="flex-start" spacing={0.25}>
+                <Typography fontWeight={600}>ESPHome</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ESP32 / ESP8266 — wizard, YAML, compile, and OTA from Nexternel
+                </Typography>
+              </Stack>
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              sx={{ justifyContent: "flex-start", textAlign: "left", py: 1.5, px: 2 }}
+              onClick={() => openShellyCreate()}
+            >
+              <Stack alignItems="flex-start" spacing={0.25}>
+                <Typography fontWeight={600}>Shelly</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Shelly switch or plug — find on MQTT or enter device ID manually
+                </Typography>
+              </Stack>
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDeviceChooserOpen(false)}>Cancel</Button>
+        </DialogActions>
       </Dialog>
 
       {isAdmin && (

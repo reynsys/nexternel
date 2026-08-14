@@ -15,6 +15,7 @@ export type PanelScopeConfig = {
   groupIds?: string[];
   contentMode?: PanelContentMode;
   capabilityIds?: string[];
+  cameraIds?: string[];
 };
 
 export function readPanelContentMode(
@@ -29,6 +30,7 @@ export function readPanelContentMode(
     systemIds: config?.systemIds ?? [],
     groupIds: config?.groupIds ?? [],
     capabilityIds: config?.capabilityIds ?? [],
+    cameraIds: config?.cameraIds ?? [],
   });
 }
 
@@ -43,6 +45,7 @@ export function buildPanelScopeConfig(opts: {
   groupIds?: string[];
   contentMode: PanelContentMode;
   capabilityIds: string[];
+  cameraIds?: string[];
 }): PanelScopeConfig {
   const manual = opts.contentMode === "manual";
   return {
@@ -52,6 +55,7 @@ export function buildPanelScopeConfig(opts: {
     groupIds: opts.groupIds,
     contentMode: opts.contentMode,
     capabilityIds: manual ? opts.capabilityIds : [],
+    cameraIds: manual ? (opts.cameraIds ?? []) : [],
   };
 }
 
@@ -64,6 +68,7 @@ export function effectivePanelScope(
   groupIds: string[];
   contentMode: PanelContentMode;
   capabilityIds: string[];
+  cameraIds: string[];
 } {
   const areaIds = [...(config?.areaIds ?? [])];
   if (config?.inheritSectionArea && sectionAreaId && !areaIds.includes(sectionAreaId)) {
@@ -72,12 +77,14 @@ export function effectivePanelScope(
   const contentMode = readPanelContentMode(config);
   const capabilityIds =
     contentMode === "manual" ? [...(config?.capabilityIds ?? [])] : [];
+  const cameraIds = contentMode === "manual" ? [...(config?.cameraIds ?? [])] : [];
   return {
     areaIds,
     systemIds: config?.systemIds ?? [],
     groupIds: config?.groupIds ?? [],
     contentMode,
     capabilityIds,
+    cameraIds,
   };
 }
 
@@ -116,6 +123,7 @@ export function previewPanelScopeFromEditorFields(opts: {
   groupIds?: string[];
   contentMode?: PanelContentMode;
   capabilityIds?: string[];
+  cameraIds?: string[];
 }): ReturnType<typeof effectivePanelScope> {
   const areaIds =
     opts.inheritSectionArea && opts.sectionRoomId
@@ -130,6 +138,7 @@ export function previewPanelScopeFromEditorFields(opts: {
       groupIds: opts.groupIds ?? [],
       contentMode: opts.contentMode,
       capabilityIds: opts.capabilityIds ?? [],
+      cameraIds: opts.cameraIds ?? [],
     },
     null
   );

@@ -1,3 +1,4 @@
+import type { PanelContentMode } from "@nexternel/domain";
 import { normalizePanelKind } from "../lib/panel-kind";
 import type { HistoryRange, ResolvedPanelCapability } from "../api";
 import type { PanelAppearanceLayout } from "../lib/panel-appearance";
@@ -19,6 +20,8 @@ type Props = {
   chartMax?: number;
   panelLayout?: PanelAppearanceLayout;
   cameraAreaIds?: string[];
+  cameraIds?: string[];
+  cameraContentMode?: PanelContentMode;
   weatherConfig?: Record<string, unknown>;
   devicesConfig?: Record<string, unknown>;
   /** Persisted dashboard tile title — never auto-filled from panel kind. */
@@ -34,6 +37,8 @@ export function PanelRenderer({
   chartMax,
   panelLayout = "card",
   cameraAreaIds,
+  cameraIds,
+  cameraContentMode,
   weatherConfig,
   devicesConfig,
   widgetTitle,
@@ -56,7 +61,14 @@ export function PanelRenderer({
         />
       );
     case "panel.camera":
-      return <CameraPanel areaIds={cameraAreaIds ?? []} layout={panelLayout} />;
+      return (
+        <CameraPanel
+          areaIds={cameraAreaIds ?? []}
+          cameraIds={cameraIds}
+          contentMode={cameraContentMode}
+          layout={panelLayout}
+        />
+      );
     case "panel.weather":
       return <WeatherPanel config={weatherConfig} title={title} />;
     case "panel.calendar":

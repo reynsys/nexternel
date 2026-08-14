@@ -20,7 +20,11 @@ const emptyForm = {
   pollIntervalSec: "60",
 };
 
-export function OctopusSettingsCard() {
+type OctopusSettingsCardProps = {
+  embedded?: boolean;
+};
+
+export function OctopusSettingsCard({ embedded = false }: OctopusSettingsCardProps) {
   const [form, setForm] = useState(emptyForm);
   const [settings, setSettings] = useState<OctopusSettingsPublic | null>(null);
   const [busy, setBusy] = useState(false);
@@ -133,25 +137,26 @@ export function OctopusSettingsCard() {
     }
   }
 
-  return (
-    <Card>
-      <CardContent>
+  const body = (
+    <>
+      {!embedded && (
         <Typography variant="h6" gutterBottom>
           Octopus Home Mini
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Polls Octopus Energy for live power (W) and usage today (kWh) from your Home Mini
-          via the Kraken API. The Mini itself stays on Octopus Wi‑Fi — no MQTT on your LAN.
+      )}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Polls Octopus Energy for live power (W) and usage today (kWh) from your Home Mini
+        via the Kraken API. The Mini itself stays on Octopus Wi‑Fi — no MQTT on your LAN.
+      </Typography>
+
+      {settings?.lastPollAt && (
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          Last poll: {new Date(settings.lastPollAt).toLocaleString()}
+          {settings.lastError ? ` · Error: ${settings.lastError}` : ""}
         </Typography>
+      )}
 
-        {settings?.lastPollAt && (
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-            Last poll: {new Date(settings.lastPollAt).toLocaleString()}
-            {settings.lastError ? ` · Error: ${settings.lastError}` : ""}
-          </Typography>
-        )}
-
-        <Stack component="form" spacing={2} onSubmit={(e) => void onSave(e)}>
+      <Stack component="form" spacing={2} onSubmit={(e) => void onSave(e)}>
           <TextField
             label="Account number"
             value={form.accountNumber}
@@ -220,7 +225,16 @@ export function OctopusSettingsCard() {
             </Button>
           </Stack>
         </Stack>
-      </CardContent>
+    </>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <Card>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

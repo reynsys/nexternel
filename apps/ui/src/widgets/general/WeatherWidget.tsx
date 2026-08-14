@@ -3,6 +3,7 @@ import { Box, Stack, Typography } from "@mui/material";
 import { api, type WeatherResponse, type WidgetInstance } from "../../api";
 import { parseWeatherConfig, widgetTitleOr } from "./config";
 import { useDashboardTileChrome } from "../../lib/dashboard-tile-context";
+import { useMetricAppearance } from "../../skins/useMetricAppearance";
 import { weatherEmojiForCode } from "./weather-icons";
 
 /** Parse Open-Meteo daily `YYYY-MM-DD` as local calendar day (avoid UTC shift). */
@@ -44,6 +45,7 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
   }, [cfg.weatherLat, cfg.weatherLon]);
 
   const { showBodyHeading } = useDashboardTileChrome();
+  const { valueSx } = useMetricAppearance();
   const title = showBodyHeading
     ? widgetTitleOr(widget, "Weather") ||
       (cfg.weatherLocation !== "Weather" ? cfg.weatherLocation : "Weather")
@@ -118,7 +120,7 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
           <Typography sx={{ fontSize: "1.75rem", lineHeight: 1 }} aria-hidden>
             {weatherEmojiForCode(code)}
           </Typography>
-          <Typography variant="h5" fontWeight={700} sx={{ tabularNums: true }}>
+          <Typography variant="h5" sx={{ ...valueSx, fontSize: "1.5rem" }}>
             {data?.temperature !== undefined ? `${Math.round(data.temperature)}°C` : "—"}
           </Typography>
           <Stack spacing={0.25}>

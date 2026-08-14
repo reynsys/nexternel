@@ -10,6 +10,8 @@ export function panelItemPickerHeading(panelKind: string): string {
       return "What to control";
     case "panel.charts":
       return "What to chart";
+    case "panel.camera":
+      return "Which cameras";
     default:
       return "What to include";
   }

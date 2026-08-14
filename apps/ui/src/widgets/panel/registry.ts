@@ -65,6 +65,7 @@ export function readPanelScope(widget: WidgetInstance) {
     groupIds?: string[];
     contentMode?: "auto" | "manual";
     capabilityIds?: string[];
+    cameraIds?: string[];
   };
 }
 

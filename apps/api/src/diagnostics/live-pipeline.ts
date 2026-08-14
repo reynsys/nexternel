@@ -44,6 +44,7 @@ export type DevicePipelineDiagnostic = {
   mqttTopicPrefix: string;
   ipAddress: string | null;
   isOnline: boolean;
+  connectivityState: "online" | "no_recent_data" | "offline";
   lastSeenAt: string | null;
   subscriptionTopic: string;
   apiSubscribed: boolean;
@@ -132,15 +133,17 @@ function buildCapabilityStages(
     )
   );
 
+  const deviceReachable = device.connectivityState !== "offline";
+
   stages.push(
     stage(
       "device_publish",
       "Device publishing",
-      hasPrefixTraffic ? "pass" : device.isOnline ? "warn" : "fail",
+      hasPrefixTraffic ? "pass" : deviceReachable ? "warn" : "fail",
       hasPrefixTraffic
         ? "Messages observed on this prefix since API start"
-        : device.isOnline
-          ? "Device marked online but no messages in observation ring"
+        : deviceReachable
+          ? "No messages in observation ring since API start (device may be idle)"
           : "No MQTT messages observed on this prefix"
     )
   );
@@ -269,10 +272,16 @@ export function diagnoseDevice(
     stage(
       "device_publish",
       "Device publishing",
-      prefixMessages.length > 0 ? "pass" : device.isOnline ? "warn" : "fail",
+      prefixMessages.length > 0
+        ? "pass"
+        : device.connectivityState !== "offline"
+          ? "warn"
+          : "fail",
       prefixMessages.length > 0
         ? `${prefixMessages.length} message(s) observed since API start`
-        : "No messages observed on this device prefix"
+        : device.connectivityState !== "offline"
+          ? "No messages since API start (device may be idle)"
+          : "No messages observed on this device prefix"
     ),
     stage(
       "capabilities",
@@ -323,6 +332,7 @@ export function diagnoseDevice(
     mqttTopicPrefix: device.mqttTopicPrefix,
     ipAddress: device.ipAddress,
     isOnline: device.isOnline,
+    connectivityState: device.connectivityState,
     lastSeenAt: device.lastSeenAt,
     subscriptionTopic,
     apiSubscribed,

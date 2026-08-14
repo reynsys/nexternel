@@ -146,11 +146,11 @@ export function DashboardTabBar({
           })}
       </Box>
       {canEdit && (
-        <Tooltip title={editMode ? "Dashboard options (open)" : "Dashboard options"}>
+        <Tooltip title="Dashboard Options">
           <IconButton
             size="small"
             color={editMode ? "primary" : "default"}
-            aria-label="Dashboard options"
+            aria-label="Dashboard Options"
             aria-pressed={editMode}
             onClick={() => onDashboardOptions?.()}
           >

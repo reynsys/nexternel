@@ -3,6 +3,7 @@ import type { SxProps, Theme } from "@mui/material/styles";
 import type { ReactNode } from "react";
 import type { Capability, ResolvedPanelCapability } from "../api";
 import { panelContentRootSx } from "../components/DashboardTileBody";
+import { useNestedContentPanelSx } from "../skins/useSurfaceStyles";
 import { PanelItemContextLine } from "./PanelCapabilityAreaLine";
 import { panelItemContextLine } from "./panel-item-context";
 
@@ -34,6 +35,7 @@ export function PanelItemChrome({
   compact = false,
   contentSx,
 }: Props) {
+  const nestedSx = useNestedContentPanelSx();
   const context =
     contextLabel !== undefined
       ? contextLabel
@@ -46,6 +48,7 @@ export function PanelItemChrome({
   return (
     <Box
       sx={{
+        ...nestedSx,
         ...itemSx,
         ...panelContentRootSx({
           p: compact ? 1 : 1.25,

@@ -12,11 +12,14 @@ import {
 
   Chip,
 
+  Link,
+
   Stack,
 
   Typography,
 
 } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 
 import { api, type SystemInfo } from "../../../api";
 
@@ -68,7 +71,6 @@ export function SystemStatusPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [restartBusy, setRestartBusy] = useState<RestartService | null>(null);
-  const [repairBusy, setRepairBusy] = useState(false);
   const [restartMsg, setRestartMsg] = useState<string | null>(null);
 
   const [restartErr, setRestartErr] = useState<string | null>(null);
@@ -96,22 +98,6 @@ export function SystemStatusPage() {
   }, []);
 
 
-
-  async function onRepairMqtt() {
-    setRepairBusy(true);
-    setRestartMsg(null);
-    setRestartErr(null);
-    try {
-      const result = await api.repairMqtt();
-      setRestartMsg(result.message);
-      const fresh = await api.system();
-      setInfo(fresh);
-    } catch (err) {
-      setRestartErr(err instanceof Error ? err.message : "MQTT repair failed");
-    } finally {
-      setRepairBusy(false);
-    }
-  }
 
   async function onRestartServices(service: RestartService) {
 
@@ -213,7 +199,7 @@ export function SystemStatusPage() {
 
                 size="small"
 
-                disabled={restartBusy !== null || repairBusy}
+                disabled={restartBusy !== null}
 
                 onClick={() => void onRestartServices(opt.id)}
 
@@ -301,15 +287,13 @@ export function SystemStatusPage() {
               </Typography>
             )}
             {info.mqtt !== "connected" && (
-              <Button
-                variant="contained"
-                color="warning"
-                size="small"
-                disabled={repairBusy || restartBusy !== null}
-                onClick={() => void onRepairMqtt()}
-              >
-                {repairBusy ? "Repairing MQTT…" : "Repair MQTT connection"}
-              </Button>
+              <Typography variant="body2" color="text.secondary">
+                Try{" "}
+                <Link component={RouterLink} to="/admin/settings/advanced">
+                  Settings → Advanced
+                </Link>{" "}
+                → Repair MQTT connection.
+              </Typography>
             )}
 
           </CardContent>

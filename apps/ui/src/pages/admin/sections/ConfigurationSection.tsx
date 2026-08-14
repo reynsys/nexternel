@@ -5,10 +5,12 @@ import {
   Button,
   Card,
   CardContent,
+  Link,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import { api, type AdoptConfigResponse } from "../../../api";
 import { useContentSurfaceSx } from "../../../skins/useSurfaceStyles";
 
@@ -31,7 +33,6 @@ export function ConfigurationSection() {
   const [adoptErr, setAdoptErr] = useState<string | null>(null);
   const [adoptResult, setAdoptResult] = useState<AdoptConfigResponse | null>(null);
   const [packBusy, setPackBusy] = useState(false);
-  const [repairBusy, setRepairBusy] = useState(false);
 
   useEffect(() => {
     void api
@@ -132,21 +133,6 @@ export function ConfigurationSection() {
       setAdoptErr(err instanceof Error ? err.message : "YAML pack download failed");
     } finally {
       setPackBusy(false);
-    }
-  }
-
-  async function onRepairDashboardBindings() {
-    setRepairBusy(true);
-    setAdoptErr(null);
-    try {
-      const res = await api.repairDashboardBindings();
-      setAdoptMsg(
-        `Dashboard panels updated (${res.bindingsRemapped} fixed on ${res.dashboardsUpdated} dashboard(s)). Reload the Dashboard page.`
-      );
-    } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Could not fix dashboard panels");
-    } finally {
-      setRepairBusy(false);
     }
   }
 
@@ -303,22 +289,13 @@ export function ConfigurationSection() {
             </Alert>
           )}
 
-          <Box sx={{ pt: 1 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Fix dashboard panels
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              After adopt, some dashboard panels may not respond even though Live works. Use once if
-              needed, then reload the Dashboard.
-            </Typography>
-            <Button
-              variant="outlined"
-              disabled={repairBusy}
-              onClick={() => void onRepairDashboardBindings()}
-            >
-              {repairBusy ? "Fixing…" : "Fix dashboard panels"}
-            </Button>
-          </Box>
+          <Typography variant="body2" color="text.secondary">
+            After adopt, if dashboard panels do not respond, use{" "}
+            <Link component={RouterLink} to="/admin/settings/advanced">
+              Settings → Advanced
+            </Link>{" "}
+            → Fix dashboard panels.
+          </Typography>
         </Stack>
       </CardContent>
     </Card>

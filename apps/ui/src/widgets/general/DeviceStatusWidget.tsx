@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Chip, Stack, Typography } from "@mui/material";
 import { api, type DeviceRecord, type WidgetInstance } from "../../api";
+import { useMetricAppearance } from "../../skins/useMetricAppearance";
 import { parseDeviceStatusConfig } from "./config";
 import { useWidgetBodyHeading } from "./heading";
-import { formatLastSeen } from "../../lib/device-utils";
+import { formatLastSeen, connectivityChipColor, deviceConnectivityState } from "../../lib/device-utils";
 
 export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
   const { offlineOnly } = parseDeviceStatusConfig(widget.config);
+  const { nestedItemSx } = useMetricAppearance();
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const title = useWidgetBodyHeading(widget, "Devices");
@@ -34,16 +36,30 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
     };
   }, []);
 
-  const online = devices.filter((d) => d.isOnline && d.isEnabled).length;
-  const offline = devices.filter((d) => !d.isOnline && d.isEnabled).length;
+  const online = devices.filter(
+    (d) => d.isEnabled && deviceConnectivityState(d) === "online"
+  ).length;
+  const noRecent = devices.filter(
+    (d) => d.isEnabled && deviceConnectivityState(d) === "no_recent_data"
+  ).length;
+  const offline = devices.filter(
+    (d) => d.isEnabled && deviceConnectivityState(d) === "offline"
+  ).length;
   const disabled = devices.filter((d) => !d.isEnabled).length;
 
   const list = useMemo(() => {
     const sorted = [...devices].sort((a, b) => {
-      if (a.isOnline !== b.isOnline) return a.isOnline ? 1 : -1;
+      const aConn = deviceConnectivityState(a);
+      const bConn = deviceConnectivityState(b);
+      if (aConn !== bConn) {
+        const order = { offline: 0, no_recent_data: 1, online: 2 } as const;
+        return order[aConn] - order[bConn];
+      }
       return a.name.localeCompare(b.name);
     });
-    if (offlineOnly) return sorted.filter((d) => !d.isOnline);
+    if (offlineOnly) {
+      return sorted.filter((d) => deviceConnectivityState(d) === "offline");
+    }
     return sorted;
   }, [devices, offlineOnly]);
 
@@ -64,6 +80,9 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
       )}
       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 0.75, flexShrink: 0 }}>
         <Chip size="small" color="success" label={`${online} online`} />
+        {noRecent > 0 && (
+          <Chip size="small" label={`${noRecent} no recent data`} />
+        )}
         <Chip size="small" color={offline ? "warning" : "default"} label={`${offline} offline`} />
         {disabled > 0 && <Chip size="small" label={`${disabled} disabled`} />}
       </Stack>
@@ -79,7 +98,9 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
           </Typography>
         ) : (
           <Stack spacing={0.5}>
-            {list.map((d) => (
+            {list.map((d) => {
+              const connectivity = deviceConnectivityState(d);
+              return (
               <Stack
                 key={d.id}
                 direction="row"
@@ -89,9 +110,7 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
                 sx={{
                   px: 0.75,
                   py: 0.35,
-                  borderRadius: 1,
-                  bgcolor: (t) =>
-                    t.palette.mode === "dark" ? "rgba(255,255,255,0.04)" : "grey.50",
+                  ...nestedItemSx,
                 }}
               >
                 <Box sx={{ minWidth: 0 }}>
@@ -104,12 +123,25 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
                 </Box>
                 <Chip
                   size="small"
-                  label={!d.isEnabled ? "off" : d.isOnline ? "on" : "out"}
-                  color={!d.isEnabled ? "default" : d.isOnline ? "success" : "warning"}
+                  label={
+                    !d.isEnabled
+                      ? "off"
+                      : connectivity === "online"
+                        ? "on"
+                        : connectivity === "no_recent_data"
+                          ? "no data"
+                          : "out"
+                  }
+                  color={
+                    !d.isEnabled
+                      ? "default"
+                      : connectivityChipColor(connectivity)
+                  }
                   sx={{ height: 20, "& .MuiChip-label": { px: 0.75, fontSize: "0.65rem" } }}
                 />
               </Stack>
-            ))}
+            );
+            })}
           </Stack>
         )}
       </Box>

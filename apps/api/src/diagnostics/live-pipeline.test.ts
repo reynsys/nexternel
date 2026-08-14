@@ -17,6 +17,7 @@ function sampleDevice(overrides: Partial<DeviceDetail> = {}): DeviceDetail {
     macAddress: null,
     isEnabled: true,
     isOnline: false,
+    connectivityState: "offline",
     lastSeenAt: null,
     sensors: [],
     relays: [

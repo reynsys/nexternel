@@ -166,7 +166,7 @@ function AnalogClock({
             y1="60"
             x2="60"
             y2="34"
-            stroke="#7ec8e3"
+            stroke="var(--nx-accent, currentColor)"
             strokeWidth={style === "minimal" ? 2.5 : 3}
             strokeLinecap="round"
             transform={`rotate(${hourDeg} 60 60)`}
@@ -176,7 +176,7 @@ function AnalogClock({
             y1="60"
             x2="60"
             y2="24"
-            stroke="#fdba74"
+            stroke="var(--nx-accent-soft, currentColor)"
             strokeWidth={style === "minimal" ? 1.5 : 2}
             strokeLinecap="round"
             transform={`rotate(${minuteDeg} 60 60)`}
@@ -259,6 +259,7 @@ function DigitalClock({
         overflow: "hidden",
         padding: 4,
         boxSizing: "border-box",
+        color: "var(--nx-text-primary, inherit)",
       }}
     >
       <div
@@ -271,6 +272,7 @@ function DigitalClock({
           fontVariantNumeric: "tabular-nums",
           textTransform: style === "bold" ? "uppercase" : undefined,
           whiteSpace: "nowrap",
+          color: "var(--nx-metric-value, var(--nx-accent, currentColor))",
         }}
       >
         {timeStr}
@@ -280,7 +282,6 @@ function DigitalClock({
           style={{
             marginTop: Math.max(4, timePx * 0.08),
             fontSize: datePx,
-            opacity: 0.7,
             fontWeight: style === "bold" ? 600 : 400,
             letterSpacing: style === "bold" ? "0.06em" : undefined,
             textTransform: style === "bold" ? "uppercase" : undefined,
@@ -289,6 +290,8 @@ function DigitalClock({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            color: "var(--nx-text-secondary, inherit)",
+            opacity: 0.9,
           }}
         >
           {dateStr}
@@ -323,6 +326,7 @@ export function ClockWidget({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        color: "var(--nx-text-primary, inherit)",
       }}
     >
       {showChromeTitle && (
@@ -331,11 +335,11 @@ export function ClockWidget({
             flexShrink: 0,
             fontSize: "0.8rem",
             fontWeight: 600,
-            opacity: 0.9,
             marginBottom: 2,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            color: "var(--nx-text-secondary, inherit)",
           }}
         >
           {title}

@@ -2,9 +2,9 @@ import { Stack, Typography } from "@mui/material";
 import type { Capability } from "../api";
 import { api, type WidgetInstance } from "../api";
 import { DashboardTileBody } from "../components/DashboardTileBody";
+import { useDashboardTileChrome } from "../lib/dashboard-tile-context";
 import { getPanelContribution } from "../plugins/registry";
 import { PanelWidget, isPanelWidgetType } from "./panel";
-import { useDashboardTileChrome } from "../lib/dashboard-tile-context";
 import { EchartsContributionWidget } from "./echarts/EchartsContributionWidget";
 import { isEchartsWidgetType } from "./echarts/config";
 

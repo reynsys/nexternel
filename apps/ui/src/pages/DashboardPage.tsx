@@ -25,6 +25,7 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -94,6 +95,7 @@ import { prepareDashboardSections } from "../lib/panel-normalize";
 import { DashboardTabBar } from "../components/DashboardTabBar";
 import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
 import { DashboardErrorBoundary } from "../components/DashboardErrorBoundary";
+import { useConfirm } from "../components/confirm";
 import { DashboardIconPicker } from "../components/DashboardIconPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
 import { useShellAuth } from "../skins/useShellAuth";
@@ -123,6 +125,7 @@ export function DashboardPage() {
     "editDashboards",
     isAdmin
   );
+  const { confirm } = useConfirm();
   const theme = useTheme();
   const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
   const gradientActive = useGradientActive();
@@ -832,14 +835,11 @@ export function DashboardPage() {
             justifyContent="space-between"
           >
             <Typography variant="subtitle1" fontWeight={600}>
-              Dashboard options
+              Dashboard Options
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button variant="outlined" onClick={addSection}>
                 Add section
-              </Button>
-              <Button variant="outlined" onClick={() => openAddPanel()}>
-                Add Panel
               </Button>
               <Button
                 variant="outlined"
@@ -1040,19 +1040,44 @@ export function DashboardPage() {
                     <SecIcon color="primary" fontSize="small" />
                   )}
                   {editMode ? (
-                    <TextField
-                      size="small"
-                      label="Section"
-                      value={section.title}
-                      onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                      onClick={(e) => e.stopPropagation()}
-                      sx={{ flex: 1, maxWidth: 280 }}
-                    />
+                    <>
+                      <TextField
+                        size="small"
+                        label="Section"
+                        value={section.title}
+                        onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{ width: { xs: "100%", sm: 220 }, maxWidth: 280, flexShrink: 0 }}
+                      />
+                      <Tooltip title="Delete this section and all panels inside it">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          sx={{ flexShrink: 0 }}
+                          onClick={() => {
+                            void (async () => {
+                              const panelCount = section.widgets.length;
+                              const ok = await confirm({
+                                title: "Remove this section?",
+                                message:
+                                  `Remove “${section.title}” and ${panelCount} panel${panelCount === 1 ? "" : "s"} inside it? Save the dashboard to keep this change.`,
+                                confirmLabel: "Remove this section",
+                              });
+                              if (ok) removeSection(section.id);
+                            })();
+                          }}
+                        >
+                          Remove this Section
+                        </Button>
+                      </Tooltip>
+                    </>
                   ) : (
                     <Typography variant="h6" sx={{ flex: 1 }} noWrap>
                       {section.title}
                     </Typography>
                   )}
+                  <Box sx={{ flex: 1, minWidth: 8 }} />
                   <Typography
                     variant="caption"
                     sx={{ flexShrink: 0, color: "primary.main", fontWeight: 500 }}
@@ -1066,6 +1091,7 @@ export function DashboardPage() {
                       alignItems="center"
                       flexWrap="wrap"
                       useFlexGap
+                      sx={{ flexShrink: 0 }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -1087,35 +1113,39 @@ export function DashboardPage() {
                           ))}
                         </Select>
                       </FormControl>
-                      <IconButton
-                        size="small"
-                        aria-label="Move section up"
-                        disabled={index === 0}
-                        onClick={() => moveSection(section.id, -1)}
-                      >
-                        <ArrowUpwardIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        aria-label="Move section down"
-                        disabled={index === ordered.length - 1}
-                        onClick={() => moveSection(section.id, 1)}
-                      >
-                        <ArrowDownwardIcon fontSize="small" />
-                      </IconButton>
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => removeSection(section.id)}
-                      >
-                        Remove
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={() => openAddPanel(section.id)}
-                      >
-                        Add Panel
-                      </Button>
+                      <Tooltip title="Move section up on the page">
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label="Move section up"
+                            disabled={index === 0}
+                            onClick={() => moveSection(section.id, -1)}
+                          >
+                            <ArrowUpwardIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Move section down on the page">
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label="Move section down"
+                            disabled={index === ordered.length - 1}
+                            onClick={() => moveSection(section.id, 1)}
+                          >
+                            <ArrowDownwardIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Add a panel to this section">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => openAddPanel(section.id)}
+                        >
+                          Add Panel
+                        </Button>
+                      </Tooltip>
                     </Stack>
                   )}
                 </Stack>

@@ -34,7 +34,9 @@ import {
 
 import type { PanelContentMode } from "@nexternel/domain";
 
-import { api, type HistoryRange, type ResolvedPanelCapability, type WidgetInstance } from "../../api";
+import { api, type CameraRecord, type HistoryRange, type ResolvedPanelCapability, type WidgetInstance } from "../../api";
+
+import { PanelCameraContentFields } from "../../components/PanelCameraContentFields";
 
 import { PanelContentFields } from "../../components/PanelContentFields";
 
@@ -120,6 +122,8 @@ export function PanelWidgetEditor({
 
   const isCharts = panelKind === "panel.charts";
 
+  const isCamera = panelKind === "panel.camera";
+
   const showLayout = !panelIsIntegrationKind(panelKind);
 
   const existing = readPanelScope(widget);
@@ -127,6 +131,8 @@ export function PanelWidgetEditor({
   const showAreaScope = panelUsesAreaScope(widget.type);
 
   const showSystemFilter = panelUsesCapabilityScope(widget.type);
+
+  const showCameraContent = isCamera;
 
   const [title, setTitle] = useState(widget.title ?? "");
 
@@ -148,6 +154,8 @@ export function PanelWidgetEditor({
 
   const [capabilityIds, setCapabilityIds] = useState<string[]>(existing.capabilityIds ?? []);
 
+  const [cameraIds, setCameraIds] = useState<string[]>(existing.cameraIds ?? []);
+
   const [appearanceLayout, setAppearanceLayout] = useState<PanelAppearanceLayout>(
 
     readPanelAppearanceLayout(widget.config)
@@ -167,6 +175,8 @@ export function PanelWidgetEditor({
   const [scopedSystems, setScopedSystems] = useState<{ id: string; label: string }[]>([]);
 
   const [scopeCapabilities, setScopeCapabilities] = useState<ResolvedPanelCapability[]>([]);
+
+  const [scopeCameras, setScopeCameras] = useState<CameraRecord[]>([]);
 
 
 
@@ -190,15 +200,17 @@ export function PanelWidgetEditor({
 
         capabilityIds,
 
+        cameraIds,
+
       }),
 
-    [inheritSection, sectionRoomId, areaId, systemIds, existing.groupIds, contentMode, capabilityIds]
+    [inheritSection, sectionRoomId, areaId, systemIds, existing.groupIds, contentMode, capabilityIds, cameraIds]
 
   );
 
 
 
-  const previewScopeKey = `${previewScope.contentMode}|${previewScope.areaIds.join(",")}|${previewScope.systemIds.join(",")}|${previewScope.groupIds.join(",")}|${previewScope.capabilityIds.join(",")}`;
+  const previewScopeKey = `${previewScope.contentMode}|${previewScope.areaIds.join(",")}|${previewScope.systemIds.join(",")}|${previewScope.groupIds.join(",")}|${previewScope.capabilityIds.join(",")}|${previewScope.cameraIds.join(",")}`;
 
 
 
@@ -219,6 +231,8 @@ export function PanelWidgetEditor({
     setContentMode(readPanelContentMode(scope, widget.type));
 
     setCapabilityIds(scope.capabilityIds ?? []);
+
+    setCameraIds(scope.cameraIds ?? []);
 
     setAppearanceLayout(readPanelAppearanceLayout(widget.config));
 
@@ -306,13 +320,51 @@ export function PanelWidgetEditor({
 
   useEffect(() => {
 
-    if (contentMode === "auto") {
+    if (!open || !showCameraContent) return;
 
-      setCapabilityIds([]);
+    void api
 
+      .cameras()
+
+      .then((r) => {
+
+        let list = r.cameras.filter((c) => c.enabled);
+
+        if (previewScope.areaIds.length > 0) {
+
+          list = list.filter((c) => c.areaId && previewScope.areaIds.includes(c.areaId));
+
+        }
+
+        list.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+        setScopeCameras(list);
+
+        setCameraIds((prev) => prev.filter((id) => list.some((c) => c.id === id)));
+
+      })
+
+      .catch(() => setScopeCameras([]));
+
+  }, [open, showCameraContent, previewScopeKey]);
+
+
+
+  function handleContentModeChange(mode: PanelContentMode) {
+    if (mode === "manual" && contentMode === "auto") {
+      if (showCameraContent && scopeCameras.length > 0) {
+        setCameraIds(scopeCameras.map((c) => c.id));
+      }
+      if (showSystemFilter && scopeCapabilities.length > 0) {
+        setCapabilityIds(scopeCapabilities.map((c) => c.id));
+      }
     }
-
-  }, [contentMode]);
+    if (mode === "auto") {
+      setCapabilityIds([]);
+      setCameraIds([]);
+    }
+    setContentMode(mode);
+  }
 
 
 
@@ -351,6 +403,7 @@ export function PanelWidgetEditor({
         groupIds: existing.groupIds ?? [],
         contentMode,
         capabilityIds,
+        cameraIds,
       }),
       appearance: {
         ...prevAppearance,
@@ -631,13 +684,31 @@ export function PanelWidgetEditor({
 
               contentMode={contentMode}
 
-              onContentModeChange={setContentMode}
+              onContentModeChange={handleContentModeChange}
 
               capabilityIds={capabilityIds}
 
               onCapabilityIdsChange={setCapabilityIds}
 
               options={scopeCapabilities}
+
+            />
+
+          )}
+
+          {showCameraContent && (
+
+            <PanelCameraContentFields
+
+              contentMode={contentMode}
+
+              onContentModeChange={handleContentModeChange}
+
+              cameraIds={cameraIds}
+
+              onCameraIdsChange={setCameraIds}
+
+              options={scopeCameras}
 
             />
 

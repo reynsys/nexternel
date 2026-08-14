@@ -8,10 +8,7 @@ import {
   getCapabilityById,
 } from "../capabilities/store.js";
 import { getLiveState, parseMqttPayload, setLiveState, getAllLiveStates } from "./state-cache.js";
-import {
-  DEVICE_ONLINE_TIMEOUT_MS,
-  LIVE_CAPABILITY_PRESENCE_MS,
-} from "../devices/presence.js";
+import { LIVE_CAPABILITY_PRESENCE_MS } from "../devices/presence.js";
 import { getPool } from "../db.js";
 import { looksLikeShellyCommandTopic, isShellyGen1MqttPrefix } from "../shelly/topics.js";
 import { parseShellyMqttSwitchUpdates } from "../shelly/notify.js";
@@ -188,13 +185,14 @@ async function rebuildTopicIndex() {
   }
 }
 
-/** Safety net: mark offline when no live MQTT traffic within DEVICE_ONLINE_TIMEOUT_MS. */
+/** Device presence: explicit MQTT availability + last_seen; Offline derived at read time. */
 
 function markDeviceOnline(prefix: string) {
   void getPool()
     .query(
       `UPDATE devices
-       SET is_online = TRUE, last_seen_at = NOW()
+       SET mqtt_availability = 'online',
+           last_seen_at = NOW()
        WHERE mqtt_topic_prefix = $1`,
       [prefix]
     )
@@ -210,7 +208,12 @@ function markDeviceOnline(prefix: string) {
 
 function markDeviceOffline(prefix: string) {
   void getPool()
-    .query(`UPDATE devices SET is_online = FALSE WHERE mqtt_topic_prefix = $1`, [prefix])
+    .query(
+      `UPDATE devices
+       SET mqtt_availability = 'offline'
+       WHERE mqtt_topic_prefix = $1`,
+      [prefix]
+    )
     .catch(() => {
       /* ignore */
     });
@@ -246,7 +249,7 @@ function applyDeviceRootStatusTopic(
   if (!prefix || topic !== `${prefix}/status`) return false;
   const state = payload.trim().toLowerCase();
   if (state === "online" || state === "true" || state === "1") {
-    if (!retained) markDeviceOnline(prefix);
+    markDeviceOnline(prefix);
     return true;
   }
   if (state === "offline" || state === "false" || state === "0") {
@@ -269,7 +272,7 @@ function applyDeviceShellyOnlineTopic(
   if (!prefix || prefix !== match[1]) return false;
   const state = payload.trim().toLowerCase();
   if (/^(true|1|online)$/.test(state)) {
-    if (!retained) markDeviceOnline(prefix);
+    markDeviceOnline(prefix);
     return true;
   }
   if (/^(false|0|offline)$/.test(state)) {
@@ -288,7 +291,8 @@ function touchDeviceOnlineByCapability(capabilityId: string) {
   void getPool()
     .query(
       `UPDATE devices d
-       SET is_online = TRUE, last_seen_at = NOW()
+       SET mqtt_availability = 'online',
+           last_seen_at = NOW()
        FROM capabilities c
        WHERE c.id = $1 AND c.device_id = d.id`,
       [capabilityId]
@@ -316,7 +320,7 @@ function applyLiveCapability(
   kind = "switch"
 ) {
   const sensorLike = kind !== "switch";
-  if (!retained) {
+  if (!retained || kind === "switch") {
     touchDeviceOnlineByCapability(capabilityId);
   }
   setLiveState(capabilityId, value, {
@@ -359,6 +363,9 @@ function applyShellyTopicUpdates(
     if (!capabilityId) continue;
     applyLiveCapability(capabilityId, u.output, retained, "switch");
     applied = true;
+  }
+  if (applied) {
+    markDeviceOnline(prefix);
   }
   return applied;
 }
@@ -702,33 +709,13 @@ function requestShellyStatusUpdates() {
 function startPresenceSweeper() {
   if (presenceTimer) return;
   presenceTimer = setInterval(() => {
-    void sweepDevicePresence();
+    void sweepLiveCapabilityFreshness();
   }, 15_000);
   presenceTimer.unref?.();
 }
 
-async function sweepDevicePresence() {
-  const timeoutSec = DEVICE_ONLINE_TIMEOUT_MS / 1000;
-  try {
-    const offline = await getPool().query<{ mqtt_topic_prefix: string }>(
-      `UPDATE devices
-       SET is_online = FALSE
-       WHERE is_online = TRUE
-         AND COALESCE(firmware_type, 'esphome') <> 'octopus'
-         AND (
-           last_seen_at IS NULL
-           OR last_seen_at < NOW() - ($1::double precision * INTERVAL '1 second')
-         )
-       RETURNING mqtt_topic_prefix`,
-      [timeoutSec]
-    );
-    for (const row of offline.rows) {
-      await staleCapabilitiesForPrefix(row.mqtt_topic_prefix);
-    }
-  } catch {
-    /* ignore */
-  }
-
+/** Mark in-memory live values stale when they age out — device Offline is derived at read time. */
+async function sweepLiveCapabilityFreshness() {
   const staleMs = LIVE_CAPABILITY_PRESENCE_MS;
   const octopusCapIds = await getOctopusCapabilityIdsForPresence();
   for (const state of getAllLiveStates()) {
@@ -895,6 +882,17 @@ export async function publishSwitchCommand(
 
   // Optimistic update; state topic / events/rpc will confirm
   applyLiveCapability(capabilityId, next, false, "switch");
+  void getPool()
+    .query(
+      `UPDATE devices
+       SET mqtt_availability = 'online',
+           last_seen_at = NOW()
+       WHERE id = $1`,
+      [cap.device_id]
+    )
+    .catch(() => {
+      /* ignore */
+    });
 
   return { value: next };
 }

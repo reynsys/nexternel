@@ -39,12 +39,16 @@ export function PanelWidget({ widget, sectionRoomId }: Props) {
   const devicesConfig = readPanelDevicesConfig(widget.config);
   const title = widget.title?.trim() || null;
   const isIntegration = isIntegrationPanelKind(panelKind);
+  const isCamera = panelKind === "panel.camera";
+  const directRender = isIntegration || isCamera;
 
-  const body = isIntegration ? (
+  const body = directRender ? (
     <PanelRenderer
       panelKind={panelKind}
       capabilities={[]}
       cameraAreaIds={resolvedScope.areaIds}
+      cameraIds={resolvedScope.cameraIds}
+      cameraContentMode={resolvedScope.contentMode}
       weatherConfig={weatherConfig}
       devicesConfig={devicesConfig}
       widgetTitle={title}
