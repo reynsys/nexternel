@@ -17,13 +17,20 @@ import TuneIcon from "@mui/icons-material/Tune";
 import type { Capability, WidgetInstance } from "../api";
 import { WidgetRenderer } from "../widgets/WidgetRenderer";
 import { WidgetErrorBoundary } from "./WidgetErrorBoundary";
-import { CoreWidgetEditor } from "../widgets/CoreWidgetEditor";
-import { SwitchWidgetEditor, isSwitchWidgetType, switchWidgetLabel } from "../widgets/switch";
 import { AirQualityWidgetEditor } from "../widgets/AirQualityWidgetEditor";
 import { ClockWidgetEditor } from "../widgets/ClockWidgetEditor";
-import { EChartsWidgetEditor, isEchartsWidgetType } from "../widgets/echarts";
+import { PanelWidgetEditor, isPanelWidgetType, panelLabel } from "../widgets/panel";
+import { GAUGE_WIDGET_TYPE } from "../widgets/gauge";
+import { EChartsWidgetEditor } from "../widgets/echarts/EChartsWidgetEditor";
+import { isEchartsWidgetType } from "../widgets/echarts/config";
+import { getPanelContribution } from "../plugins/registry";
+import { DashboardTileContext } from "../lib/dashboard-tile-context";
+import { dashboardTileTitle } from "../lib/dashboard-tile";
+import {
+  panelAsGeneralWidget,
+  resolveDashboardEditorKind,
+} from "../lib/panel-editor-route";
 import { GeneralWidgetEditor } from "../widgets/GeneralWidgetEditor";
-import { isGeneralWidgetType } from "../widgets/general";
 import { CLOCK_WIDGET_TYPE } from "@nexternel/plugin-example-clock";
 import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
 import { contentSurfaceSx } from "../skins/surfaceStyles";
@@ -35,6 +42,8 @@ const WIDGET_DRAG_MIME = "application/x-nexternel-widget";
 
 type Props = {
   sectionId: string;
+  sectionRoomId?: string | null;
+  sectionTitle?: string;
   widgets: WidgetInstance[];
   capabilities: Capability[];
   editMode: boolean;
@@ -53,16 +62,21 @@ type Props = {
   ) => void;
 };
 
-function isCoreEditable(type: string): boolean {
-  return type === "stat";
+function widgetTypeLabel(type: string): string {
+  if (isPanelWidgetType(type)) return panelLabel(type);
+  if (type === GAUGE_WIDGET_TYPE || isEchartsWidgetType(type)) return "Gauge";
+  return getPanelContribution(type)?.label ?? type;
 }
 
-function isClockWidget(type: string): boolean {
-  return type === CLOCK_WIDGET_TYPE;
+function dashboardItemKind(type: string): "panel" | "plugin" {
+  if (isPanelWidgetType(type) || type === GAUGE_WIDGET_TYPE || isEchartsWidgetType(type)) {
+    return "panel";
+  }
+  return "plugin";
 }
 
-function isAirQualityWidget(type: string): boolean {
-  return type === AIR_QUALITY_WIDGET_TYPE;
+function isEditableWidget(widget: WidgetInstance): boolean {
+  return resolveDashboardEditorKind(widget) !== null;
 }
 
 /**
@@ -70,6 +84,8 @@ function isAirQualityWidget(type: string): boolean {
  */
 export function SectionGrid({
   sectionId,
+  sectionRoomId,
+  sectionTitle,
   widgets,
   capabilities,
   editMode,
@@ -97,12 +113,17 @@ export function SectionGrid({
     widgetDrag.fromSectionId !== sectionId &&
     Boolean(onMoveWidget);
 
+  const prevWidthRef = useRef(0);
+
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
     const measure = () => {
-      const w = el.getBoundingClientRect().width;
-      if (w > 0) setWidth(Math.floor(w));
+      const w = Math.floor(el.getBoundingClientRect().width);
+      if (w > 0 && w !== prevWidthRef.current) {
+        prevWidthRef.current = w;
+        setWidth(w);
+      }
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -110,13 +131,6 @@ export function SectionGrid({
     return () => ro.disconnect();
   }, []);
 
-  /** Charts must remeasure when edit chrome appears (toolbar + resize handle). */
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
-    }, 80);
-    return () => window.clearTimeout(t);
-  }, [editMode, width]);
 
   const layout: Layout[] = widgets
     .filter((w) => typeof w.id === "string" && w.id.trim())
@@ -136,12 +150,9 @@ export function SectionGrid({
   const editing = editWidgetId
     ? widgets.find((w) => w.id === editWidgetId) ?? null
     : null;
-  const editingEcharts = editing ? isEchartsWidgetType(editing.type) : false;
-  const editingCore = editing ? isCoreEditable(editing.type) : false;
-  const editingSwitch = editing ? isSwitchWidgetType(editing.type) : false;
-  const editingClock = editing ? isClockWidget(editing.type) : false;
-  const editingAirQuality = editing ? isAirQualityWidget(editing.type) : false;
-  const editingGeneral = editing ? isGeneralWidgetType(editing.type) : false;
+  const editorKind = editing ? resolveDashboardEditorKind(editing) : null;
+  const integrationEditWidget =
+    editing && editorKind === "integration-panel" ? panelAsGeneralWidget(editing) : null;
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
@@ -205,8 +216,11 @@ export function SectionGrid({
           boxSizing: "border-box",
         },
         "& .react-grid-item > div": {
+          width: "100%",
+          maxWidth: "100%",
           height: "100%",
           minHeight: 0,
+          minWidth: 0,
           display: "flex",
           flexDirection: "column",
           boxSizing: "border-box",
@@ -223,7 +237,7 @@ export function SectionGrid({
           variant="caption"
           sx={{ display: "block", mb: 1, color: "primary.main", fontWeight: 600 }}
         >
-          Drop here to move widget into this section
+          Drop here to move into this section
         </Typography>
       )}
       {width > 0 && widgets.length > 0 && (
@@ -248,13 +262,9 @@ export function SectionGrid({
           resizeHandles={["se"]}
         >
           {widgets.map((w) => {
-            const echarts = isEchartsWidgetType(w.type);
-            const switchWidget = isSwitchWidgetType(w.type);
-            const core = isCoreEditable(w.type);
-            const clock = isClockWidget(w.type);
-            const airQuality = isAirQualityWidget(w.type);
-            const general = isGeneralWidgetType(w.type);
-            const canEdit = echarts || core || switchWidget || clock || airQuality || general;
+            const canEdit = isEditableWidget(w);
+            const itemKind = dashboardItemKind(w.type);
+            const tileTitle = dashboardTileTitle(w);
             return (
               <div key={w.id} data-nx-grid-widget={w.id}>
                 <Paper
@@ -293,7 +303,7 @@ export function SectionGrid({
                         <IconButton
                           size="small"
                           className="widget-drag-handle"
-                          aria-label="Drag widget in section"
+                          aria-label={`Drag ${itemKind} in section`}
                           sx={{ cursor: "grab", touchAction: "none" }}
                         >
                           <DragIndicatorIcon fontSize="small" />
@@ -302,7 +312,7 @@ export function SectionGrid({
                       <Tooltip title="Drag to another section">
                         <IconButton
                           size="small"
-                          aria-label="Move widget to another section"
+                          aria-label={`Move ${itemKind} to another section`}
                           draggable={editMode}
                           sx={{ cursor: "grab", touchAction: "none" }}
                           onDragStart={(e) => {
@@ -323,35 +333,13 @@ export function SectionGrid({
                         sx={{ flex: 1, color: mutedLabel }}
                         noWrap
                       >
-                        {echarts
-                          ? "ECharts"
-                          : airQuality
-                            ? "Air quality"
-                            : clock
-                            ? "Clock"
-                            : general
-                              ? w.type === "calendar"
-                                ? "Calendar"
-                                : w.type === "weather"
-                                  ? "Weather"
-                                  : w.type === "system_info"
-                                    ? "System"
-                                    : w.type === "device_status"
-                                      ? "Devices"
-                                      : w.type === "camera"
-                                        ? "Camera"
-                                        : "General"
-                              : switchWidget
-                                ? switchWidgetLabel(w.type)
-                                : w.type === "stat"
-                                  ? "Stat"
-                                  : "Widget"}
+                        {widgetTypeLabel(w.type)}
                       </Typography>
                       {canEdit && (
-                        <Tooltip title="Edit widget">
+                        <Tooltip title={`Edit ${itemKind}`}>
                           <IconButton
                             size="small"
-                            aria-label="Edit widget"
+                            aria-label={`Edit ${itemKind}`}
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={() => setEditWidgetId(w.id)}
                           >
@@ -359,11 +347,11 @@ export function SectionGrid({
                           </IconButton>
                         </Tooltip>
                       )}
-                      <Tooltip title="Remove widget">
+                      <Tooltip title={`Remove ${itemKind}`}>
                         <IconButton
                           size="small"
                           color="error"
-                          aria-label="Remove widget"
+                          aria-label={`Remove ${itemKind}`}
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={() => onRemoveWidget(sectionId, w.id)}
                         >
@@ -372,26 +360,48 @@ export function SectionGrid({
                       </Tooltip>
                     </Stack>
                   )}
+                  {tileTitle && (
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        flexShrink: 0,
+                        px: 1,
+                        pt: editMode ? 0.25 : 0.75,
+                        pb: 0.25,
+                        fontWeight: 600,
+                        color: "text.primary",
+                      }}
+                      noWrap
+                      title={tileTitle}
+                    >
+                      {tileTitle}
+                    </Typography>
+                  )}
                   <Box
                     sx={{
                       flex: 1,
                       minHeight: 0,
                       minWidth: 0,
-                      p: editMode ? 0.75 : 1,
+                      px: 1,
+                      pb: 1,
+                      pt: tileTitle ? 0 : editMode ? 0.25 : 0.75,
                       display: "flex",
                       flexDirection: "column",
                       boxSizing: "border-box",
+                      overflow: "hidden",
                     }}
                   >
-                    <WidgetErrorBoundary widgetId={w.id} widgetType={w.type}>
-                      <WidgetRenderer
-                        widget={w}
-                        capabilities={capabilities}
-                        editMode={editMode}
-                        chrome={false}
-                        onCapabilityState={onCapabilityState}
-                      />
-                    </WidgetErrorBoundary>
+                    <DashboardTileContext.Provider value={{ showBodyHeading: false }}>
+                      <WidgetErrorBoundary widgetId={w.id} widgetType={w.type}>
+                        <WidgetRenderer
+                          widget={w}
+                          capabilities={capabilities}
+                          editMode={editMode}
+                          sectionRoomId={sectionRoomId}
+                          onCapabilityState={onCapabilityState}
+                        />
+                      </WidgetErrorBoundary>
+                    </DashboardTileContext.Provider>
                   </Box>
                 </Paper>
               </div>
@@ -401,60 +411,40 @@ export function SectionGrid({
       )}
       {widgets.length === 0 && (
         <Typography sx={{ p: 2, textAlign: "center", color: mutedLabel }}>
-          {editMode ? "No widgets yet — use Add widget." : "Empty section."}
+          {editMode
+            ? "No panels yet — use Add Panel."
+            : "Empty section."}
         </Typography>
       )}
 
-      {editingEcharts && editing && (
-        <EChartsWidgetEditor
+      {editorKind === "scoped-panel" && editing && (
+        <PanelWidgetEditor
           open
           widget={editing}
-          capabilities={capabilities}
+          sectionRoomId={sectionRoomId}
+          sectionTitle={sectionTitle}
           onClose={() => setEditWidgetId(null)}
           onSave={(patch) => {
-            const nextConfig = { ...(patch.config ?? {}) };
+            onUpdateWidget(sectionId, editing.id, patch);
+          }}
+        />
+      )}
+
+      {editorKind === "integration-panel" && integrationEditWidget && editing && (
+        <GeneralWidgetEditor
+          open
+          widget={integrationEditWidget}
+          onClose={() => setEditWidgetId(null)}
+          onSave={(patch) => {
             onUpdateWidget(sectionId, editing.id, {
-              title: patch.title,
-              type: patch.type ?? "echarts",
-              bindings: patch.bindings ?? editing.bindings,
-              config: nextConfig,
+              ...patch,
+              type: editing.type,
             });
           }}
         />
       )}
 
-      {editingSwitch && editing && (
-        <SwitchWidgetEditor
-          open
-          widget={editing}
-          capabilities={capabilities}
-          onClose={() => setEditWidgetId(null)}
-          onSave={(patch) => {
-            onUpdateWidget(sectionId, editing.id, {
-              title: patch.title,
-              bindings: patch.bindings ?? editing.bindings,
-              config: patch.config ?? editing.config,
-            });
-          }}
-        />
-      )}
-
-      {editingCore && editing && (
-        <CoreWidgetEditor
-          open
-          widget={editing}
-          capabilities={capabilities}
-          onClose={() => setEditWidgetId(null)}
-          onSave={(patch) => {
-            onUpdateWidget(sectionId, editing.id, {
-              title: patch.title,
-              bindings: patch.bindings ?? editing.bindings,
-            });
-          }}
-        />
-      )}
-
-      {editingClock && editing && (
+      {editorKind === "clock" && editing && (
         <ClockWidgetEditor
           open
           widget={editing}
@@ -468,7 +458,7 @@ export function SectionGrid({
         />
       )}
 
-      {editingAirQuality && editing && (
+      {editorKind === "air-quality" && editing && (
         <AirQualityWidgetEditor
           open
           widget={editing}
@@ -483,16 +473,14 @@ export function SectionGrid({
         />
       )}
 
-      {editingGeneral && editing && (
-        <GeneralWidgetEditor
+      {editorKind === "gauge" && editing && (
+        <EChartsWidgetEditor
           open
           widget={editing}
+          capabilities={capabilities}
           onClose={() => setEditWidgetId(null)}
           onSave={(patch) => {
-            onUpdateWidget(sectionId, editing.id, {
-              title: patch.title,
-              config: patch.config ?? editing.config,
-            });
+            onUpdateWidget(sectionId, editing.id, patch);
           }}
         />
       )}

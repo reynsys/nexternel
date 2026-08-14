@@ -18,6 +18,7 @@ type Props = {
   signedIn: boolean;
   isAdmin: boolean;
   permissions?: RolePermissions | null;
+  authLoading?: boolean;
   collapsed?: boolean;
   onNavigate?: () => void;
 };
@@ -97,12 +98,13 @@ export function MenuContent({
   signedIn,
   isAdmin,
   permissions,
+  authLoading = false,
   collapsed = false,
   onNavigate,
 }: Props) {
   const { pathname } = useLocation();
-  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions });
-  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions });
+  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions, authLoading });
+  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions, authLoading });
 
   return (
     <Stack sx={{ flexGrow: 1, p: 1, justifyContent: "space-between" }}>

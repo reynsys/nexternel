@@ -40,12 +40,18 @@ if ! docker compose version &> /dev/null; then
     sudo apt-get install -y docker-compose-plugin
 fi
 
-# --- Create .env from example if missing ---
+# --- Create .env from example if missing, or auto-fill placeholders ---
 if [ ! -f .env ]; then
-    cp .env.example .env
-    echo -e "${YELLOW}Created .env from .env.example - EDIT THIS FILE before continuing!${NC}"
-    echo "  nano .env"
-    exit 1
+    chmod +x scripts/generate-env.sh 2>/dev/null || true
+    ./scripts/generate-env.sh
+    echo -e "${GREEN}Created .env with random passwords.${NC}"
+elif grep -q 'change_me' .env 2>/dev/null; then
+    echo -e "${YELLOW}.env still has placeholder passwords — generating fresh secrets...${NC}"
+    BK=".env.bak.$(date +%s)"
+    cp .env "$BK"
+    chmod +x scripts/generate-env.sh 2>/dev/null || true
+    ./scripts/generate-env.sh
+    echo -e "${GREEN}Replaced .env (backup: $BK)${NC}"
 fi
 
 # Load MQTT credentials from .env
@@ -77,9 +83,13 @@ fi
 
 echo -e "${GREEN}Mosquitto password file created.${NC}"
 
-# --- Copy Node-RED flows template (import manually in Node-RED UI) ---
-echo -e "${GREEN}Node-RED flow template ready at nodered/flows.json${NC}"
-echo "  Import it via Node-RED: Menu -> Import -> Clipboard / select file"
+# Remove retired one-off recovery scripts (upload does not delete old files on the server)
+for obsolete in ensure-mosquitto-v4.sh fix-nodered-v4.sh diagnose-shelly-mqtt.sh live-installation-audit.sh; do
+  rm -f "scripts/${obsolete}"
+done
+
+# --- Node-RED: API seeds flows on startup when the data volume has no tabs ---
+echo -e "${GREEN}Node-RED template at nodered/flows.json (API auto-seeds on first start)${NC}"
 
 # --- Build and start stack ---
 echo -e "${YELLOW}Building and starting Docker containers (this may take several minutes)...${NC}"
@@ -88,25 +98,14 @@ docker compose up -d --build
 echo -e "${YELLOW}Waiting for services to become healthy...${NC}"
 sleep 15
 
-# Admin user is created by the API on startup from ADMIN_USERNAME / ADMIN_PASSWORD
-# (idempotent — skips if the username already exists).
-
 echo ""
 echo -e "${GREEN}=== Setup Complete ===${NC}"
 echo ""
-echo "Access your services:"
-echo "  Dashboard:  http://${SERVER_IP:-localhost}:${UI_PORT:-8080}"
-echo "  API:        http://${SERVER_IP:-localhost}:${API_PORT:-4000}"
-echo "  Node-RED:   http://${SERVER_IP:-localhost}:1880"
-echo "  InfluxDB:   http://${SERVER_IP:-localhost}:8086"
+echo "Open Nexternel in your browser:"
+echo "  http://${SERVER_IP:-localhost}:${UI_PORT:-8080}"
 echo ""
-echo "Default admin login (change after first login):"
-echo "  Username: ${ADMIN_USERNAME}"
-echo "  Password: (value of ADMIN_PASSWORD in .env)"
+echo "On first visit, the setup wizard will ask you to create an administrator account."
+echo "You do not need to edit .env, Mosquitto, or ESPHome files manually."
 echo ""
-echo "Next steps:"
-echo "  1. Open Node-RED and configure Mosquitto broker with MQTT username/password"
-echo "  2. Deploy the flows (click Deploy button)"
-echo "  3. Open ESPHome at http://${SERVER_IP:-localhost}:6052"
-echo "  4. Register devices in Admin → Devices (V3 UI :8080)"
+echo "After setup you can restore a backup from Settings → Backup & Restore."
 echo ""

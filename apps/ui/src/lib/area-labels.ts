@@ -6,5 +6,5 @@ export const AREA = {
   edit: "Edit area",
   delete: "Delete area",
   description:
-    "Locations for devices — rooms, gardens, driveway, garage, outdoors, etc.",
+    "Physical locations in your home — create only the areas you actually have.",
 } as const;

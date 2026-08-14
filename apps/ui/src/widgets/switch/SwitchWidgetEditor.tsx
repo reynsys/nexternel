@@ -153,7 +153,7 @@ export function SwitchWidgetEditor({
               isPlaceholderWidgetTitle(title, widget.type) || title === prevDefault;
             if (wasAuto) setTitle(defaultWidgetTitle(nextCap, kindLabel));
           }}
-          label="Relay / switch"
+          label="What to control"
         />
 
         {showPriority && (

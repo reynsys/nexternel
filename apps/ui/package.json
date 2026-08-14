@@ -13,6 +13,7 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
+    "@nexternel/domain": "file:../../packages/domain",
     "@nexternel/plugin-example-clock": "file:../../packages/plugin-example-clock",
     "@nexternel/plugin-air-quality": "file:../../packages/plugin-air-quality",
     "@nexternel/plugin-sdk": "file:../../packages/plugin-sdk",

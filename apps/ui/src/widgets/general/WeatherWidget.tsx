@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type WeatherResponse, type WidgetInstance } from "../../api";
 import { parseWeatherConfig, widgetTitleOr } from "./config";
+import { useDashboardTileChrome } from "../../lib/dashboard-tile-context";
 import { weatherEmojiForCode } from "./weather-icons";
 
 /** Parse Open-Meteo daily `YYYY-MM-DD` as local calendar day (avoid UTC shift). */
@@ -42,9 +43,11 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
     };
   }, [cfg.weatherLat, cfg.weatherLon]);
 
-  const title =
-    widgetTitleOr(widget, "Weather") ||
-    (cfg.weatherLocation !== "Weather" ? cfg.weatherLocation : "Weather");
+  const { showBodyHeading } = useDashboardTileChrome();
+  const title = showBodyHeading
+    ? widgetTitleOr(widget, "Weather") ||
+      (cfg.weatherLocation !== "Weather" ? cfg.weatherLocation : "Weather")
+    : null;
 
   const code = data?.weatherCode ?? 0;
   const todayForecast = data?.forecast?.[0];
@@ -64,71 +67,82 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
         minHeight: 0,
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
-        {title}
-        {data?.description ? (
-          <Typography
-            component="span"
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontWeight: 400, ml: 1 }}
-          >
-            {data.description}
-          </Typography>
-        ) : null}
-      </Typography>
+      {title && (
+        <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
+          {title}
+          {data?.description ? (
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 400, ml: 1 }}
+            >
+              {data.description}
+            </Typography>
+          ) : null}
+        </Typography>
+      )}
       {error && (
         <Typography variant="caption" color="error">
           {error}
         </Typography>
       )}
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="center"
-        spacing={1.5}
-        sx={{ flexShrink: 0, py: 0.5 }}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 1,
+        }}
       >
-        {(todayMax || todayMin) && (
-          <Typography variant="caption" sx={{ tabularNums: true }}>
-            {todayMax ?? "—"}
-            {todayMin && (
-              <Typography component="span" variant="caption" color="text.secondary">
-                {" "}
-                / {todayMin}
-              </Typography>
-            )}
-          </Typography>
-        )}
-        <Typography sx={{ fontSize: "1.75rem", lineHeight: 1 }} aria-hidden>
-          {weatherEmojiForCode(code)}
-        </Typography>
-        <Typography variant="h5" fontWeight={700} sx={{ tabularNums: true }}>
-          {data?.temperature !== undefined ? `${Math.round(data.temperature)}°C` : "—"}
-        </Typography>
-        <Stack spacing={0.25}>
-          <Typography variant="caption" color="text.secondary">
-            💧 {data?.humidity ?? "—"}%
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            🌬{" "}
-            {data?.windSpeed != null ? `${Math.round(data.windSpeed)} mph` : "—"}
-          </Typography>
-        </Stack>
-      </Stack>
-      {upcoming.length > 0 && (
-        <Box
-          sx={{
-            mt: "auto",
-            pt: 1,
-            borderTop: "1px solid",
-            borderColor: "divider",
-            display: "grid",
-            gridTemplateColumns: `repeat(${upcoming.length}, 1fr)`,
-            gap: 0.5,
-            flexShrink: 0,
-          }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="center"
+          spacing={1.5}
+          sx={{ flexShrink: 0, py: 0.5 }}
         >
+          {(todayMax || todayMin) && (
+            <Typography variant="caption" sx={{ tabularNums: true }}>
+              {todayMax ?? "—"}
+              {todayMin && (
+                <Typography component="span" variant="caption" color="text.secondary">
+                  {" "}
+                  / {todayMin}
+                </Typography>
+              )}
+            </Typography>
+          )}
+          <Typography sx={{ fontSize: "1.75rem", lineHeight: 1 }} aria-hidden>
+            {weatherEmojiForCode(code)}
+          </Typography>
+          <Typography variant="h5" fontWeight={700} sx={{ tabularNums: true }}>
+            {data?.temperature !== undefined ? `${Math.round(data.temperature)}°C` : "—"}
+          </Typography>
+          <Stack spacing={0.25}>
+            <Typography variant="caption" color="text.secondary">
+              💧 {data?.humidity ?? "—"}%
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              🌬{" "}
+              {data?.windSpeed != null ? `${Math.round(data.windSpeed)} mph` : "—"}
+            </Typography>
+          </Stack>
+        </Stack>
+        {upcoming.length > 0 && (
+          <Box
+            sx={{
+              pt: 1,
+              borderTop: "1px solid",
+              borderColor: "divider",
+              display: "grid",
+              gridTemplateColumns: `repeat(${upcoming.length}, 1fr)`,
+              gap: 0.5,
+              flexShrink: 0,
+            }}
+          >
           {upcoming.map((day) => {
             const label = weekdayShort(day.date);
             const max = day.tempMax != null ? `${Math.round(day.tempMax)}°` : "—";
@@ -151,8 +165,9 @@ export function WeatherWidget({ widget }: { widget: WidgetInstance }) {
               </Stack>
             );
           })}
-        </Box>
-      )}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

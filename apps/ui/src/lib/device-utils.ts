@@ -23,3 +23,22 @@ export function friendlyDeviceName(esphomeName: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+const LIFECYCLE_LABELS: Record<string, string> = {
+  draft: "Draft",
+  configured: "Configured",
+  validation_failed: "Validation failed",
+  ready_to_build: "Ready to build",
+  building: "Building",
+  firmware_ready: "Firmware ready",
+  awaiting_installation: "Awaiting installation",
+  connecting: "Connecting",
+  online: "Online",
+  offline: "Offline",
+  error: "Error",
+};
+
+export function esphomeLifecycleLabel(state: string | null | undefined): string | null {
+  if (!state) return null;
+  return LIFECYCLE_LABELS[state] ?? state.replace(/_/g, " ");
+}

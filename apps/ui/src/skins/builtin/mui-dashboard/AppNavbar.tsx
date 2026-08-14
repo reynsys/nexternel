@@ -33,6 +33,7 @@ type Props = {
   signedIn: boolean;
   isAdmin: boolean;
   permissions?: RolePermissions | null;
+  authLoading?: boolean;
   user: User | null;
   onLogout: () => void;
 };
@@ -41,6 +42,7 @@ export function AppNavbar({
   signedIn,
   isAdmin,
   permissions,
+  authLoading = false,
   user,
   onLogout,
 }: Props) {
@@ -113,6 +115,7 @@ export function AppNavbar({
           signedIn={signedIn}
           isAdmin={isAdmin}
           permissions={permissions}
+          authLoading={authLoading}
           onNavigate={() => setOpen(false)}
         />
         <Box sx={{ p: 2 }}>

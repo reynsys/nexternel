@@ -1,5 +1,7 @@
 # Nexternel V3 — Widget catalog categories
 
+> **Deprecation (V4):** The widget catalogue is **retired for new work**. Nexternel V4 architecture is **frozen**. Add dashboard surfaces via the [View Registry](09-VIEW-REGISTRY.md) (System → Area → Appearance), not new widget types. Legacy widgets remain read-only until migrated. See [18-DASHBOARD-UX-ARCHITECTURE.md](18-DASHBOARD-UX-ARCHITECTURE.md) and [V4-IMPLEMENTATION.md](V4-IMPLEMENTATION.md).
+
 | Field | Value |
 |-------|--------|
 | **Version** | V3.1.049+ |

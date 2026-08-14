@@ -85,7 +85,7 @@ function mapId(
  * Upsert areas. If the new server already has "Living Room" under a different
  * UUID, keep that row and remap export room ids → local ids (devices/cameras).
  */
-async function upsertRooms(
+export async function upsertRooms(
   client: PoolClient,
   payload: ConfigPayload
 ): Promise<Map<string, string>> {
@@ -143,7 +143,7 @@ async function upsertRooms(
   return remap;
 }
 
-async function upsertDevice(
+export async function upsertDevice(
   client: PoolClient,
   d: ExportedDevice,
   roomRemap: Map<string, string>
@@ -251,7 +251,7 @@ async function upsertDevice(
   }
 }
 
-async function upsertDashboards(client: PoolClient, payload: ConfigPayload) {
+export async function upsertDashboards(client: PoolClient, payload: ConfigPayload) {
   for (const dash of payload.dashboards) {
     // Shared dashboards — do not bind to a user from the old server
     await client.query(
@@ -268,7 +268,7 @@ async function upsertDashboards(client: PoolClient, payload: ConfigPayload) {
   }
 }
 
-async function upsertCameras(
+export async function upsertCameras(
   client: PoolClient,
   payload: ConfigPayload,
   roomRemap: Map<string, string>

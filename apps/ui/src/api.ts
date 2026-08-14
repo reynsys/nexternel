@@ -30,11 +30,15 @@ export function clearStoredTokens() {
 }
 
 export function getApiBase(): string {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/$/, "");
+  const configured = import.meta.env.VITE_API_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
   }
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:4000`;
+  if (typeof window !== "undefined") {
+    // Production Docker: UI nginx proxies /api/ on the same port (8080).
+    return window.location.origin;
+  }
+  return "http://localhost:4000";
 }
 
 export function getWsBase(): string {
@@ -232,6 +236,10 @@ export type Capability = {
   sourceType: string;
   sourceId?: string;
   hasCommand: boolean;
+  systemId?: string | null;
+  areaId?: string | null;
+  groupId?: string | null;
+  serviceId?: string | null;
   state: {
     value: unknown;
     quality: string;
@@ -239,7 +247,27 @@ export type Capability = {
   } | null;
 };
 
-function rememberAuth(data: AuthResponse) {
+export type ResolvedPanelCapability = {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  kind: string;
+  name: string;
+  unit: string | null;
+  sourceType: string;
+  sourceEntityId?: string | null;
+  hasCommand: boolean;
+  systemId: string | null;
+  areaId: string | null;
+  groupId: string | null;
+  areaName: string | null;
+  state: Capability["state"];
+};
+
+/** @deprecated use ResolvedPanelCapability */
+export type ResolvedViewCapability = ResolvedPanelCapability;
+
+export function rememberAuth(data: AuthResponse) {
   if (data.accessToken && data.refreshToken) {
     storeTokens(data.accessToken, data.refreshToken);
   }
@@ -479,10 +507,95 @@ export type ServerDiagnostics = {
   };
 };
 
+export type PipelineStageStatus = "pass" | "fail" | "unknown" | "warn";
+
+export type PipelineStage = {
+  id: string;
+  label: string;
+  status: PipelineStageStatus;
+  detail: string;
+};
+
+export type DevicePipelineDiagnostic = {
+  deviceId: string;
+  name: string;
+  driver: string;
+  protocol: "shelly-gen1" | "shelly-gen3" | "esphome" | "other";
+  area: string | null;
+  mqttTopicPrefix: string;
+  ipAddress: string | null;
+  isOnline: boolean;
+  lastSeenAt: string | null;
+  subscriptionTopic: string;
+  apiSubscribed: boolean;
+  messagesObserved: number;
+  lastObservedMessage: {
+    topic: string;
+    at: string;
+    kind: string;
+    payloadPreview: string;
+  } | null;
+  capabilities: {
+    id: string | null;
+    name: string;
+    kind: string;
+    expectedStateTopic: string;
+    expectedCommandTopic: string | null;
+    bindingStateTopic: string | null;
+    bindingCommandTopic: string | null;
+    telemetryQuality: string | null;
+    telemetryUpdatedAt: string | null;
+    stages: PipelineStage[];
+  }[];
+  pipeline: PipelineStage[];
+  breakAt: string | null;
+  summary: string;
+};
+
+export type LivePipelineDiagnostics = {
+  measuredAt: string;
+  mqtt: Record<string, unknown>;
+  summary: {
+    devicesTotal: number;
+    devicesWithTraffic: number;
+    devicesWithoutTraffic: number;
+    devicesBrokenAtPublish: number;
+    devicesBrokenAtSubscription: number;
+    devicesBrokenAtTelemetry: number;
+    observationRingSize: number;
+    unmatchedMessageCount: number;
+  };
+  byProtocol: Record<
+    string,
+    { count: number; withTraffic: number; withoutTraffic: number; breakCounts: Record<string, number> }
+  >;
+  devices: DevicePipelineDiagnostic[];
+  recentUnmatchedTopics: { topic: string; at: string; payloadPreview: string }[];
+};
+
 export const api = {
   health: () => apiFetch<Health>("/api/v1/health"),
 
   diagnostics: () => apiFetch<ServerDiagnostics>("/api/v1/diagnostics"),
+
+  diagnosticsPipeline: (opts?: { protocol?: string; deviceId?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.protocol) params.set("protocol", opts.protocol);
+    if (opts?.deviceId) params.set("deviceId", opts.deviceId);
+    const q = params.toString();
+    return apiFetch<LivePipelineDiagnostics>(
+      `/api/v1/diagnostics/pipeline${q ? `?${q}` : ""}`
+    );
+  },
+
+  diagnosticsMqttSniff: (durationMs = 30_000) =>
+    apiFetch<{ ok: boolean; message: string; durationMs: number }>(
+      "/api/v1/diagnostics/mqtt/sniff",
+      {
+        method: "POST",
+        body: JSON.stringify({ durationMs }),
+      }
+    ),
 
   async login(username: string, password: string) {
     clearStoredTokens();
@@ -749,17 +862,77 @@ export const api = {
       `/api/v1/devices/esphome-suggest?name=${encodeURIComponent(name)}`
     ),
 
+  esphomeBuilderValidate: (config: unknown) =>
+    apiFetch<EsphomeBuilderValidation>(
+      "/api/v1/v4/devices/esphome/builder/validate",
+      { method: "POST", body: JSON.stringify({ config }) }
+    ),
+
+  esphomeBuilderPreview: (config: unknown, roomId?: string | null) =>
+    apiFetch<EsphomeBuilderPreview>(
+      "/api/v1/v4/devices/esphome/builder/preview",
+      { method: "POST", body: JSON.stringify({ config, roomId: roomId ?? null }) }
+    ),
+
+  esphomeBuilderCreate: (config: unknown, roomId?: string | null) =>
+    apiFetch<EsphomeBuilderCreateResult>(
+      "/api/v1/v4/devices/esphome/builder/create",
+      { method: "POST", body: JSON.stringify({ config, roomId: roomId ?? null }) }
+    ),
+
+  esphomeDeviceYaml: (deviceId: string) =>
+    apiFetch<{ yaml: string; path: string }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/yaml`
+    ),
+
+  esphomeCompile: (deviceId: string) =>
+    apiFetch<EsphomeCompileResult>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/compile`,
+      { method: "POST" }
+    ),
+
+  v4EsphomePreview: (yamlName: string, roomId?: string | null) => {
+    const q = new URLSearchParams({ yamlName });
+    if (roomId) q.set("roomId", roomId);
+    return apiFetch<{ manifest: unknown; mapped: EsphomeBuilderMapped[] }>(
+      `/api/v1/v4/devices/esphome/preview?${q}`
+    );
+  },
+
+  v4OnboardEsphome: (body: {
+    yamlName: string;
+    name?: string;
+    roomId?: string | null;
+  }) =>
+    apiFetch<{ ok: boolean; deviceId: string; created: boolean }>(
+      "/api/v1/v4/devices/onboard/esphome",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
   syncDeviceEsphome: (id: string) =>
     apiFetch<{
       addedRelays: number;
       updatedRelays: number;
       totalRelays: number;
+      removedRelays: number;
+      removedSensors: number;
       yamlFile: string;
       mqttTopicPrefix: string;
       relaysInYaml: string[];
+      sensorsInYaml: string[];
       isOnline: boolean;
       device: DeviceRecord | null;
     }>(`/api/v1/devices/${id}/sync-esphome`, { method: "POST" }),
+
+  deleteSensor: (deviceId: string, sensorId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/devices/${deviceId}/sensors/${sensorId}`, {
+      method: "DELETE",
+    }),
+
+  deleteRelay: (deviceId: string, relayId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/v1/devices/${deviceId}/relays/${relayId}`, {
+      method: "DELETE",
+    }),
 
   renameRelay: (deviceId: string, relayId: string, name: string) =>
     apiFetch<{ ok: boolean }>(`/api/v1/devices/${deviceId}/relays/${relayId}`, {
@@ -783,10 +956,122 @@ export const api = {
     }),
 
   syncCapabilities: () =>
-    apiFetch<{ ok: boolean; sensors: number; relays: number }>(
-      "/api/v1/capabilities/sync",
-      { method: "POST" }
+    apiFetch<{
+      ok: boolean;
+      sensors: number;
+      relays: number;
+      reconcile?: {
+        reconciled: number;
+        skipped: number;
+        errors: number;
+        removedRelays: number;
+        removedSensors: number;
+      };
+      prunedInternal?: number;
+      dashboardBindingsRemapped?: number;
+    }>("/api/v1/capabilities/sync", { method: "POST" }),
+
+  v4Systems: (opts?: { areaIds?: string[]; catalog?: boolean }) => {
+    const params = new URLSearchParams();
+    if (opts?.catalog) params.set("catalog", "1");
+    if (opts?.areaIds?.length) params.set("areaIds", opts.areaIds.join(","));
+    const q = params.toString();
+    return apiFetch<{
+      systems: {
+        id: string;
+        label: string;
+        tier: string;
+        sortOrder: number;
+        operatorVisible?: boolean;
+      }[];
+    }>(`/api/v1/v4/systems${q ? `?${q}` : ""}`);
+  },
+
+  v4UpdateCapabilitySystem: (capabilityId: string, systemId: string | null) =>
+    apiFetch<{ ok: boolean; systemId: string | null }>(
+      `/api/v1/v4/capabilities/${encodeURIComponent(capabilityId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ systemId }),
+      }
     ),
+
+  v4PanelsRegistry: (opts?: { preview?: boolean }) => {
+    const q = opts?.preview ? "?preview=1" : "";
+    return apiFetch<{
+      panels: {
+        kind: string;
+        label: string;
+        description: string;
+        supportedKinds: string[];
+        excludeKinds: string[];
+        userSelectable: boolean;
+        previewOnly?: boolean;
+        sortOrder: number;
+        defaultSize: { w: number; h: number; minW: number; minH: number };
+      }[];
+    }>(`/api/v1/v4/panels/registry${q}`);
+  },
+
+  v4ResolvePanel: (body: {
+    panelKind: string;
+    panelScope?: {
+      areaIds?: string[];
+      systemIds?: string[];
+      groupIds?: string[];
+      contentMode?: "auto" | "manual";
+      capabilityIds?: string[];
+      inheritSectionArea?: boolean;
+    };
+  }) =>
+    apiFetch<{
+      panelKind: string;
+      panelScope: {
+        areaIds: string[];
+        systemIds: string[];
+        groupIds: string[];
+        capabilityIds: string[];
+      };
+      capabilities: ResolvedPanelCapability[];
+    }>("/api/v1/v4/panels/resolve", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /** @deprecated use v4PanelsRegistry */
+  v4ViewsRegistry: () =>
+    apiFetch<{
+      views: {
+        kind: string;
+        label: string;
+        description: string;
+        supportedKinds: string[];
+        excludeKinds: string[];
+      }[];
+    }>("/api/v1/v4/views/registry"),
+
+  /** @deprecated use v4ResolvePanel */
+  v4ResolveView: (body: {
+    viewKind: string;
+    viewScope?: {
+      areaIds?: string[];
+      systemIds?: string[];
+      groupIds?: string[];
+      inheritSectionArea?: boolean;
+    };
+  }) =>
+    apiFetch<{
+      viewKind: string;
+      viewScope: {
+        areaIds: string[];
+        systemIds: string[];
+        groupIds: string[];
+      };
+      capabilities: ResolvedPanelCapability[];
+    }>("/api/v1/v4/views/resolve", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   dashboards: () =>
     apiFetch<{ dashboards: DashboardSummary[] }>("/api/v1/dashboards"),
@@ -819,11 +1104,46 @@ export const api = {
     }),
 
   history: (capabilityId: string, range: HistoryRange = "24h") =>
-    apiFetch<HistoryResponse>(
-      `/api/v1/history?capabilityId=${encodeURIComponent(capabilityId)}&range=${encodeURIComponent(range)}`
-    ),
+    fetchHistory(capabilityId, range),
+
+  historyBatch: (capabilityIds: string[], range: HistoryRange = "24h") =>
+    fetchHistoryBatch(capabilityIds, range),
 
   system: () => apiFetch<SystemInfo>("/api/v1/system"),
+
+  setupStatus: () =>
+    apiFetch<SetupStatusResponse>("/api/v1/setup/status"),
+
+  setupComplete: (opts: { username: string; password: string; confirmPassword: string }) =>
+    apiFetch<{ ok: boolean; user: User; accessToken: string; refreshToken: string }>(
+      "/api/v1/setup/complete",
+      {
+        method: "POST",
+        body: JSON.stringify(opts),
+      }
+    ),
+
+  restartServices: (service: "all" | "mqtt" | "api" | "automations" = "all") =>
+    apiFetch<{ ok: boolean; message: string }>("/api/v1/system/restart-services", {
+      method: "POST",
+      body: JSON.stringify({ service }),
+    }),
+
+  repairMqtt: () =>
+    apiFetch<{ ok: boolean; message: string }>("/api/v1/system/repair-mqtt", {
+      method: "POST",
+    }),
+
+  repairLiveData: () =>
+    apiFetch<{
+      ok: boolean;
+      message: string;
+      phases: { name: string; ok: boolean; message?: string }[];
+    }>("/api/v1/system/repair-live-data", {
+      method: "POST",
+    }),
+
+  plugins: () => apiFetch<{ plugins: PluginInfo[] }>("/api/v1/plugins"),
 
   configStatus: () =>
     apiFetch<ConfigStatusResponse>("/api/v1/system/config/status"),
@@ -1075,6 +1395,136 @@ export const api = {
 
   deleteRole: (id: string) =>
     apiFetch<{ ok: boolean }>(`/api/v1/roles/${id}`, { method: "DELETE" }),
+
+  createBackupJob: (body: {
+    password: string;
+    confirmPassword: string;
+    includeHistory?: boolean;
+  }) =>
+    apiFetch<{ job: BackupJob }>("/api/v1/backup/jobs", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getBackupJob: (id: string) =>
+    apiFetch<{ job: BackupJob }>(`/api/v1/backup/jobs/${id}`),
+
+  downloadBackupJob: async (id: string) => {
+    const headers = new Headers();
+    const access = getStoredAccessToken();
+    if (access) {
+      headers.set("Authorization", `Bearer ${access}`);
+      headers.set("X-Nexternel-Token", access);
+    }
+    let res = await fetch(apiUrl(`/api/v1/backup/jobs/${id}/download`), {
+      credentials: "include",
+      headers,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        const next = getStoredAccessToken();
+        const retryHeaders = new Headers();
+        if (next) {
+          retryHeaders.set("Authorization", `Bearer ${next}`);
+          retryHeaders.set("X-Nexternel-Token", next);
+        }
+        res = await fetch(apiUrl(`/api/v1/backup/jobs/${id}/download`), {
+          credentials: "include",
+          headers: retryHeaders,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] || "nexternel-backup.nexbackup";
+    return { blob, filename };
+  },
+
+  inspectBackup: async (opts: { file: File; password: string }) => {
+    const form = new FormData();
+    form.append("file", opts.file);
+    form.append("password", opts.password);
+    const authHeaders = () => {
+      const headers = new Headers();
+      const access = getStoredAccessToken();
+      if (access) {
+        headers.set("Authorization", `Bearer ${access}`);
+        headers.set("X-Nexternel-Token", access);
+      }
+      return headers;
+    };
+    let res = await fetch(apiUrl("/api/v1/backup/inspect"), {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: form,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        res = await fetch(apiUrl("/api/v1/backup/inspect"), {
+          method: "POST",
+          credentials: "include",
+          headers: authHeaders(),
+          body: form,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    return res.json() as Promise<BackupInspectResult>;
+  },
+
+  restoreBackup: async (opts: {
+    file: File;
+    password: string;
+    confirm: string;
+    wifiSsid?: string;
+    wifiPassword?: string;
+  }) => {
+    const form = new FormData();
+    form.append("file", opts.file);
+    form.append("password", opts.password);
+    form.append("confirm", opts.confirm);
+    if (opts.wifiSsid) form.append("wifiSsid", opts.wifiSsid);
+    if (opts.wifiPassword) form.append("wifiPassword", opts.wifiPassword);
+    const authHeaders = () => {
+      const headers = new Headers();
+      const access = getStoredAccessToken();
+      if (access) {
+        headers.set("Authorization", `Bearer ${access}`);
+        headers.set("X-Nexternel-Token", access);
+      }
+      return headers;
+    };
+    let res = await fetch(apiUrl("/api/v1/backup/restore"), {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: form,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        res = await fetch(apiUrl("/api/v1/backup/restore"), {
+          method: "POST",
+          credentials: "include",
+          headers: authHeaders(),
+          body: form,
+        });
+      }
+    }
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res));
+    }
+    return res.json() as Promise<{ job: BackupJob }>;
+  },
 };
 
 export type SystemInfo = {
@@ -1094,6 +1544,88 @@ export type SystemInfo = {
   nodeRedUrl: string;
   nodeRedPort: number;
   measuredAt?: string;
+};
+
+export type PluginInfo = {
+  id: string;
+  version: string;
+  pluginApi: number;
+  name: string;
+  description: string;
+  contributes: {
+    widgets?: string[];
+    drivers?: string[];
+    services?: string[];
+    navigation?: string[];
+    themes?: string[];
+  };
+};
+
+export type BackupJob = {
+  id: string;
+  type: "create" | "restore";
+  status: string;
+  percent: number;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+  filename?: string;
+  manifest?: BackupManifestSummary;
+  error?: { code: string; message: string };
+  restoreResult?: {
+    ok: boolean;
+    warnings: string[];
+    errors: string[];
+    phases: { name: string; ok: boolean; message?: string }[];
+  };
+};
+
+export type BackupManifestSummary = {
+  format: string;
+  formatVersion: number;
+  appVersion: string;
+  createdAt: string;
+  counts: {
+    areas: number;
+    devices: number;
+    capabilities: number;
+    dashboards: number;
+    panels: number;
+    plugins: number;
+    cameras: number;
+    users: number;
+    automationsIncluded: boolean;
+    historyIncluded: boolean;
+  };
+};
+
+export type SetupStatusResponse = {
+  needsSetup: boolean;
+  version: string;
+  serverIp: string | null;
+  installationReady: boolean;
+};
+
+export type NetworkAdaptationPreview = {
+  differentInstallation: boolean;
+  backupServerIp: string | null;
+  currentServerIp: string | null;
+  backupMqttTopicPrefix: string;
+  currentMqttTopicPrefix: string;
+  adaptations: { label: string; from: string; to: string }[];
+  wifiMayBeRequired: boolean;
+  usersInBackup: number;
+  automationsIncluded: boolean;
+  historyIncluded: boolean;
+};
+
+export type BackupInspectResult = {
+  valid: boolean;
+  manifest?: BackupManifestSummary;
+  compatible: boolean;
+  warnings: string[];
+  blockingErrors: string[];
+  networkAdaptation?: NetworkAdaptationPreview;
 };
 
 export type ConfigStatusResponse = {
@@ -1231,6 +1763,50 @@ export type EsphomeCatalogEntry = {
   suggestion: EsphomeImportSuggestion | null;
 };
 
+export type EsphomeBuilderValidationIssue = {
+  path: string;
+  message: string;
+  code: string;
+};
+
+export type EsphomeBuilderValidation = {
+  ok: boolean;
+  valid: boolean;
+  issues: EsphomeBuilderValidationIssue[];
+};
+
+export type EsphomeBuilderMapped = {
+  kind: string;
+  name: string;
+  unit?: string | null;
+  sourceType: "sensor" | "relay";
+  stateTopic: string;
+  commandTopic?: string | null;
+  systemId: string | null;
+};
+
+export type EsphomeBuilderPreview = {
+  ok: boolean;
+  validation: { valid: boolean; issues: EsphomeBuilderValidationIssue[] };
+  mapped: EsphomeBuilderMapped[] | null;
+  yaml?: string | null;
+};
+
+export type EsphomeBuilderCreateResult = {
+  ok: boolean;
+  deviceId: string;
+  yamlPath: string;
+  lifecycleState: string;
+  managementMode: string;
+};
+
+export type EsphomeCompileResult = {
+  ok: boolean;
+  lifecycleState: string;
+  log: string;
+  yamlPath: string;
+};
+
 export type CameraRecord = {
   id: string;
   name: string;
@@ -1270,6 +1846,9 @@ export type DeviceRecord = {
   isEnabled: boolean;
   isOnline: boolean;
   lastSeenAt: string | null;
+  esphomeManagementMode?: string | null;
+  esphomeLifecycleState?: string | null;
+  esphomeYamlPath?: string | null;
   sensors: {
     id: string;
     name: string;
@@ -1279,6 +1858,8 @@ export type DeviceRecord = {
     esphomeEntityId: string | null;
     mqttStateTopic: string;
     isEnabled: boolean;
+    capabilityId?: string | null;
+    systemId?: string | null;
   }[];
   relays: {
     id: string;
@@ -1289,6 +1870,8 @@ export type DeviceRecord = {
     mqttStateTopic: string;
     lastState: string | null;
     isEnabled: boolean;
+    capabilityId?: string | null;
+    systemId?: string | null;
   }[];
 };
 
@@ -1304,6 +1887,78 @@ export type HistoryResponse = {
   aggregateEvery: string;
   points: HistoryPoint[];
 };
+
+export type HistorySeriesResult = {
+  capabilityId: string;
+  name: string;
+  unit: string | null;
+  aggregateEvery: string;
+  points: HistoryPoint[];
+  error?: string;
+};
+
+export type HistoryBatchResponse = {
+  range: HistoryRange;
+  series: HistorySeriesResult[];
+};
+
+const HISTORY_CACHE_MS = 45_000;
+const historyCache = new Map<string, { expires: number; data: HistoryResponse }>();
+const historyBatchCache = new Map<string, { expires: number; data: HistoryBatchResponse }>();
+
+function historyCacheKey(capabilityId: string, range: HistoryRange): string {
+  return `${capabilityId}|${range}`;
+}
+
+async function fetchHistory(
+  capabilityId: string,
+  range: HistoryRange = "24h"
+): Promise<HistoryResponse> {
+  const key = historyCacheKey(capabilityId, range);
+  const hit = historyCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.data;
+
+  const data = await apiFetch<HistoryResponse>(
+    `/api/v1/history?capabilityId=${encodeURIComponent(capabilityId)}&range=${encodeURIComponent(range)}`
+  );
+  historyCache.set(key, { expires: Date.now() + HISTORY_CACHE_MS, data });
+  return data;
+}
+
+async function fetchHistoryBatch(
+  capabilityIds: string[],
+  range: HistoryRange = "24h"
+): Promise<HistoryBatchResponse> {
+  const unique = [...new Set(capabilityIds.map((id) => id.trim()).filter(Boolean))].sort();
+  if (unique.length === 0) {
+    return { range, series: [] };
+  }
+
+  const batchKey = `${unique.join(",")}|${range}`;
+  const hit = historyBatchCache.get(batchKey);
+  if (hit && hit.expires > Date.now()) return hit.data;
+
+  const data = await apiFetch<HistoryBatchResponse>(
+    `/api/v1/history?capabilityIds=${unique.map((id) => encodeURIComponent(id)).join(",")}&range=${encodeURIComponent(range)}`
+  );
+  historyBatchCache.set(batchKey, { expires: Date.now() + HISTORY_CACHE_MS, data });
+
+  for (const series of data.series) {
+    historyCache.set(historyCacheKey(series.capabilityId, data.range), {
+      expires: Date.now() + HISTORY_CACHE_MS,
+      data: {
+        capabilityId: series.capabilityId,
+        name: series.name,
+        unit: series.unit,
+        range: data.range,
+        aggregateEvery: series.aggregateEvery,
+        points: series.points,
+      },
+    });
+  }
+
+  return data;
+}
 
 export type WidgetInstance = {
   id: string;

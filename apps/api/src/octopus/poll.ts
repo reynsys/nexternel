@@ -1,4 +1,5 @@
 import { getLiveState, setLiveState } from "../telemetry/state-cache.js";
+import { writeSensorReading } from "../history/influx.js";
 import {
   fetchLiveDemandW,
   fetchTodayConsumptionKwh,
@@ -9,6 +10,7 @@ import {
   ensureOctopusDeviceAndSensors,
   getOctopusSettings,
   listOctopusCapabilityIds,
+  OCTOPUS_DEVICE_SLUG,
   recordOctopusPollResult,
 } from "./service.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
@@ -103,6 +105,22 @@ function readCachedNumber(capabilityId: string | null): number | null {
   return null;
 }
 
+/** Mirror API-polled Octopus readings into Influx so Charts panels can query history. */
+async function persistOctopusInfluxReading(
+  entityId: string,
+  value: number
+): Promise<void> {
+  try {
+    await writeSensorReading({
+      deviceSlug: OCTOPUS_DEVICE_SLUG,
+      entityId,
+      value,
+    });
+  } catch (err) {
+    console.warn("octopus influx write failed", entityId, err);
+  }
+}
+
 /** Keep API-polled Octopus values fresh between partial polls (daily is every Nth poll). */
 function refreshCachedOctopusStates(caps: {
   powerCapabilityId: string | null;
@@ -168,6 +186,7 @@ async function runOctopusPoll(force: boolean, options?: PollOptions): Promise<Oc
       liveDemandW = live.demandW;
       if (live.demandW !== null) {
         setLiveState(caps.powerCapabilityId, live.demandW, { quality: "good" });
+        await persistOctopusInfluxReading("live_power", live.demandW);
       }
     }
 
@@ -180,6 +199,7 @@ async function runOctopusPoll(force: boolean, options?: PollOptions): Promise<Oc
       electricityTodayKwh = daily.kwh;
       if (daily.kwh !== null) {
         setLiveState(caps.energyTodayCapabilityId, daily.kwh, { quality: "good" });
+        await persistOctopusInfluxReading("energy_today", daily.kwh);
       }
     }
 
@@ -193,6 +213,7 @@ async function runOctopusPoll(force: boolean, options?: PollOptions): Promise<Oc
       gasTodayKwh = gasDaily.kwh;
       if (gasDaily.kwh !== null) {
         setLiveState(caps.gasTodayCapabilityId, gasDaily.kwh, { quality: "good" });
+        await persistOctopusInfluxReading("gas_today", gasDaily.kwh);
       }
     }
 

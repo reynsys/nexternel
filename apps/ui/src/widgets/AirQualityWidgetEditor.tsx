@@ -7,7 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { Capability, WidgetInstance } from "../api";
-import { SlotBindingFields } from "../components/SlotBindingFields";
+import { PLUGIN_ITEM_PICKER_HEADING } from "../lib/panel-content-copy";
 import { mergeBindingSlots, parseWidgetBindings } from "../lib/widget-bindings";
 import {
   AIR_QUALITY_BINDING_SLOTS,
@@ -49,7 +49,7 @@ export function AirQualityWidgetEditor({ open, widget, capabilities, onClose, on
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: { xs: "100%", sm: 400 } } }}>
       <Stack spacing={2} sx={{ p: 2 }}>
-        <Typography variant="h6">Edit air quality panel</Typography>
+        <Typography variant="h6">Edit plugin</Typography>
         <TextField
           size="small"
           label="Title (optional)"
@@ -57,7 +57,7 @@ export function AirQualityWidgetEditor({ open, widget, capabilities, onClose, on
           onChange={(e) => setTitle(e.target.value)}
           fullWidth
         />
-        <Typography variant="subtitle2">Capability bindings</Typography>
+        <Typography variant="subtitle2">{PLUGIN_ITEM_PICKER_HEADING}</Typography>
         <SlotBindingFields
           slots={AIR_QUALITY_BINDING_SLOTS}
           capabilities={capabilities}

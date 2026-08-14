@@ -30,7 +30,27 @@ export const config = {
       : process.env.COOKIE_SECURE === "false"
         ? false
         : false,
-  mqttBroker: () => process.env.MQTT_BROKER || "mqtt://mosquitto:1883",
+  mqttBroker: () => {
+    const fallback = "mqtt://mosquitto:1883";
+    const raw = (process.env.MQTT_BROKER || fallback).trim();
+    // Inside Docker, localhost is the API container — not Mosquitto.
+    if (/^(mqtts?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(raw)) {
+      return fallback;
+    }
+    // Compose stack: prefer the mosquitto service over SERVER_IP/LAN URL in .env.
+    if (process.env.NODERED_DATA_DIR) {
+      try {
+        const u = new URL(raw);
+        const serverIp = (process.env.SERVER_IP || "").trim();
+        if (serverIp && u.hostname === serverIp) {
+          return fallback;
+        }
+      } catch {
+        return fallback;
+      }
+    }
+    return raw || fallback;
+  },
   mqttUsername: () => process.env.MQTT_USERNAME || "",
   mqttPassword: () => process.env.MQTT_PASSWORD || "",
   influx: () => ({

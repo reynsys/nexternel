@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { PluginManifest, WidgetContribution } from "@nexternel/plugin-sdk";
+import type { WidgetContribution } from "@nexternel/plugin-sdk";
+import { CLOCK_WIDGET_TYPE, clockPluginManifest } from "./manifest";
 
-export const CLOCK_WIDGET_TYPE = "plugin.clock";
+export { CLOCK_WIDGET_TYPE, clockPluginManifest } from "./manifest";
 
 export type ClockDigitalStyle = "standard" | "mono" | "bold";
 export type ClockAnalogStyle = "classic" | "minimal" | "roman";
@@ -17,15 +18,6 @@ export type ClockWidgetConfig = {
   hour12?: boolean;
   /** Extra scale 0.6–1.4 (default 1) */
   fontScale?: number;
-};
-
-export const clockPluginManifest: PluginManifest = {
-  id: "nexternel.example-clock",
-  version: "1.1.0",
-  pluginApi: 1,
-  name: "Clock",
-  description: "Digital or analog clock that fills the widget",
-  contributes: { widgets: [CLOCK_WIDGET_TYPE] },
 };
 
 type WidgetLike = {
@@ -308,15 +300,19 @@ function DigitalClock({
 
 export function ClockWidget({
   widget,
+  showBodyHeading = true,
 }: {
   widget?: WidgetLike;
   capabilities?: unknown;
   editMode?: boolean;
+  showBodyHeading?: boolean;
 }) {
   const cfg = parseConfig(widget?.config);
   const now = useNow(cfg.showSeconds && cfg.timeMode === "digital" ? 1000 : 1000);
   const title = widget?.title?.trim();
-  const showChromeTitle = Boolean(title && title !== "Clock" && title !== CLOCK_WIDGET_TYPE);
+  const showChromeTitle =
+    showBodyHeading &&
+    Boolean(title && title !== "Clock" && title !== CLOCK_WIDGET_TYPE);
 
   return (
     <div

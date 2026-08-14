@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { getPool } from "../db.js";
+import { preferCatalogDisplayName } from "./display-name.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
 import { suggestFromEsphomeCandidates } from "../esphome/yaml.js";
 import {
@@ -10,6 +11,8 @@ import {
   resolveShellyGen,
 } from "../shelly/topics.js";
 import { buildShellyRelays, resolveShellySwitchCount } from "../shelly/suggest.js";
+import { assertValidShellyMqttPrefix } from "../shelly/validate.js";
+import { installationMqttRoot } from "../migrate/align-mqtt-topics.js";
 import { deviceSlugFromTopicPrefix, slugify } from "./slug.js";
 
 export type RelayInsert = EsphomeImportSuggestion["relays"][number] & {
@@ -32,6 +35,9 @@ export type DeviceDetail = {
   isEnabled: boolean;
   isOnline: boolean;
   lastSeenAt: string | null;
+  esphomeManagementMode?: string | null;
+  esphomeLifecycleState?: string | null;
+  esphomeYamlPath?: string | null;
   sensors: {
     id: string;
     name: string;
@@ -41,6 +47,8 @@ export type DeviceDetail = {
     esphomeEntityId: string | null;
     mqttStateTopic: string;
     isEnabled: boolean;
+    capabilityId: string | null;
+    systemId: string | null;
   }[];
   relays: {
     id: string;
@@ -51,6 +59,8 @@ export type DeviceDetail = {
     mqttStateTopic: string;
     lastState: string | null;
     isEnabled: boolean;
+    capabilityId: string | null;
+    systemId: string | null;
   }[];
 };
 
@@ -68,6 +78,9 @@ type DeviceRow = {
   is_enabled: boolean;
   is_online: boolean;
   last_seen_at: Date | null;
+  esphome_management_mode: string | null;
+  esphome_lifecycle_state: string | null;
+  esphome_yaml_path: string | null;
 };
 
 export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
@@ -78,7 +91,8 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
             COALESCE(d.firmware_type, 'esphome') AS firmware_type,
             host(d.ip_address)::text AS ip_address, d.mac_address,
             COALESCE(d.is_enabled, TRUE) AS is_enabled,
-            d.is_online, d.last_seen_at
+            d.is_online, d.last_seen_at,
+            d.esphome_management_mode, d.esphome_lifecycle_state, d.esphome_yaml_path
      FROM devices d
      LEFT JOIN rooms r ON r.id = d.room_id
      ORDER BY d.name ASC`
@@ -97,12 +111,16 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     esphome_entity_id: string | null;
     mqtt_state_topic: string;
     is_enabled: boolean;
+    capability_id: string | null;
+    system_id: string | null;
   }>(
-    `SELECT id, device_id, name, slug, sensor_type, unit, esphome_entity_id,
-            mqtt_state_topic, COALESCE(is_enabled, TRUE) AS is_enabled
-     FROM sensors
-     WHERE device_id = ANY($1::uuid[])
-     ORDER BY name ASC`,
+    `SELECT s.id, s.device_id, s.name, s.slug, s.sensor_type, s.unit, s.esphome_entity_id,
+            s.mqtt_state_topic, COALESCE(s.is_enabled, TRUE) AS is_enabled,
+            c.id AS capability_id, c.system_id
+     FROM sensors s
+     LEFT JOIN capabilities c ON c.source_type = 'sensor' AND c.source_id = s.id
+     WHERE s.device_id = ANY($1::uuid[])
+     ORDER BY s.name ASC`,
     [ids]
   );
   const relays = await pool.query<{
@@ -115,13 +133,17 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     mqtt_state_topic: string;
     last_state: string | null;
     is_enabled: boolean;
+    capability_id: string | null;
+    system_id: string | null;
   }>(
-    `SELECT id, device_id, name, slug, esphome_entity_id,
-            mqtt_command_topic, mqtt_state_topic, last_state,
-            COALESCE(is_enabled, TRUE) AS is_enabled
-     FROM relays
-     WHERE device_id = ANY($1::uuid[])
-     ORDER BY name ASC`,
+    `SELECT r.id, r.device_id, r.name, r.slug, r.esphome_entity_id,
+            r.mqtt_command_topic, r.mqtt_state_topic, r.last_state,
+            COALESCE(r.is_enabled, TRUE) AS is_enabled,
+            c.id AS capability_id, c.system_id
+     FROM relays r
+     LEFT JOIN capabilities c ON c.source_type = 'relay' AND c.source_id = r.id
+     WHERE r.device_id = ANY($1::uuid[])
+     ORDER BY r.name ASC`,
     [ids]
   );
 
@@ -137,6 +159,8 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
       esphomeEntityId: s.esphome_entity_id,
       mqttStateTopic: s.mqtt_state_topic,
       isEnabled: s.is_enabled,
+      capabilityId: s.capability_id,
+      systemId: s.system_id,
     });
     sensorsByDevice.set(s.device_id, list);
   }
@@ -153,6 +177,8 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
       mqttStateTopic: r.mqtt_state_topic,
       lastState: r.last_state,
       isEnabled: r.is_enabled,
+      capabilityId: r.capability_id,
+      systemId: r.system_id,
     });
     relaysByDevice.set(r.device_id, list);
   }
@@ -171,6 +197,9 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
     isEnabled: d.is_enabled,
     isOnline: Boolean(d.is_online),
     lastSeenAt: d.last_seen_at ? d.last_seen_at.toISOString() : null,
+    esphomeManagementMode: d.esphome_management_mode,
+    esphomeLifecycleState: d.esphome_lifecycle_state,
+    esphomeYamlPath: d.esphome_yaml_path,
     sensors: sensorsByDevice.get(d.id) ?? [],
     relays: relaysByDevice.get(d.id) ?? [],
   }));
@@ -179,6 +208,24 @@ export async function listDevicesDetailed(): Promise<DeviceDetail[]> {
 export async function getDeviceDetailed(id: string): Promise<DeviceDetail | null> {
   const all = await listDevicesDetailed();
   return all.find((d) => d.id === id) ?? null;
+}
+
+/** YAML lookup names for an ESPHome device (esphome name, slug, MQTT prefix tail). */
+export function esphomeNameCandidates(
+  device: Pick<DeviceDetail, "esphomeName" | "slug" | "mqttTopicPrefix">
+): string[] {
+  const out: string[] = [];
+  if (device.esphomeName?.trim()) out.push(device.esphomeName.trim());
+  if (device.slug?.trim()) out.push(device.slug.trim());
+  const tail = device.mqttTopicPrefix?.split("/").pop()?.trim();
+  if (tail) out.push(tail);
+  return [...new Set(out)];
+}
+
+export async function esphomeSuggestionForDevice(
+  device: Pick<DeviceDetail, "esphomeName" | "slug" | "mqttTopicPrefix">
+): Promise<EsphomeImportSuggestion | null> {
+  return suggestFromEsphomeCandidates(esphomeNameCandidates(device));
 }
 
 async function pruneOrphanSensorsAndRelays(
@@ -225,11 +272,12 @@ async function upsertSensorFromSuggestion(
   mqttTopicPrefix: string,
   s: EsphomeImportSuggestion["sensors"][number]
 ) {
+  const displayName = preferCatalogDisplayName(s.name, s.esphomeEntityId);
   const stateTopic = `${mqttTopicPrefix}/sensor/${s.esphomeEntityId}/state`;
   const matchers: { sql: string; params: unknown[] }[] = [
-    { sql: "name = $2", params: [s.name] },
     { sql: "esphome_entity_id = $2", params: [s.esphomeEntityId] },
     { sql: "slug = $2", params: [s.slug] },
+    { sql: "name = $2", params: [displayName] },
   ];
   if (s.sensorType === "power") {
     matchers.push({ sql: "sensor_type = $2", params: ["power"] });
@@ -282,7 +330,7 @@ async function upsertSensorFromSuggestion(
       [
         deviceId,
         ...m.params,
-        s.name,
+        displayName,
         s.slug,
         s.sensorType,
         s.unit ?? null,
@@ -306,7 +354,7 @@ async function upsertSensorFromSuggestion(
        updated_at = NOW()`,
     [
       deviceId,
-      s.name,
+      displayName,
       s.slug,
       s.sensorType,
       s.unit ?? null,
@@ -341,6 +389,7 @@ async function insertSensorsAndRelays(
   }
 
   for (const r of relays) {
+    const relayName = preferCatalogDisplayName(r.name, r.esphomeEntityId);
     const useAbsolute =
       firmwareType === "shelly" ||
       (typeof r.mqttCommandTopic === "string" &&
@@ -366,7 +415,7 @@ async function insertSensorsAndRelays(
          updated_at = NOW()`,
       [
         deviceId,
-        r.name,
+        relayName,
         r.slug,
         commandTopic,
         stateTopic,
@@ -402,6 +451,8 @@ export async function createDevice(input: {
       mqttTopicPrefix = isShellyGen1MqttPrefix(mqttTopicPrefix)
         ? mqttTopicPrefix
         : buildShellyGen1TopicPrefix(mqttTopicPrefix);
+    } else {
+      assertValidShellyMqttPrefix(mqttTopicPrefix, installationMqttRoot());
     }
   }
   const slug = deviceSlugFromTopicPrefix(mqttTopicPrefix) || slugify(input.name);
@@ -542,6 +593,10 @@ export async function updateDevice(
       : cur.mqtt_topic_prefix;
   if (!mqttTopicPrefix) throw new Error("MQTT topic prefix is required");
 
+  if (cur.firmware_type === "shelly" && !isShellyGen1MqttPrefix(mqttTopicPrefix)) {
+    assertValidShellyMqttPrefix(mqttTopicPrefix, installationMqttRoot());
+  }
+
   const esphomeName =
     patch.esphomeName !== undefined
       ? patch.esphomeName?.trim() || null
@@ -621,6 +676,13 @@ export async function updateDevice(
     }
   }
 
+  if (patch.roomId !== undefined && roomId !== cur.room_id) {
+    const { syncCapabilityAreasFromDevices } = await import(
+      "../capabilities/classify.js"
+    );
+    await syncCapabilityAreasFromDevices();
+  }
+
   return getDeviceDetailed(id);
 }
 
@@ -636,42 +698,49 @@ export async function reconcileAllEsphomeDevicesFromYaml(): Promise<{
   reconciled: number;
   skipped: number;
   errors: number;
+  removedRelays: number;
+  removedSensors: number;
 }> {
   const devices = await listDevicesDetailed();
   let reconciled = 0;
   let skipped = 0;
   let errors = 0;
+  let removedRelays = 0;
+  let removedSensors = 0;
 
   for (const d of devices) {
     if (d.firmwareType !== "esphome") {
       skipped += 1;
       continue;
     }
-    const candidates = [
-      d.esphomeName,
-      d.slug,
-      d.mqttTopicPrefix?.split("/").pop(),
-    ].filter((c): c is string => Boolean(c?.trim()));
-    const suggestion = await suggestFromEsphomeCandidates(candidates);
+    const suggestion = await esphomeSuggestionForDevice(d);
     if (!suggestion) {
       skipped += 1;
       continue;
     }
     try {
-      await syncDeviceFromEsphomeSuggestion(d.id, suggestion);
+      const stats = await syncDeviceFromEsphomeSuggestion(d.id, suggestion);
       reconciled += 1;
+      removedRelays += stats.removedRelays;
+      removedSensors += stats.removedSensors;
     } catch {
       errors += 1;
     }
   }
 
-  return { reconciled, skipped, errors };
+  return { reconciled, skipped, errors, removedRelays, removedSensors };
 }
 
 export async function syncDeviceFromEsphomeSuggestion(
   id: string,
   suggestion: EsphomeImportSuggestion
-): Promise<{ addedRelays: number; updatedRelays: number; totalRelays: number }> {
+): Promise<{
+  addedRelays: number;
+  updatedRelays: number;
+  totalRelays: number;
+  removedRelays: number;
+  removedSensors: number;
+}> {
   const device = await getDeviceDetailed(id);
   if (!device) throw new Error("Device not found");
   if (device.firmwareType === "shelly") {
@@ -684,7 +753,14 @@ export async function syncDeviceFromEsphomeSuggestion(
     `SELECT slug FROM relays WHERE device_id = $1`,
     [id]
   );
-  const beforeSlugs = new Set(before.rows.map((r) => r.slug));
+  const beforeSensorSlugs = new Set(
+    (
+      await pool.query<{ slug: string }>(`SELECT slug FROM sensors WHERE device_id = $1`, [
+        id,
+      ])
+    ).rows.map((r) => r.slug)
+  );
+  const beforeRelaySlugs = new Set(before.rows.map((r) => r.slug));
 
   const client = await pool.connect();
   try {
@@ -718,17 +794,29 @@ export async function syncDeviceFromEsphomeSuggestion(
     `SELECT slug FROM relays WHERE device_id = $1`,
     [id]
   );
+  const afterSensorSlugs = new Set(
+    (
+      await pool.query<{ slug: string }>(`SELECT slug FROM sensors WHERE device_id = $1`, [
+        id,
+      ])
+    ).rows.map((r) => r.slug)
+  );
+  const afterRelaySlugs = new Set(after.rows.map((r) => r.slug));
   let addedRelays = 0;
   let updatedRelays = 0;
   for (const row of after.rows) {
-    if (beforeSlugs.has(row.slug)) updatedRelays += 1;
+    if (beforeRelaySlugs.has(row.slug)) updatedRelays += 1;
     else addedRelays += 1;
   }
+  const removedRelays = [...beforeRelaySlugs].filter((s) => !afterRelaySlugs.has(s)).length;
+  const removedSensors = [...beforeSensorSlugs].filter((s) => !afterSensorSlugs.has(s)).length;
 
   return {
     addedRelays,
     updatedRelays,
     totalRelays: after.rows.length,
+    removedRelays,
+    removedSensors,
   };
 }
 
@@ -762,4 +850,32 @@ export async function renameSensor(sensorId: string, name: string): Promise<bool
     [sensorId, trimmed]
   );
   return true;
+}
+
+export async function deleteSensor(deviceId: string, sensorId: string): Promise<boolean> {
+  const pool = getPool();
+  const owned = await pool.query(`SELECT id FROM sensors WHERE id = $1 AND device_id = $2`, [
+    sensorId,
+    deviceId,
+  ]);
+  if ((owned.rowCount ?? 0) === 0) return false;
+  await pool.query(`DELETE FROM capabilities WHERE source_type = 'sensor' AND source_id = $1`, [
+    sensorId,
+  ]);
+  const deleted = await pool.query(`DELETE FROM sensors WHERE id = $1 RETURNING id`, [sensorId]);
+  return (deleted.rowCount ?? 0) > 0;
+}
+
+export async function deleteRelay(deviceId: string, relayId: string): Promise<boolean> {
+  const pool = getPool();
+  const owned = await pool.query(`SELECT id FROM relays WHERE id = $1 AND device_id = $2`, [
+    relayId,
+    deviceId,
+  ]);
+  if ((owned.rowCount ?? 0) === 0) return false;
+  await pool.query(`DELETE FROM capabilities WHERE source_type = 'relay' AND source_id = $1`, [
+    relayId,
+  ]);
+  const deleted = await pool.query(`DELETE FROM relays WHERE id = $1 RETURNING id`, [relayId]);
+  return (deleted.rowCount ?? 0) > 0;
 }

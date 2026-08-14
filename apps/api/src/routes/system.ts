@@ -7,6 +7,9 @@ import { config } from "../config.js";
 import { APP_VERSION } from "../version.js";
 import { readServerTemperatureC } from "../lib/server-temperature.js";
 import { readMemoryStats, readHostUptimeSeconds, sampleCpuLoadPercent } from "../lib/host-metrics.js";
+import { restartNexternelServices, type RestartableService } from "../backup/post-restore.js";
+import { repairMqttConnection } from "../system/repair-mqtt.js";
+import { repairLiveData } from "../system/repair-live-data.js";
 
 const WAN_CACHE_TTL_MS = 5 * 60_000;
 let wanCache: { ip: string | null; at: number } | null = null;
@@ -92,5 +95,51 @@ export const systemRoutes: FastifyPluginAsync = async (app) => {
       nodeRedPort: 1880,
       measuredAt: new Date().toISOString(),
     };
+  });
+
+  app.post<{
+    Body: { service?: RestartableService };
+  }>("/api/v1/system/restart-services", async (request, reply) => {
+    if (!requirePermission(request, reply, "manageUsers")) return;
+    const service = request.body?.service ?? "all";
+    const allowed: RestartableService[] = ["all", "mqtt", "api", "automations"];
+    if (!allowed.includes(service)) {
+      return reply.code(400).send({
+        error: { code: "bad_request", message: "Unknown service." },
+      });
+    }
+    const result = await restartNexternelServices(service);
+    if (!result.ok) {
+      return reply.code(400).send({
+        error: { code: "restart_failed", message: result.message },
+      });
+    }
+    return { ok: true, message: result.message };
+  });
+
+  app.post("/api/v1/system/repair-mqtt", async (request, reply) => {
+    if (!requirePermission(request, reply, "manageUsers")) return;
+    const result = await repairMqttConnection();
+    if (!result.ok) {
+      return reply.code(400).send({
+        error: { code: "mqtt_repair_failed", message: result.message },
+      });
+    }
+    return { ok: true, message: result.message };
+  });
+
+  app.post("/api/v1/system/repair-live-data", async (request, reply) => {
+    if (!requirePermission(request, reply, "manageUsers")) return;
+    const result = await repairLiveData();
+    if (!result.ok) {
+      return reply.code(400).send({
+        error: {
+          code: "live_repair_failed",
+          message: result.message,
+          phases: result.phases,
+        },
+      });
+    }
+    return { ok: true, message: result.message, phases: result.phases };
   });
 };

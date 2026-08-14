@@ -14,6 +14,476 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.091 — 14/08/2026
+
+- **Build** — fix API compile route TypeScript error; stop running unit tests during Docker image build (shorter PuTTY logs)
+
+## V4.0.090 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 3)** — compile firmware from Nexternel: Devices page **Compile firmware** runs `esphome compile` in the ESPHome container; lifecycle chip on managed devices (Awaiting installation, Building, Firmware ready, Error); device list exposes builder lifecycle fields
+
+## V4.0.089 — 14/08/2026
+
+- **ESPHome Device Builder** — fix managed YAML written to `esphome/<slug>.yaml` (root) so ESPHome dashboard lists new devices; V4.0.087–088 wrote to `esphome/devices/` which ESPHome does not show; wizard success text names the YAML file to open
+
+## V4.0.088 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 2)** — Admin → Devices **Add device** wizard: new ESPHome device (platform/board, name/area, DHT + relay components, review/create) or import existing server YAML via onboard API; replaces legacy manual register dialog for new devices
+
+## V4.0.087 — 13/08/2026
+
+- **ESPHome Device Builder (Phase 1)** — foundation API: board + component catalogues (DHT, GPIO relay), validate/preview/create endpoints; generates `esphome/devices/<slug>.yaml` with server secrets; creates device + capabilities in one step (no manual import/sync for managed devices); lifecycle + management mode on `devices` table; existing YAML import/onboard unchanged
+
+## V4.0.086 — 13/08/2026
+
+- **Gauges** — fix double valueAnimation on load: measure stroke scale before chart mounts (no mid-animation `scalePx` option rebuild); gauges use merged option updates so live readings animate from the previous value, not from zero
+
+## V4.0.085 — 13/08/2026
+
+- **Gauge lifecycle** — single sizing authority: chart host flex-fills the dial slot; ResizeObserver calls `chart.resize()` only (no React state on every pixel); `scalePx` state updates only on 8px buckets for stroke/fonts; removed `layoutEpoch` entirely; chart key is `presetId` only (mount once per style, not per resize)
+
+## V4.0.084 — 13/08/2026
+
+- **Dashboard performance** — stop destroying/recreating every ECharts gauge on load (removed dimension/layoutEpoch from chart key); charts mount once and resize via ResizeObserver only; removed cascading layoutEpoch bumps from SectionGrid
+
+## V4.0.083 — 13/08/2026
+
+- **Gauges** — revert square/absolute chart boxing: dial canvas fills the measured host below the area caption (ECharts already sizes radius from min(w,h)); fixes non-square 167×126 canvases and overflow clipping seen in visual diag; host exposes `data-nx-chart-w/h` for troubleshooting
+
+## V4.0.082 — 13/08/2026
+
+- **Gauges** — area/sensor caption is a fixed row under the tile title (not overlaid on the dial); dial centres in the remaining space with a small edge inset so values and axis labels are not clipped; edit-mode toolbar triggers chart remeasure
+
+## V4.0.081 — 13/08/2026
+
+- **Gauges** — core layout fix: chart host fills the tile; dial renders in a centered square (max size for the cell) so wide/tall tiles no longer leave uneven side or top gaps; area/sensor caption overlays the chart instead of stealing flex space via panel chrome padding
+
+## V4.0.080 — 13/08/2026
+
+- **Panel tiles** — stop stacking redundant captions: gauges/ECharts show at most one body line (area when the tile has a title, otherwise sensor name); no area · device plus a duplicate title with units
+- **Status panel** — restore entity top / value centre / area bottom layout (not triple header text)
+- **Charts panel** — one sensor name line per chart only (no extra context line)
+
+## V4.0.079 — 13/08/2026
+
+- **UI build** — fix import for `capabilityOptionContextLine` in shared panel item chrome (`panel-item-context.ts`)
+
+## V4.0.078 — 13/08/2026
+
+- **Panel item chrome** — one shared layout for every panel tile: area / location context top-left, then title, then content (Status, Controls, Charts, Camera, Gauge, ECharts)
+- **Gauges** — restore area · device context line (was missing entirely)
+- **Camera panel** — remove duplicate camera name/title stack; stream only in the content area below shared chrome
+- **Context lines** — sensors use area · device (device fallback when area unset); switches keep existing location rules
+
+## V4.0.077 — 13/08/2026
+
+- **Octopus Home Mini charts** — each poll now writes readings to InfluxDB (same path as ESP32 sensors) so Charts panels can show history; Status was already live-only via API cache
+- **Charts panel** — one batch history request per panel (fixes HTTP 429 when many charts load at once); 45s client cache; clearer rate-limit message
+- **History API** — supports `capabilityIds` batch query; rate limit raised to 120/min
+
+## V4.0.076 — 13/08/2026
+
+- **Charts panel** — Edit panel restores chart type (line, area, bar, …), style preset, and optional Min/Max Y-axis; all charts in the panel share the chosen style
+- **Charts** — hover tooltip no longer clips at panel edges (`appendToBody` + `confine`)
+- **Legacy ECharts widgets** — `echarts.*` widget types render and open Edit again
+
+## V4.0.075 — 13/08/2026
+
+- **Add Panel** — fix crash when choosing specific items (`CloseIcon` import missing in order list)
+
+## V4.0.074 — 13/08/2026
+
+- **Display names** — YAML sync matches sensors/relays by technical id first, then writes human-readable catalog names; technical ids no longer preferred as display labels
+- **Status panel tiles** — item headers use the same display-name helper as pickers
+
+## V4.0.073 — 13/08/2026
+
+- **Add Panel / Edit panel** — user-facing copy: Panel type, What to show / control / chart / use; explicit **Show all matching** vs **Choose specific items**; manual item ordering (drag or up/down)
+- **Panel scope** — optional `contentMode: auto | manual` (legacy dashboards still infer from `capabilityIds`)
+- **Panel resolve** — manual panels honour stored item order; auto panels keep deterministic sort
+- **Pickers** — human-readable name with place · device context and kind badge
+
+## V4.0.072 — 12/08/2026
+
+- **API build** — ESPHome YAML unit tests use inline fixtures (no `esphome/` files required in Docker image)
+
+## V4.0.071 — 12/08/2026
+
+- **Controls panel** — smaller default size (3×2) and min resize 2×2; single-switch tiles compact; existing controls panels get min 2×2 on load
+- **Add Panel** — **Controls / Readings / Items** picker when creating capability-scoped panels (same as Edit panel)
+
+## V4.0.070 — 12/08/2026
+
+- **Ghost relays / sensors** — stale entities (e.g. relay on a DHT-only board) pruned when syncing capabilities or **Sync from YAML**; per-device **Remove** on Admin → Devices; YAML lookup tries esphome name, slug, and MQTT prefix tail
+
+## V4.0.069 — 12/08/2026
+
+- **Status panel** — entity name top-left, large centred reading (scales when tile grows), area context bottom-left; shared `PanelReadingValue` / `PanelCapabilityItemTile` contract
+- **Panel editor** — **Readings** multi-picker (`panelScope.capabilityIds`) to show one or selected sensors instead of the whole scope; layout helper text; fluid grid rows so resize grows readings
+- **Panel resolve** — API honours `capabilityIds` filter for capability-scoped panels (Status, Controls, Charts)
+
+## V4.0.068 — 12/08/2026
+
+- **Panel area labels** — shared `PanelCapabilityAreaLine` places area/device context top-left on every multi-item panel tile (Controls, Status, Charts, Camera); Status and Controls no longer show area text below the main content
+
+## V4.0.067 — 12/08/2026
+
+- **Weather panel** — today's readings and 5-day forecast grouped together (removed `margin-top: auto` gap); block centres vertically in tall tiles
+
+## V4.0.066 — 11/08/2026
+
+- **Dashboard options** — compact toolbar (Add section, Add Panel, Tab settings, Manage dashboards); tab/manage open in dialogs instead of stacked accordions; **Cancel** reverts unsaved edits (replaces Done)
+
+## V4.0.065 — 11/08/2026
+
+- **Multi-item panels — sparse tiles** — grid columns = item count (not tile width): one switch/control fills the panel; resizing grows the control tile; shared `PanelItemGrid` rule for Status, Controls, Charts, Camera
+
+## V4.0.064 — 11/08/2026
+
+- **Multi-item panels — shared grid** — `PanelItemGrid` + `panel-item-grid.ts` for Status, Controls, Charts, Camera: `auto-fit` columns (not `auto-fill` or fixed 2/3/4 breakpoints) so items grow when the tile widens instead of leaving empty columns; Layout setting applies to all scoped panels
+
+## V4.0.063 — 11/08/2026
+
+- **Add Panel — Gauge sensor pick** — stop resetting the chosen sensor when capabilities refresh; capability picker keeps selection while searching
+
+## V4.0.062 — 11/08/2026
+
+- **Charts panel** — grid columns follow chart count (`auto-fit`, no empty third column); history range label top-right; Layout + History range in Edit panel; appearance layout wired to chart grid
+
+## V4.0.061 — 11/08/2026
+
+- **Dashboard panels — unified tile/content contract** — one sizing chain from grid cell to panel body via `DashboardTileBody`; removed obsolete inner `Paper` chrome paths from `WidgetRenderer` / `PanelWidget`
+- **Responsive panels** — Charts use ResizeObserver (no fixed 160px); Camera grid flex-fills; Controls/Status grids expand with tile size
+- **Content surfaces** — inner items use `nestedContentPanelSx` (subordinate grouping) instead of competing tile-level Cards/metric surfaces
+- **Title hierarchy** — tile owns structural title; gauges/charts use capability name as data label only
+
+## V4.0.060 — 09/08/2026
+
+- **Dashboard panels — one rule for all** — tile title is only `widget.title` when the operator sets it (no catalog/area auto-labels); editors and Add Panel fields come from domain `scopeMode` (`capabilities` / `area` / `integration`) so integration panels (System, Weather, Calendar, Devices) no longer show Area or Function filter; integration bodies no longer inject default headings that fought the tile chrome
+
+## V4.0.059 — 09/08/2026
+
+- **Dashboard tile titles** — one policy: tile chrome shows only user-defined titles (or bound sensor names for gauges); catalog defaults like “Clock” / “System” are not shown; widget bodies suppress their own headings on the grid via `DashboardTileContext` (fixes duplicate “System System” and empty-editor Clock title mismatch)
+
+## V4.0.058 — 09/08/2026
+
+- **Dashboard tiles** — every grid panel shows its title (sensor name, panel label, etc.); content area uses `overflow: hidden` and full width constraints so children cannot spill past the cell
+- **ECharts gauges/charts** — chart host measures the content box in pixels, resizes on grid changes, and clips overflow (fixes dial wider than the tile)
+- **Panel bodies** — grid-hosted panels use hidden overflow instead of scroll so inner layouts track tile size
+
+## V4.0.057 — 09/08/2026
+
+- **Dashboard — Gauge panel** — **Add Panel → Gauge** binds one sensor (temperature, humidity, power, etc.) as a live dial; add two gauges for Living Room temp + humidity
+- **Status panel** — grid uses auto-fill so empty column slots no longer appear when only a few readings are shown
+- **Legacy `echarts` / `gauge` widgets** — render again on the dashboard
+
+## V4.0.056 — 09/08/2026
+
+- **UI build** — add `@nexternel/domain` to `apps/ui` dependencies so Docker/vite can resolve the unified Add Panel catalog imports
+
+## V4.0.055 — 09/08/2026
+
+- **Dashboard — Add Panel** — single **Add Panel** flow merges core registry panels (`panel.*`) and contributed panels (`plugin.*`); removed separate Add plugin entry point
+- **Domain** — `add-panel-catalog` types for unified core + contribution panel catalog
+- **Plugin SDK** — `PanelContribution` / `PanelCategoryId` terminology (legacy widget aliases kept)
+
+## V4.0.054 — 01/08/2026
+
+- **Node-RED** — bundle `nodered/` template inside API image; `ensureNoderedFlows` seeds when volume has no tabs, patches stale credentials, always logs result; runs after backup restore
+- **Shelly** — idempotent DB migration for Gen2/Gen3 devices still on installation MQTT root (restores relay topics after V4.0.053 cleanup)
+- **Install** — `setup-server.sh` deletes retired recovery scripts from `scripts/` on the server
+
+## V4.0.053 — 01/08/2026
+
+- **Cleanup** — remove recovery PuTTY scripts (`ensure-mosquitto-v4`, `fix-nodered-v4`, `diagnose-shelly-mqtt`, `live-installation-audit`), JSON Logs diagnostic endpoint/UI, `LEGACY_MQTT_COMPAT`, and runtime Shelly prefix self-heal; fix build error on `repair-nodered` route
+- **Root-cause paths kept** — Mosquitto passwd from `.env` on install (`setup-server.sh`) and API startup when missing; Node-RED template seed on API startup when flows have no tabs; Node-RED flows patched on backup restore; Shelly Gen2/Gen3 prefix validated at device create/update
+
+## V4.0.052 — 01/08/2026
+
+- **Node-RED recovery** — `repairNoderedFlows` seeds the default MQTT→Influx template when flows have no tabs, patches MQTT user/password, topic root (`damnhome`→`nexternel`), and Influx token/org on existing flows; `POST /api/v1/system/repair-nodered`; PuTTY script `scripts/fix-nodered-v4.sh`
+
+## V4.0.051 — 01/08/2026
+
+- **Shelly MQTT recovery** — API repairs Gen2/Gen3 Shelly devices that wrongly use installation root (`nexternel`) as topic prefix; self-heals when live traffic arrives on device-native prefix; `scripts/diagnose-shelly-mqtt.sh` for PuTTY layer checks
+
+## V4.0.050 — 01/08/2026
+
+- **MQTT recovery** — V4 `.env` user is authoritative for Mosquitto passwd; optional `LEGACY_MQTT_COMPAT=true` adds temporary legacy ESP users; `scripts/ensure-mosquitto-v4.sh` for PuTTY recovery when passwd is missing
+
+## V4.0.049 — 01/08/2026
+
+- **Build** — fix ESPHome MQTT credential YAML parser (Docker `npm test` passes)
+
+## V4.0.048 — 01/08/2026
+
+- **Build** — fix API unit test for ESPHome MQTT credential detection (Docker build no longer fails)
+
+## V4.0.047 — 01/08/2026
+
+- **MQTT auth** — Mosquitto passwd now includes ESPHome device MQTT users (e.g. `damn_nexternel`) as well as `.env` `MQTT_USERNAME`; fixes ESPHome `TCP disconnected` when V4 `.env` username differs from flashed devices
+- **JSON Logs** — reports `esphomeDeviceMqttUsernames` vs `envMqttUsername` mismatch
+
+## V4.0.046 — 01/08/2026
+
+- **JSON Logs** — renamed from Installation health; flags stale `esphome/secrets.yaml` broker IP vs `SERVER_IP`
+- **ESPHome** — API startup auto-corrects `secrets.yaml` `mqtt_broker` to `SERVER_IP` after backup restore
+
+## V4.0.045 — 01/08/2026
+
+- **Troubleshoot** — renamed “Installation reality” to **Installation health** (API `/api/v1/diagnostics/installation-health`)
+
+## V4.0.044 — 01/08/2026
+
+- **Troubleshoot** — copy/download works on LAN HTTP (no HTTPS); installation reality JSON included in the main report and shown in a selectable field; report title updated
+
+## V4.0.043 — 01/08/2026
+
+- **Diagnostics** — `GET /api/v1/diagnostics/installation` reports credentials, DB counts, role/menu permissions, MQTT traffic, and likely live-data blockers after a V3 restore
+- **UI** — Troubleshoot → Installation reality (copy JSON for support); nav menus stay visible while `/auth/me` loads; API repairs restored roles with empty view permissions on startup
+
+## V4.0.042 — 01/08/2026
+
+- **Live MQTT** — Docker API prefers `mqtt://mosquitto:1883` when `.env` points at `SERVER_IP`; legacy `damnhome` roots detected from bindings too; capability bindings force-repaired from sensors/relays; synchronous ESPHome topic resolver + awaited self-heal on each message; MQTT diagnostics show `messagesReceived` / `capabilityUpdates`
+
+## V4.0.041 — 01/08/2026
+
+- **Node-RED** — API seeds the default `nodered/flows.json` template (MQTT → InfluxDB + example automation) when the Node-RED data volume is empty, then restarts the nodered container
+- **Live MQTT** (from V4.0.040) — canonical ESPHome topic resolution, topic normalization, Docker `localhost` broker fix
+
+## V4.0.040 — 01/08/2026
+
+- **Live MQTT** — API maps incoming ESPHome messages using canonical `prefix/sensor|switch/entity/state` paths (not only stale `capability_bindings` rows); normalizes sensor/relay/command topics from device prefix + entity id on startup/sync; Docker API container auto-corrects `MQTT_BROKER=localhost` to `mqtt://mosquitto:1883`
+
+## V4.0.039 — 01/08/2026
+
+- **Live MQTT** — API startup aligns legacy `damnhome/…` device/sensor/relay/binding topics to `MQTT_TOPIC_PREFIX` (Shelly `shellies/…` and device-native prefixes unchanged); subscribes to installation root `nexternel/#` as well as per-device prefixes; self-heals ESPHome topics by device slug when prefix drift remains
+- **Devices** — ESPHome catalog default topic prefix uses `MQTT_TOPIC_PREFIX` instead of hard-coded `damnhome/`
+
+## V4.0.038 — 01/08/2026
+
+- **System** — **Repair live devices** (Settings → System): remaps legacy MQTT topics in the database, rewrites ESPHome YAML for this server, updates automations, re-syncs capabilities and Live telemetry — without PuTTY or a new backup
+- **Backup/restore** — topic remapping preserves Shelly `shellies/…` and device-native prefixes; only legacy installation roots (e.g. `damnhome/…`) are rewritten
+
+## V4.0.037 — 01/08/2026
+
+- **System** — **Repair MQTT connection** button (Settings → System) realigns Mosquitto password with this installation and reconnects Live data
+
+## V4.0.036 — 01/08/2026
+
+- **Dashboard** — UI uses same-origin `/api/` via nginx (fixes “Failed to fetch” when port 4000 is unreachable); WebSocket upgrade on API proxy for Live data
+
+## V4.0.035 — 01/08/2026
+
+- **Build** — fix `openBackup` async throw handling; backup wrong-password test passes in Docker build
+
+## V4.0.034 — 01/08/2026
+
+- **Build** — set test env vars in API Dockerfile so backup unit tests pass during `docker compose build`
+
+## V4.0.033 — 01/08/2026
+
+- **Build fix** — add `adapting_network` restore phase to job progress map; fix TypeScript types in Node-RED topic root collection
+
+## V4.0.032 — 01/08/2026
+
+- **Backup/restore validation** — protected data contract + home inventory comparison tests; integration restore-pipeline test (Server A → backup → adapt → Server B)
+- **Node-RED cutover** — replace only known Nexternel server IP in broker/mqtt fields; preserve unrelated device IPs (e.g. Shelly)
+- **ESPHome cutover** — update `secrets.yaml` and `mqtt:` blocks only; no global IP string replacement in device YAML
+- **Docker build** — API `npm test` runs during image build (`scripts/run-api-tests.sh` for manual runs)
+
+## V4.0.031 — 01/08/2026
+
+- **First-run setup wizard** — browser-based administrator account creation on fresh install (no PuTTY for credentials)
+- **Backup inspect** — network adaptation preview (server IP, MQTT, topic prefix, users); distinguishes portable home data from installation infrastructure
+- **Backup restore** — Node-RED topic/IP remapping; preserve current administrator password; verification step; clearer progress phases
+- **System** — granular service restart (MQTT, automations, all) from Settings → System
+
+## V4.0.030 — 01/08/2026
+
+- **Backup restore** — automatic server cutover: remap MQTT topics, rewrite ESPHome YAML/secrets for this server's IP and `.env` credentials (not stale backup broker); regenerate Mosquitto passwd; optional Wi‑Fi fields in restore UI; restart MQTT/API/Node-RED after restore
+- **Install** — `scripts/generate-env.sh` creates `.env` with random passwords (no manual MQTT/DB secrets)
+- **System** — **Restart services** button (Settings → System) when automatic restart is unavailable
+
+## V4.0.029 — 01/08/2026
+
+- **Backup restore** — re-sync capabilities and telemetry after restore (superseded by V4.0.030 cutover)
+
+## V4.0.028 — 01/08/2026
+
+- **Backup restore** — Influx history restore: use `influx restore --full` without `--org` (fixes CLI error on historical data restore)
+
+## V4.0.027 — 01/08/2026
+
+- **Backup restore** — adopt roles by `slug` and users by `username` when fresh install already seeded defaults (fixes `roles_slug_key` on restore)
+
+## V4.0.026 — 01/08/2026
+
+- **Backup restore** — skip orphaned capabilities (e.g. deleted “Fan Relay”) and clear invalid `area_id` / `group_id` FKs instead of failing restore; prune capabilities not in backup during restore; sanitize on export
+
+## V4.0.025 — 01/08/2026
+
+- **Backup & Restore** — Settings → Backup & Restore: encrypted `.nexbackup` full installation backup (domain config, ESPHome YAML, Node-RED, Influx history, MQTT credentials). Create with password, job progress, download; inspect and restore with `RESTORE` confirmation. Separate **Configuration** tab retains `.nexcfg` export/adopt for migration.
+- API: `POST /api/v1/backup/jobs`, `GET …/jobs/:id`, `GET …/jobs/:id/download`, `POST /api/v1/backup/inspect`, `POST /api/v1/backup/restore`
+- Compose: API mounts for Node-RED data, Mosquitto config, backup job volume; Influx CLI in API image
+
+## V4.0.024 — 08/08/2026
+
+- **V4 product terminology:** Add widget → **Add plugin**; dashboard grid uses **panel** / **plugin** (not widget) in edit chrome; section summary counts panels and plugins separately
+- **Areas:** admin copy clarifies areas are user-created physical locations only (no catalogue seeding)
+- **Systems:** Lights label already in catalogue (`lighting` id unchanged); capability-driven system filters and hidden deprecated `garden` system unchanged
+- **Plugins settings:** Widgets column → Content
+
+## V4.0.023 — 08/08/2026
+
+- **UX:** removed **Convert to panels** — legacy widgets already auto-migrate on dashboard load (Phase 14)
+
+## V4.0.022 — 08/08/2026
+
+- **Phase 14 — Legacy widget retirement:** dashboards auto-migrate legacy switch/stat/relay/ECharts/general widgets to panels on load; `WidgetRenderer` is panels + plugins only
+- Removed legacy widget editors from the dashboard grid; **Convert to panels** still available for manual migration before save
+
+## V4.0.021 — 08/08/2026
+
+- **Fix:** API Docker build — plugin manifests inlined in API (no compile-time import of plugin package `.ts` sources)
+
+## V4.0.020 — 08/08/2026
+
+- **Phase 13 — Plugin ecosystem:** manifest registry for built-in plugins; `GET /api/v1/plugins`; Settings → **Plugins** lists installed plugins and widget contributions
+- Plugin packages export `./manifest` (React-free) for API discovery; UI registry tracks manifests alongside widget contributions
+
+## V4.0.019 — 08/08/2026
+
+- **Phase 12 — Panels-only path:** capability-bound widgets removed from **Add widget** (switches, stats, relay panels, ECharts gauges/charts); use **Add panel** for Controls, Status, Charts, etc.
+- **Add widget:** plugins only (clock, air-quality, …); legacy widgets on existing dashboards still render until **Convert to panels**
+
+## V4.0.018 — 08/08/2026
+
+- **Phase 11 — Legacy cleanup:** removed profile panel components (climate/water/energy/security/environment); retired panel-migrated types from **Add widget** catalog (calendar, weather, system info, device status, camera — use **Add panel** instead)
+- **Add widget:** System category is clock plugin + accessories only; legacy widgets on existing dashboards still render until converted
+
+## V4.0.017 — 08/08/2026
+
+- **Phase 10A — Profile panel consolidation:** retired climate/environment/energy/security/water profile panels; auto-migrate to **Status** or **Controls** with matching function scope (`systemIds`)
+- **Phase 10B — Capability function assignment:** `PATCH /api/v1/v4/capabilities/:id` to set `systemId`; Admin → Devices → **Function** dropdown per sensor/relay
+
+## V4.0.016 — 08/08/2026
+
+- **Phase 9 — Devices panel:** `panel.devices` integration panel (fleet online/offline status from devices API)
+- **Add panel:** Devices option alongside Calendar, Weather, System
+- **Convert to panels:** legacy `device_status` widgets migrate to Devices panel (preserves offline-only setting)
+
+## V4.0.015 — 08/08/2026
+
+- **Phase 8 — Calendar panel:** `panel.calendar` integration panel (local month grid; passes reuse test)
+- **Add panel:** Calendar option alongside Weather and System
+- **Convert to panels:** legacy `calendar` widgets migrate to Calendar panel
+
+## V4.0.014 — 08/08/2026
+
+- **Product boundary:** catalogue ≠ UI visibility — Systems in filters are data-derived from capabilities in scope, not full catalogue
+- **Labels:** Lighting → **Lights**, Network & IT → **Network**, Vehicles & garage → **Vehicles** (IDs unchanged)
+- **Garden system:** deprecated tier, hidden from operator filters; Garden remains an **Area** only
+- **Add panel:** user-selectable kinds from registry API; profile panels preview-only; function filter only when relevant Systems exist in scope
+- **Nav:** `/panels` removed from main nav → `/troubleshoot/panel-preview` (developer tool)
+- **DB:** migration `015_v4_system_labels.sql`
+
+## V4.0.013 — 08/08/2026
+
+- **Phase 7 — Decouple Systems from Panels:** removed `defaultPanelKind` / `default_view_kind`; removed `requiredSystemIds` from panel registry; `panelScope` is primary filter
+- **Architecture:** [25-PANEL-ARCHITECTURE-RULES.md](docs/v3/25-PANEL-ARCHITECTURE-RULES.md) — reusable Panel rule; System → Panel coupling prohibited
+- **Controls:** presentation-only (`switch`, `brightness`, `colour`); not a System; orthogonal to `lighting` System
+- **Classification:** generic `switch` no longer defaults to Lighting — contextual hints or unassigned
+- **Retired:** `panel.garden` and catalogue-only panel kinds (`panel.garage`, `panel.network`, …); migration + dashboard normalization
+- **Add panel:** presentation → Area → optional System filter → layout
+- **DB:** migration `014_v4_decouple_system_panel.sql`
+
+## V4.0.012 — 08/08/2026
+
+- **Phase 7 — Garden + integration panels:** `panel.garden` (composite outdoor scope), `panel.weather`, `panel.system`
+- **Add panel / Panels page:** Garden, Weather, System options
+- **Convert to panels:** weather + system_info widgets → panels
+
+## V4.0.011 — 08/08/2026
+
+- **Phase 6 — Charts + Camera panels:** `panel.charts` (24h history grid), `panel.camera` (area-scoped live streams)
+- **Add panel / Panels page:** Charts and Cameras options
+- **Convert to panels:** history chart widgets → Charts panel; camera widgets → Camera panel
+
+## V4.0.010 — 08/08/2026
+
+- **Fix:** Convert to panels — includes live ECharts gauges + stat widgets; removes legacy controls when a panel already exists; clearer dialog when nothing matches
+
+## V4.0.009 — 08/08/2026
+
+- **Phase 5 — Extended panels:** `panel.energy`, `panel.security`, `panel.water` (domain + UI + Add panel)
+- **Panels page:** Energy, Security, Water tabs
+- **Dashboard:** **Convert to panels** — migrates legacy switch/relay/stat widgets to Controls and Status panels per section
+
+## V4.0.008 — 08/08/2026
+
+- **Terminology:** V4 **View** renamed to **Panel** (`panel.*` kinds, `/panels` nav, Add panel)
+- **Controls:** `view.lighting` → `panel.controls` — switches/relays in scope (not limited to Lighting system)
+- **API:** `/api/v1/v4/panels/*` (+ legacy `/v4/views/*` aliases); domain `panel-registry` / `panel-scope`
+- **DB:** migration `013_panel_terminology.sql` updates `systems.default_view_kind`
+
+## V4.0.007 — 08/08/2026
+
+- **Fix:** `view-capabilities.ts` import path — UI Docker build
+
+## V4.0.006 — 08/08/2026
+
+- **Lighting Panel (`view.lighting`):** switch tiles via Add view — System `lighting`, live toggle
+- **API resolve:** `hasCommand`, `sourceType`, `sourceEntityId` on resolved capabilities
+
+## V4.0.005 — 08/08/2026
+
+- **Phase 4 — Dashboard views:** Add view on dashboards (Function → Area → Layout)
+- **View panels** on dashboard grid: `view.climate`, `view.environment`, `view.status` with `config.viewScope`
+- **Section area** inheritance for scoped views; view editor in edit mode
+
+## V4.0.004 — 08/08/2026
+
+- **Phase 3 — View registry:** `view.status`, `view.climate`, `view.environment`
+- **API:** `GET /api/v1/v4/views/registry`, `POST /api/v1/v4/views/resolve`
+- **UI:** **Views** page (`/views`) — Area filter, live WebSocket updates
+- **Domain:** `CORE_VIEW_REGISTRY` in `@nexternel/domain`
+
+## V4.0.003 — 04/08/2026
+
+- **Fix:** V4 ESPHome driver import paths (`v4/drivers/esphome.ts`) — API Docker build
+
+## V4.0.002 — 04/08/2026
+
+- **Phase 2 — device onboarding:** V4 pipeline (ESPHome driver → capability mapper → classify → device registry)
+- **API:** `GET /api/v1/v4/systems`, `GET /api/v1/v4/capabilities`, ESPHome preview + onboard routes
+- **Classification:** context-aware `system_id` / `area_id` on capability sync; room moves update `area_id`
+- **Reference YAML:** `esphome/v4-climate-node.yaml` (temperature, humidity, battery)
+
+## V4.0.0 — foundation Phase 1 — 04/08/2026
+
+- **Architecture frozen** — bible sign-off; branch `v4.0.0-foundation`
+- **DB:** `systems` catalogue, `groups`, capability `system_id` / `area_id` / `group_id` / `service_id` (`012_v4_systems.sql`)
+- **Domain:** `@nexternel/domain` 4.0.0 — System, Group, ViewScope, classification hints, V4 capability fields
+- **API:** `ensureV4DomainSchema` seeds systems + backfills area/system on existing capabilities
+- **No UI changes** — Phase 2 device onboarding next
+
+## V3.1.191 — 04/08/2026
+
+- **Add widget → Controls:** one **Relay panel** type (not duplicate list/grid entries); boards picked via searchable multi-select instead of a long checkbox list; single-switch types grouped separately
+
+## V3.1.190 — 04/08/2026
+
+- **Relay panels:** list mode auto-compacts to 2–3 columns as relays are added; scroll inside widget; default height scales with relay count
+- **Switch widgets:** area line under title (room / device) for momentary pulse and action button; button label no longer duplicates the header title
+
+## V3.1.189 — 04/08/2026
+
+- **Relay panels:** multi-device selection (e.g. two Shellys in one widget); area line under widget title; row labels editable per widget; generic Relay N rows show device name
+
+## V3.1.188 — 04/08/2026
+
+- **Relay panel widgets:** list and 2-column grid layouts for all switches on one ESPHome / Shelly device; binds by device (new relays appear automatically)
+
 ## V3.1.187 — 04/08/2026
 
 - **Controls:** Action button widget (filled / outline / flat, optional icon, Appearance accent when on) and Momentary pulse widget (timed ON then OFF for gates and latching relays)

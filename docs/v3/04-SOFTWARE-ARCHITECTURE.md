@@ -202,32 +202,39 @@ Reverse proxy (nginx/Caddy) may later unify `/` → UI and `/api` → Fastify.
 
 ## Domain Model
 
-Core entities (conceptual):
+> **V4 authoritative model:** [07-DOMAIN-MODEL.md](07-DOMAIN-MODEL.md) · [08-SYSTEM-CATALOGUE.md](08-SYSTEM-CATALOGUE.md) · [10-CAPABILITY-STANDARD.md](10-CAPABILITY-STANDARD.md)
+
+The summary below reflects **V3.1.1 shipped reality**. V4 extends it — **Systems own capabilities**; Devices implement; Views display via View Scope.
+
+### V3.1.1 entities (historical summary)
 
 | Entity | Description |
 |--------|-------------|
-| **User** | Account with role (admin / viewer minimum) |
-| **Room** | Spatial grouping |
-| **Device** | Physical or logical endpoint; owns capabilities |
-| **Capability** | Typed facet of a device (sensor, switch, binary, …) |
-| **Binding** | Maps capability ↔ protocol address (e.g. MQTT topic) |
-| **Dashboard** | Named layout owned by a user |
-| **DashboardSection** | Named region on a dashboard (e.g. Living Room); optional `roomId` |
-| **WidgetInstance** | Placed widget with type, layout, binding, appearance JSON |
-| **Driver** | Protocol adapter producing/consuming bindings |
-| **Plugin** | Package registering widgets, drivers, and/or services |
-| **AutomationMeta** | Optional Postgres record pointing at Node-RED flow identity |
-| **Notification** | In-app / channelled alert (post-MVP depth) |
+| **User** | Account with role |
+| **Room** | Spatial grouping → V4 **Area** |
+| **Device** | Endpoint — **implements** capabilities (V4: does not own) |
+| **Capability** | Typed facet + **system_id** (V4) |
+| **Binding** | MQTT / protocol mapping |
+| **Dashboard** | JSON layout |
+| **DashboardSection** | Region; optional `roomId` → **areaId** |
+| **WidgetInstance** | V3 widget → V4 **View** |
+| **Driver** | Protocol adapter |
+| **Plugin** | Views, Systems, drivers |
 
-Relationships:
+### V4 relationships (normative)
 
-- Device **1—N** Capability  
-- Capability **0—1** Binding (primary); extensions later  
-- Dashboard **1—N** DashboardSection  
-- DashboardSection **1—N** WidgetInstance  
-- DashboardSection **0—1** Room (optional link; freeform sections allowed)  
-- WidgetInstance **binds to** Capability (or multi-capability config)  
-- Plugin **registers** WidgetTypes and/or Drivers  
+```
+Home 1—N Area
+Area scopes (does not own) capabilities
+System 1—N Capability (ownership)
+Capability N—1 Device (implementation)
+Group N—N Capability (optional membership)
+Service N—N Capability (optional — future)
+View displays capabilities via View Scope (owns nothing)
+Automation / Integration consume Systems
+```
+
+See [07-DOMAIN-MODEL.md](07-DOMAIN-MODEL.md) for full hierarchy and [24-V4-BIBLE-CONSISTENCY-REVIEW.md](24-V4-BIBLE-CONSISTENCY-REVIEW.md).
 
 ### Dashboard document hierarchy
 
@@ -868,6 +875,51 @@ Names may be adjusted at Phase 1 kickoff; boundaries must remain.
 2. Exact Postgres DDL for capabilities (additive vs replace V2 tables)  
 3. Reverse proxy choice for unified URL  
 4. Gauge widget implementation library (custom SVG vs ECharts gauge)
+
+---
+
+---
+
+## V4 SAS Addendum (approved direction)
+
+| Field | Value |
+|-------|--------|
+| **Generation** | V4 |
+| **Documents** | [07](07-DOMAIN-MODEL.md) · [08](08-SYSTEM-CATALOGUE.md) · [09](09-VIEW-REGISTRY.md) · [10](10-CAPABILITY-STANDARD.md) |
+
+**Stack unchanged:** Fastify, React, MUI, RGL, ECharts, Postgres JSON dashboards, MQTT telemetry, Node-RED, Influx.
+
+### V4 API additions (design)
+
+| Endpoint / module | Purpose |
+|-------------------|---------|
+| `GET /api/v1/systems` | System catalogue |
+| `GET /api/v1/capabilities?areaId=&systemId=&groupId=` | View Scope resolve |
+| `POST /api/v1/views/resolve` | Body: `viewScope` → capability DTOs |
+| Device onboarding | `PATCH` with `areaId`, `systemIds[]` per capability batch |
+| `capabilities.system_id`, `group_id`, `service_id` (nullable) | Postgres columns |
+
+### V4 presentation layer
+
+| V3 | V4 |
+|----|-----|
+| Widget registry (`switch_icon`, …) | **View registry** ([09-VIEW-REGISTRY.md](09-VIEW-REGISTRY.md)) |
+| `WidgetInstance.bindings` | `config.viewScope` |
+| Zustand (planned) | React state + optional Zustand later |
+
+### V4 services (logical monolith)
+
+| Service | V4 note |
+|---------|---------|
+| Capability Service | + System assignment, classify on sync |
+| Dashboard Service | + View document schema v3 |
+| View Resolver | New logical module (in-process) |
+| Automation Service | Node-RED link; System-scoped triggers future |
+| Plugin Host | + `registerSystem`, `registerView` |
+
+### Service layer (domain — future)
+
+Optional `service_id` on capabilities — **not V4.0 MVP**. Schema must allow NULL ([07-DOMAIN-MODEL.md §2.4](07-DOMAIN-MODEL.md)).
 
 ---
 

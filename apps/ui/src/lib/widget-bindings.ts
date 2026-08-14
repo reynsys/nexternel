@@ -3,6 +3,7 @@
 export type WidgetBindings = {
   capabilityId?: string;
   capabilityIds?: string[];
+  deviceIds?: string[];
   slots?: Record<string, string>;
   sourceId?: string;
   sourceType?: string;
@@ -14,6 +15,8 @@ export function parseWidgetBindings(raw: unknown): WidgetBindings {
   return {
     capabilityId: typeof b.capabilityId === "string" ? b.capabilityId : undefined,
     capabilityIds: Array.isArray(b.capabilityIds) ? b.capabilityIds : undefined,
+    deviceId: typeof b.deviceId === "string" ? b.deviceId : undefined,
+    deviceIds: Array.isArray(b.deviceIds) ? b.deviceIds : undefined,
     slots:
       b.slots && typeof b.slots === "object" && !Array.isArray(b.slots) ? b.slots : undefined,
     sourceId: typeof b.sourceId === "string" ? b.sourceId : undefined,

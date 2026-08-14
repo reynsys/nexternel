@@ -110,7 +110,7 @@ export function CoreWidgetEditor({
               isPlaceholderWidgetTitle(title, widget.type) || title === prevDefault;
             if (wasAuto) setTitle(defaultWidgetTitle(nextCap, kindLabel));
           }}
-          label={widget.type === "stat" ? "Sensor" : "Capability"}
+          label={widget.type === "stat" ? "What to show" : "What to use"}
         />
 
         {cap && (

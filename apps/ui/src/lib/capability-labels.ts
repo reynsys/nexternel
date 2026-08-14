@@ -25,10 +25,14 @@ export function controllableSwitches(capabilities: Capability[]): Capability[] {
 }
 
 /** Entity names that are channel placeholders, not useful titles on their own. */
-function isGenericEntityName(name: string): boolean {
+export function isGenericRelayEntityName(name: string): boolean {
   const n = name.trim();
   if (!n) return true;
   return /^(switch|relay)([_\s-]?\d+)?$/i.test(n);
+}
+
+function isGenericEntityName(name: string): boolean {
+  return isGenericRelayEntityName(name);
 }
 
 function escapeRegExp(value: string): string {
@@ -71,14 +75,18 @@ function deviceMentionsArea(device: string, area: string): boolean {
  */
 export function capabilityWidgetTitle(
   cap: Capability | undefined,
-  fallback = "Widget"
+  fallback = "Widget",
+  opts?: { prefixDeviceForGenericRelay?: boolean }
 ): string {
   if (!cap) return fallback;
   const entity = (cap.name ?? "").trim() || "";
   const device = tidyDeviceName(cap.deviceName, cap.roomName);
   if (!entity) return device || fallback;
   if (!isGenericEntityName(entity)) return entity;
-  if (/^relay/i.test(entity)) return entity;
+  if (/^relay/i.test(entity)) {
+    if (opts?.prefixDeviceForGenericRelay && device) return `${device} · ${entity}`;
+    return entity;
+  }
   return device || entity || fallback;
 }
 
@@ -101,9 +109,10 @@ export function capabilityLocationLabel(cap: Capability | undefined): string {
     title.toLowerCase() === device.toLowerCase();
 
   if (!needsBoardContext) {
-    // Meaningful name like "Waterfall" — room is enough.
+    // Meaningful name like "Waterfall" — room is enough when set.
     if (area) return area;
-    return device && device.toLowerCase() !== title.toLowerCase() ? device : "";
+    if (device && device.toLowerCase() !== title.toLowerCase()) return device;
+    return "";
   }
 
   // Generic channel / title is the device itself — show board + room carefully.
@@ -114,8 +123,17 @@ export function capabilityLocationLabel(cap: Capability | undefined): string {
   if (area && (!device || !deviceMentionsArea(device, area))) {
     parts.push(area);
   }
-  if (parts.length > 0) return parts.join(" · ");
-  return area || (device !== title ? device : "") || "";
+  return parts.join(" · ");
+}
+
+/** Area line for switch widgets — room name when set, else location helper. */
+export function switchWidgetAreaLine(cap: Capability | undefined): string {
+  if (!cap) return "";
+  const area = cap.roomName?.trim();
+  if (area) return area;
+  const loc = capabilityLocationLabel(cap);
+  if (loc && loc !== "No capability bound") return loc;
+  return tidyDeviceName(cap.deviceName, cap.roomName);
 }
 
 /** Dropdown label: Device › Sensor (unit). */

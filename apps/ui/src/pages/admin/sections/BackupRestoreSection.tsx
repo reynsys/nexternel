@@ -5,328 +5,508 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
+  FormControlLabel,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { api, type AdoptConfigResponse } from "../../../api";
+import { api, type BackupInspectResult, type BackupJob } from "../../../api";
 import { useContentSurfaceSx } from "../../../skins/useSurfaceStyles";
+
+const PHASE_LABELS: Record<string, string> = {
+  queued: "Checking backup",
+  collecting_home: "Configuration",
+  collecting_esphome: "Devices",
+  collecting_automations: "Automations",
+  collecting_history: "Historical sensor data",
+  packaging: "Finalising backup",
+  encrypting: "Finalising backup",
+  verifying: "Verifying installation",
+  ready: "Backup ready",
+  restoring_home: "Home configuration",
+  restoring_esphome: "Devices",
+  adapting_network: "Adapting network configuration",
+  restoring_automations: "Automations",
+  restoring_history: "Historical sensor data",
+  syncing: "Rebuilding device configuration",
+};
+
+function progressLines(job: BackupJob | null): string[] {
+  if (!job) return [];
+  const order = [
+    "collecting_home",
+    "collecting_esphome",
+    "collecting_automations",
+    "collecting_history",
+    "packaging",
+  ];
+  const restoreOrder = [
+    "queued",
+    "restoring_home",
+    "restoring_esphome",
+    "adapting_network",
+    "restoring_automations",
+    "restoring_history",
+    "syncing",
+    "verifying",
+  ];
+  const phases = job.type === "restore" ? restoreOrder : order;
+  const current = job.status;
+  const idx = phases.indexOf(current);
+  return phases.map((p, i) => {
+    const label = PHASE_LABELS[p] ?? p;
+    if (job.status === "ready" || job.status === "completed") return `✓ ${label}`;
+    if (job.status === "failed") {
+      if (i < idx) return `✓ ${label}`;
+      if (i === idx) return `✗ ${label}`;
+      return `○ ${label}`;
+    }
+    if (i < idx) return `✓ ${label}`;
+    if (i === idx) return `→ ${label}`;
+    return `○ ${label}`;
+  });
+}
+
+function formatInspectCounts(inspect: BackupInspectResult): string[] {
+  const c = inspect.manifest?.counts;
+  if (!c) return [];
+  const lines = [
+    `Areas: ${c.areas}`,
+    `Devices: ${c.devices}`,
+    `Capabilities: ${c.capabilities}`,
+    `Dashboards: ${c.dashboards}`,
+    `Cameras: ${c.cameras}`,
+    `Users: ${c.users}`,
+    `Automations: ${c.automationsIncluded ? "included" : "not included"}`,
+    `Historical data: ${c.historyIncluded ? "included" : "not included"}`,
+  ];
+  return lines;
+}
 
 export function BackupRestoreSection() {
   const surfaceSx = useContentSurfaceSx();
-  const adoptFileRef = useRef<HTMLInputElement>(null);
+  const restoreFileRef = useRef<HTMLInputElement>(null);
 
-  const [exportBusy, setExportBusy] = useState(false);
-  const [exportMsg, setExportMsg] = useState<string | null>(null);
-  const [exportErr, setExportErr] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [includeHistory, setIncludeHistory] = useState(true);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createJob, setCreateJob] = useState<BackupJob | null>(null);
+  const [createErr, setCreateErr] = useState<string | null>(null);
 
-  const [adoptFile, setAdoptFile] = useState<File | null>(null);
-  const [newBrokerIp, setNewBrokerIp] = useState("");
-  const [newTopicRoot, setNewTopicRoot] = useState("nexternel");
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePassword, setRestorePassword] = useState("");
+  const [restoreConfirm, setRestoreConfirm] = useState("");
   const [wifiSsid, setWifiSsid] = useState("");
   const [wifiPassword, setWifiPassword] = useState("");
-  const [adoptBusy, setAdoptBusy] = useState(false);
-  const [adoptMsg, setAdoptMsg] = useState<string | null>(null);
-  const [adoptErr, setAdoptErr] = useState<string | null>(null);
-  const [adoptResult, setAdoptResult] = useState<AdoptConfigResponse | null>(null);
-  const [packBusy, setPackBusy] = useState(false);
-  const [repairBusy, setRepairBusy] = useState(false);
+  const [serverIp, setServerIp] = useState<string | null>(null);
+  const [inspect, setInspect] = useState<BackupInspectResult | null>(null);
+  const [inspectBusy, setInspectBusy] = useState(false);
+  const [inspectErr, setInspectErr] = useState<string | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreJob, setRestoreJob] = useState<BackupJob | null>(null);
+  const [restoreErr, setRestoreErr] = useState<string | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void api
-      .configStatus()
-      .then((s) => {
-        setNewBrokerIp((prev) => prev || s.currentServerIp || "");
-        if (s.mqttTopicPrefix) setNewTopicRoot(s.mqttTopicPrefix);
-      })
-      .catch(() => {
-        /* ignore */
-      });
+      .system()
+      .then((info) => setServerIp(info.lanIp ?? null))
+      .catch(() => setServerIp(null));
   }, []);
 
-  async function onExportConfig() {
-    setExportBusy(true);
-    setExportMsg(null);
-    setExportErr(null);
+  useEffect(() => {
+    if (!createJob || createJob.status === "ready" || createJob.status === "failed") return;
+    const id = createJob.id;
+    const timer = window.setInterval(() => {
+      void api.getBackupJob(id).then((r) => setCreateJob(r.job));
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [createJob]);
+
+  useEffect(() => {
+    if (!restoreJob || restoreJob.status === "completed" || restoreJob.status === "failed") return;
+    const id = restoreJob.id;
+    const timer = window.setInterval(() => {
+      void api.getBackupJob(id).then((r) => setRestoreJob(r.job));
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [restoreJob]);
+
+  async function onCreateBackup() {
+    setCreateErr(null);
+    if (password.length < 8) {
+      setCreateErr("Backup password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setCreateErr("Backup passwords do not match.");
+      return;
+    }
+    setCreateBusy(true);
+    setCreateJob(null);
     try {
-      const { blob, filename } = await api.downloadConfigExport();
+      const { job } = await api.createBackupJob({
+        password,
+        confirmPassword,
+        includeHistory,
+      });
+      setCreateJob(job);
+    } catch (err) {
+      setCreateErr(err instanceof Error ? err.message : "Backup failed");
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
+  async function onDownloadBackup() {
+    if (!createJob) return;
+    try {
+      const { blob, filename } = await api.downloadBackupJob(createJob.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      setExportMsg(`Backup saved as ${filename}`);
     } catch (err) {
-      setExportErr(err instanceof Error ? err.message : "Backup failed");
-    } finally {
-      setExportBusy(false);
+      setCreateErr(err instanceof Error ? err.message : "Download failed");
     }
   }
 
-  async function onAdopt() {
-    if (!adoptFile) {
-      setAdoptErr("Choose a backup file (.nexcfg) first.");
+  async function onInspect() {
+    if (!restoreFile) {
+      setInspectErr("Select a backup file (.nexbackup) first.");
       return;
     }
-    if (!newBrokerIp.trim()) {
-      setAdoptErr("Enter this server’s LAN IP (MQTT broker address).");
+    if (!restorePassword) {
+      setInspectErr("Enter the backup password.");
       return;
     }
-    if (!newTopicRoot.trim()) {
-      setAdoptErr("Enter the MQTT topic root (e.g. nexternel).");
-      return;
-    }
-    const ok = window.confirm(
-      "Restore will load areas, devices, dashboards, and cameras from the backup.\n\n" +
-        "MQTT topics will be updated to the topic root you entered.\n" +
-        "ESPHome YAML will be updated for this server’s broker and MQTT login.\n\n" +
-        "Server passwords (.env, Postgres, Mosquitto) are not changed.\n" +
-        "ESP32 boards still need a USB flash afterward if they are not already on this network.\n\n" +
-        "Continue?"
-    );
-    if (!ok) return;
-
-    setAdoptBusy(true);
-    setAdoptMsg(null);
-    setAdoptErr(null);
-    setAdoptResult(null);
+    setInspectBusy(true);
+    setInspectErr(null);
+    setInspect(null);
     try {
-      const result = await api.adoptConfig({
-        file: adoptFile,
-        newBrokerIp: newBrokerIp.trim(),
-        newTopicRoot: newTopicRoot.trim(),
+      const result = await api.inspectBackup({ file: restoreFile, password: restorePassword });
+      if (!result.valid) {
+        setInspectErr(result.blockingErrors[0] || "Invalid backup.");
+        return;
+      }
+      setInspect(result);
+    } catch (err) {
+      setInspectErr(err instanceof Error ? err.message : "Could not read backup");
+    } finally {
+      setInspectBusy(false);
+    }
+  }
+
+  async function onRestore() {
+    if (!restoreFile || !inspect?.valid) return;
+    if (restoreConfirm !== "RESTORE") {
+      setRestoreErr('Type RESTORE to continue.');
+      return;
+    }
+    setRestoreBusy(true);
+    setRestoreErr(null);
+    setRestoreMsg(null);
+    setRestoreJob(null);
+    try {
+      const { job } = await api.restoreBackup({
+        file: restoreFile,
+        password: restorePassword,
+        confirm: restoreConfirm,
         wifiSsid: wifiSsid.trim() || undefined,
         wifiPassword: wifiPassword || undefined,
       });
-      setAdoptResult(result);
-      const c = result.counts;
-      setAdoptMsg(
-        `Restored ${c.rooms} areas, ${c.devices} devices, ${c.dashboards} dashboards, ${c.cameras} cameras` +
-          (c.esphomeFiles ? `, ${c.esphomeFiles} ESPHome files` : "") +
-          `. Topic root: ${result.adoptChecklist.topicRoot ?? newTopicRoot}.`
-      );
+      setRestoreJob(job);
     } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Restore failed");
+      setRestoreErr(err instanceof Error ? err.message : "Restore failed");
     } finally {
-      setAdoptBusy(false);
+      setRestoreBusy(false);
     }
   }
 
-  async function onDownloadCutoverPack() {
-    setPackBusy(true);
-    setAdoptErr(null);
-    try {
-      const { blob, filename } = await api.downloadEsphomeCutoverPack();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      setAdoptMsg(
-        `Downloaded ${filename}. Open the flash-ready YAML files — broker IP and Wi‑Fi are filled in. Install via USB in ESPHome or web.esphome.io.`
-      );
-    } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "YAML pack download failed");
-    } finally {
-      setPackBusy(false);
+  useEffect(() => {
+    if (!restoreJob) return;
+    if (restoreJob.status === "completed" && restoreJob.restoreResult?.ok) {
+      setRestoreMsg("Restore complete.");
+    } else if (restoreJob.status === "failed") {
+      setRestoreErr(restoreJob.error?.message || "Restore failed.");
+    } else if (restoreJob.status === "completed" && restoreJob.restoreResult && !restoreJob.restoreResult.ok) {
+      setRestoreErr(restoreJob.restoreResult.errors.join("; ") || "Restore completed with errors.");
     }
-  }
-
-  async function onRepairDashboardBindings() {
-    setRepairBusy(true);
-    setAdoptErr(null);
-    try {
-      const res = await api.repairDashboardBindings();
-      setAdoptMsg(
-        `Dashboard widgets updated (${res.bindingsRemapped} fixed on ${res.dashboardsUpdated} dashboard(s)). Reload the Dashboard page.`
-      );
-    } catch (err) {
-      setAdoptErr(err instanceof Error ? err.message : "Could not fix dashboard widgets");
-    } finally {
-      setRepairBusy(false);
-    }
-  }
+  }, [restoreJob]);
 
   return (
-    <Card sx={surfaceSx}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Backup / Restore
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Save areas, devices, dashboards, cameras, and ESPHome YAML to a backup file, or restore
-          that file onto this server. This does not replace server passwords or Node-RED/Influx.
-          After restore, ESP32 boards may still need a USB flash so they use this broker and Wi‑Fi.
-        </Typography>
+    <Stack spacing={2}>
+      <Card sx={surfaceSx}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Backup &amp; Restore
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Protect your Nexternel installation so it can be restored after a server failure.
+            Includes configuration, devices, dashboards, automations, cameras, and historical data.
+          </Typography>
 
-        <Stack spacing={2}>
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              1. Backup
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Download a <code>.nexcfg</code> file you can keep or move to another Nexternel server.
-            </Typography>
+          <Typography variant="subtitle2" gutterBottom>
+            Create Backup
+          </Typography>
+          <Stack spacing={2} sx={{ maxWidth: 480 }}>
+            <TextField
+              label="Backup password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              autoComplete="new-password"
+            />
+            <TextField
+              label="Confirm password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              autoComplete="new-password"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeHistory}
+                  onChange={(e) => setIncludeHistory(e.target.checked)}
+                />
+              }
+              label="Include historical sensor data"
+            />
             <Button
               variant="contained"
-              onClick={() => void onExportConfig()}
-              disabled={exportBusy}
+              onClick={() => void onCreateBackup()}
+              disabled={createBusy || (!!createJob && createJob.status !== "ready" && createJob.status !== "failed")}
             >
-              {exportBusy ? "Creating backup…" : "Create backup"}
+              {createBusy ? "Starting…" : "Create Backup"}
             </Button>
-            {exportMsg && (
-              <Alert severity="success" sx={{ mt: 1 }}>
-                {exportMsg}
-              </Alert>
+            {createErr && <Alert severity="error">{createErr}</Alert>}
+            {createJob && createJob.status !== "ready" && createJob.status !== "failed" && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Creating backup…
+                </Typography>
+                <LinearProgress variant="determinate" value={createJob.percent} sx={{ mb: 1 }} />
+                <Stack spacing={0.25}>
+                  {progressLines(createJob).map((line) => (
+                    <Typography key={line} variant="body2" color="text.secondary">
+                      {line}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Box>
             )}
-            {exportErr && (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                {exportErr}
-              </Alert>
+            {createJob?.status === "ready" && (
+              <Box>
+                <Alert severity="success" sx={{ mb: 1 }}>
+                  Backup ready
+                  {createJob.filename ? `: ${createJob.filename}` : ""}
+                </Alert>
+                <Button variant="contained" onClick={() => void onDownloadBackup()}>
+                  Download Backup
+                </Button>
+              </Box>
             )}
-          </Box>
+            {createJob?.status === "failed" && (
+              <Alert severity="error">{createJob.error?.message || createJob.message}</Alert>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
 
-          <Typography variant="subtitle2" sx={{ pt: 1 }}>
-            2. Restore
+      <Card sx={surfaceSx}>
+        <CardContent>
+          <Typography variant="subtitle2" gutterBottom>
+            Restore Backup
           </Typography>
-          <Alert severity="info">
-            Restore updates areas, devices, dashboards, cameras, and ESPHome YAML. It does not change
-            .env, Mosquitto, Postgres, Influx, Node-RED, or user accounts on this server.
-          </Alert>
           <input
-            ref={adoptFileRef}
+            ref={restoreFileRef}
             type="file"
-            accept=".nexcfg,application/zip"
+            accept=".nexbackup,application/octet-stream"
             hidden
             onChange={(e) => {
-              setAdoptFile(e.target.files?.[0] ?? null);
+              setRestoreFile(e.target.files?.[0] ?? null);
+              setInspect(null);
+              setInspectErr(null);
               e.target.value = "";
             }}
           />
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
-            <Button variant="outlined" onClick={() => adoptFileRef.current?.click()}>
-              Choose backup file
-            </Button>
-            <Typography variant="body2" color="text.secondary" sx={{ pt: 1 }}>
-              {adoptFile ? adoptFile.name : "No file selected"}
-            </Typography>
-          </Stack>
-          <TextField
-            label="MQTT broker IP"
-            value={newBrokerIp}
-            onChange={(e) => setNewBrokerIp(e.target.value)}
-            fullWidth
-            helperText="This server’s LAN IP (devices will use this as the MQTT broker)"
-          />
-          <TextField
-            label="MQTT topic root"
-            value={newTopicRoot}
-            onChange={(e) => setNewTopicRoot(e.target.value)}
-            fullWidth
-            helperText="First part of every device topic, e.g. nexternel"
-          />
-          <TextField
-            label="Wi‑Fi SSID (optional)"
-            value={wifiSsid}
-            onChange={(e) => setWifiSsid(e.target.value)}
-            fullWidth
-            helperText="Only if devices must join a different Wi‑Fi after flashing"
-          />
-          <TextField
-            label="Wi‑Fi password (optional)"
-            type="password"
-            value={wifiPassword}
-            onChange={(e) => setWifiPassword(e.target.value)}
-            fullWidth
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={adoptBusy || !adoptFile}
-            onClick={() => void onAdopt()}
-            sx={{ alignSelf: "flex-start" }}
-          >
-            {adoptBusy ? "Restoring…" : "Restore backup"}
-          </Button>
-          {adoptMsg && <Alert severity="success">{adoptMsg}</Alert>}
-          {adoptErr && <Alert severity="error">{adoptErr}</Alert>}
-          {adoptResult && (
-            <Alert severity="warning">
-              <Typography variant="subtitle2" gutterBottom>
-                Next: flash ESP32 devices (USB)
+          <Stack spacing={2} sx={{ maxWidth: 520 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
+              <Button variant="outlined" onClick={() => restoreFileRef.current?.click()}>
+                Select Backup File
+              </Button>
+              <Typography variant="body2" color="text.secondary" sx={{ pt: 1 }}>
+                {restoreFile ? restoreFile.name : "No file selected"}
               </Typography>
-              <Box component="ul" sx={{ m: 0, pl: 2, mb: 1 }}>
-                {adoptResult.adoptChecklist.steps.map((s) => (
-                  <li key={s}>
-                    <Typography variant="body2">{s}</Typography>
-                  </li>
-                ))}
-              </Box>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 1 }}>
-                <Button
-                  variant="contained"
-                  href={adoptResult.adoptChecklist.esphomeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open ESPHome
-                </Button>
-                <Button
-                  variant="outlined"
-                  disabled={packBusy}
-                  onClick={() => void onDownloadCutoverPack()}
-                >
-                  {packBusy ? "Preparing…" : "Download device YAML pack"}
-                </Button>
-              </Stack>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                The YAML pack has broker IP, Wi‑Fi, and MQTT password filled in. For each device: USB
-                cable → ESPHome → Install → Plug into this computer (or use web.esphome.io). Broker:{" "}
-                {adoptResult.adoptChecklist.brokerIp}; topics under{" "}
-                {adoptResult.adoptChecklist.topicRoot ?? "…"}/.
-              </Typography>
-              {adoptResult.adoptChecklist.devices.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Devices in this backup
-                  </Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                    {adoptResult.adoptChecklist.devices.map((d) => (
-                      <li key={d.slug}>
-                        <Typography variant="body2">
-                          {d.name}
-                          {d.topicPrefix ? ` — ${d.topicPrefix}` : ""}
-                          {d.yamlHint ? ` (${d.yamlHint})` : ""}
-                        </Typography>
-                      </li>
-                    ))}
-                  </Box>
-                </>
-              )}
-            </Alert>
-          )}
-
-          <Box sx={{ pt: 1 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Fix dashboard widgets
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              After a restore, some dashboard switches or charts may not respond even though Live
-              works. This reconnects those widgets to the correct devices. Use once if needed, then
-              reload the Dashboard.
-            </Typography>
+            </Stack>
+            <TextField
+              label="Backup password"
+              type="password"
+              value={restorePassword}
+              onChange={(e) => {
+                setRestorePassword(e.target.value);
+                setInspect(null);
+              }}
+              fullWidth
+              autoComplete="current-password"
+            />
             <Button
               variant="outlined"
-              disabled={repairBusy}
-              onClick={() => void onRepairDashboardBindings()}
+              disabled={inspectBusy || !restoreFile}
+              onClick={() => void onInspect()}
             >
-              {repairBusy ? "Fixing…" : "Fix dashboard widgets"}
+              {inspectBusy ? "Inspecting…" : "Inspect backup"}
             </Button>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
+            {inspectErr && <Alert severity="error">{inspectErr}</Alert>}
+            {inspect?.valid && inspect.manifest && (
+              <Alert severity={inspect.compatible ? "success" : "warning"}>
+                <Typography variant="subtitle2" gutterBottom>
+                  {inspect.compatible
+                    ? "Backup is compatible with this installation."
+                    : "Backup may not be fully compatible."}
+                </Typography>
+                <Typography variant="body2">
+                  Date: {new Date(inspect.manifest.createdAt).toLocaleString()}
+                </Typography>
+                <Typography variant="body2">Version: {inspect.manifest.appVersion}</Typography>
+                <Typography variant="body2">
+                  Format: v{inspect.manifest.formatVersion}
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2, mt: 1 }}>
+                  {formatInspectCounts(inspect).map((line) => (
+                    <li key={line}>
+                      <Typography variant="body2">{line}</Typography>
+                    </li>
+                  ))}
+                </Box>
+                {inspect.warnings.map((w) => (
+                  <Typography key={w} variant="body2" color="warning.main">
+                    {w}
+                  </Typography>
+                ))}
+              </Alert>
+            )}
+            {inspect?.networkAdaptation && (
+              <Alert severity="info">
+                <Typography variant="subtitle2" gutterBottom>
+                  Network adaptation
+                </Typography>
+                {inspect.networkAdaptation.differentInstallation ? (
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    This backup was created on a different Nexternel installation. Network-specific
+                    settings will be adapted automatically.
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    This backup matches this installation. Network settings will still be refreshed
+                    from the current server.
+                  </Typography>
+                )}
+                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                  {inspect.networkAdaptation.adaptations.map((row) => (
+                    <li key={row.label}>
+                      <Typography variant="body2">
+                        {row.label}: {row.from} → {row.to}
+                      </Typography>
+                    </li>
+                  ))}
+                </Box>
+                {inspect.networkAdaptation.wifiMayBeRequired && (
+                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                    Some devices may require Wi-Fi configuration.
+                  </Typography>
+                )}
+                {inspect.networkAdaptation.usersInBackup > 0 && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Backup contains {inspect.networkAdaptation.usersInBackup} user
+                    {inspect.networkAdaptation.usersInBackup === 1 ? "" : "s"}. Your current
+                    administrator password will be kept.
+                  </Typography>
+                )}
+              </Alert>
+            )}
+
+            {inspect?.valid && inspect.compatible && (
+              <>
+                <TextField
+                  label="Wi‑Fi network name (optional)"
+                  value={wifiSsid}
+                  onChange={(e) => setWifiSsid(e.target.value)}
+                  fullWidth
+                  helperText="Only if devices must join a different Wi‑Fi network on this site."
+                />
+                <TextField
+                  label="Wi‑Fi password (optional)"
+                  type="password"
+                  value={wifiPassword}
+                  onChange={(e) => setWifiPassword(e.target.value)}
+                  fullWidth
+                  autoComplete="new-password"
+                />
+                <Alert severity="warning">
+                  This will replace the current Nexternel configuration with the selected backup.
+                  Current Areas, Devices, Dashboards, Automations and other configuration may be
+                  replaced. Type RESTORE to continue.
+                </Alert>
+                <TextField
+                  label='Type RESTORE'
+                  value={restoreConfirm}
+                  onChange={(e) => setRestoreConfirm(e.target.value)}
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  color="warning"
+                  disabled={restoreBusy || restoreConfirm !== "RESTORE"}
+                  onClick={() => void onRestore()}
+                >
+                  {restoreBusy ? "Starting…" : "Restore Backup"}
+                </Button>
+              </>
+            )}
+
+            {restoreJob && restoreJob.status !== "completed" && restoreJob.status !== "failed" && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Restoring…
+                </Typography>
+                <LinearProgress variant="determinate" value={restoreJob.percent} sx={{ mb: 1 }} />
+                <Stack spacing={0.25}>
+                  {progressLines(restoreJob).map((line) => (
+                    <Typography key={line} variant="body2" color="text.secondary">
+                      {line}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+            {restoreMsg && (
+              <Alert severity="success">
+                {restoreMsg}
+                {restoreJob?.restoreResult?.warnings.map((w) => (
+                  <Typography key={w} variant="body2" sx={{ mt: 1 }}>
+                    {w}
+                  </Typography>
+                ))}
+              </Alert>
+            )}
+            {restoreErr && <Alert severity="error">{restoreErr}</Alert>}
+            {restoreJob?.restoreResult && !restoreJob.restoreResult.ok && (
+              <Alert severity="warning">
+                {restoreJob.restoreResult.errors.join("; ")}
+              </Alert>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
   );
 }

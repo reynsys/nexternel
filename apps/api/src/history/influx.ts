@@ -86,3 +86,45 @@ export async function querySensorHistory(
 
   return { points, aggregateEvery };
 }
+
+/** Write one reading — same line protocol as Node-RED (`sensor_reading` measurement). */
+export async function writeSensorReading(input: {
+  deviceSlug: string;
+  entityId: string;
+  entityType?: string;
+  value: number;
+  timestampMs?: number;
+}): Promise<void> {
+  const { url, token, org, bucket } = config.influx();
+  if (!token.trim()) return;
+
+  const device = sanitizeInfluxTag(input.deviceSlug);
+  const entity = sanitizeInfluxTag(input.entityId);
+  const entityType = sanitizeInfluxTag(input.entityType ?? "sensor");
+  const value = input.value;
+  if (!Number.isFinite(value)) return;
+
+  const ts = input.timestampMs ?? Date.now();
+  const line = `sensor_reading,device=${device},entity_type=${entityType},entity_id=${entity} value=${value} ${ts}`;
+
+  const res = await fetch(
+    `${url.replace(/\/$/, "")}/api/v2/write?org=${encodeURIComponent(org)}&bucket=${encodeURIComponent(bucket)}&precision=ms`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+      body: line,
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      body.trim()
+        ? `Influx write failed: ${body.trim().slice(0, 200)}`
+        : `Influx write HTTP ${res.status}`
+    );
+  }
+}

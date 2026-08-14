@@ -42,7 +42,7 @@ export function ClockWidgetEditor({ open, widget, onClose, onSave }: Props) {
     if (!open || !widget) return;
     const c = widget.config ?? {};
     const raw = widget.title?.trim() ?? "";
-    setTitle(raw && raw !== "Clock" && raw !== CLOCK_WIDGET_TYPE ? raw : "");
+    setTitle(raw);
     setTimeMode(c.timeMode === "analog" ? "analog" : "digital");
     setDigitalStyle(
       c.digitalStyle === "mono" || c.digitalStyle === "bold" ? c.digitalStyle : "standard"
@@ -85,7 +85,7 @@ export function ClockWidgetEditor({ open, widget, onClose, onSave }: Props) {
       PaperProps={{ sx: { width: { xs: "100%", sm: 400 }, p: 2 } }}
     >
       <Stack spacing={2} sx={{ height: "100%" }}>
-        <Typography variant="h6">Edit clock</Typography>
+        <Typography variant="h6">Edit plugin</Typography>
         <Typography variant="caption" color="text.secondary">
           Digits scale to fill the widget. Adjust style, seconds, date, and size.
         </Typography>

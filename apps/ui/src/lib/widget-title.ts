@@ -2,6 +2,7 @@ import type { Capability, WidgetInstance } from "../api";
 import { defaultWidgetTitle } from "./capability-labels";
 
 import { switchWidgetLabel, isSwitchWidgetType } from "../widgets/switch";
+import { relayPanelLabel, isRelayPanelType } from "../widgets/relay-panel";
 
 const CORE_PLACEHOLDERS = new Set(["Switch", "Stat", "Auto", "Widget"]);
 
@@ -13,9 +14,11 @@ const GENERAL_PLACEHOLDERS: Record<string, string[]> = {
   device_status: ["Device status", "Devices", "device_status"],
   "plugin.clock": ["Clock", "plugin.clock"],
   "plugin.air-quality": ["Air quality", "Air Quality", "plugin.air-quality"],
+  "plugin.gauge": ["Gauge", "plugin.gauge"],
 };
 
 export function kindLabelForWidgetType(type: string): string {
+  if (isRelayPanelType(type)) return relayPanelLabel(type);
   if (isSwitchWidgetType(type)) return switchWidgetLabel(type);
   if (type === "stat") return "Stat";
   if (type === "auto") return "Auto";
@@ -34,6 +37,7 @@ export function isPlaceholderWidgetTitle(
   const extras = GENERAL_PLACEHOLDERS[type];
   if (extras?.includes(t)) return true;
   if (isSwitchWidgetType(type) && t === switchWidgetLabel(type)) return true;
+  if (isRelayPanelType(type) && t === relayPanelLabel(type)) return true;
   return false;
 }
 

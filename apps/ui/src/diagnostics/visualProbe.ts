@@ -136,6 +136,31 @@ function flagsFor(
   };
 }
 
+/** ECharts canvas larger than chart-host — classic resize / flex bug. */
+function gaugeChartSizeWarnings(): string[] {
+  const out: string[] = [];
+  document.querySelectorAll("[data-nx-chart-host]").forEach((host) => {
+    const hr = host.getBoundingClientRect();
+    if (hr.width < 40 || hr.height < 40) return;
+    const chart = host.querySelector(".echarts-for-react") as HTMLElement | null;
+    if (!chart) return;
+    const cr = chart.getBoundingClientRect();
+    const dw = host.getAttribute("data-nx-chart-w");
+    const dh = host.getAttribute("data-nx-chart-h");
+    const preset = host.getAttribute("data-nx-chart-preset") ?? "?";
+    if (
+      cr.width > hr.width + 3 ||
+      cr.height > hr.height + 3 ||
+      Math.abs(cr.width - cr.height) > 3
+    ) {
+      out.push(
+        `Gauge chart ${Math.round(cr.width)}×${Math.round(cr.height)} in host ${Math.round(hr.width)}×${Math.round(hr.height)} (preset ${preset}${dw && dh ? `, measured ${dw}×${dh}` : ""})`
+      );
+    }
+  });
+  return out;
+}
+
 /** Detect tiny gauge arcs inside a reasonably sized chart host (broken radius %). */
 function gaugeArcWarnings(): string[] {
   const out: string[] = [];
@@ -252,6 +277,7 @@ export function scanVisual(
     );
   }
   warnings.push(...gaugeArcWarnings());
+  warnings.push(...gaugeChartSizeWarnings());
 
   return {
     collectedAt: new Date().toISOString(),
@@ -287,6 +313,7 @@ export function scanElementTree(el: Element): VisualScanResult {
     warnings.push(`${problemCount} element(s) flagged in pick tree`);
   }
   warnings.push(...gaugeArcWarnings());
+  warnings.push(...gaugeChartSizeWarnings());
 
   return {
     collectedAt: new Date().toISOString(),

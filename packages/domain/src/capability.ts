@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SystemIdSchema } from "./system.js";
 
 /** Extensible capability kinds — UI renders from these, not device manufacturers. */
 export const CAPABILITY_KINDS = [
@@ -61,9 +62,25 @@ export const CapabilityMetaSchema = z.object({
   kind: CapabilityKindSchema,
   name: z.string().min(1),
   unit: z.string().optional(),
+  /** V4 — owning System (meaning layer). */
+  systemId: SystemIdSchema.optional(),
+  /** V4 — denormalised Area (rooms table). */
+  areaId: z.string().uuid().optional(),
+  /** V4 — optional Group within Area + System. */
+  groupId: z.string().uuid().nullable().optional(),
+  /** V4 — future Service subdivision within System. */
+  serviceId: z.string().nullable().optional(),
 });
 
 export type CapabilityMeta = z.infer<typeof CapabilityMetaSchema>;
+
+/** V4 capability row — all ownership fields required after classification. */
+export const V4CapabilityMetaSchema = CapabilityMetaSchema.extend({
+  systemId: SystemIdSchema,
+  areaId: z.string().uuid().optional(),
+});
+
+export type V4CapabilityMeta = z.infer<typeof V4CapabilityMetaSchema>;
 
 /** ESPHome internal GPIO outputs / status LEDs — not user-facing relays. */
 export function isInternalRelayEntity(

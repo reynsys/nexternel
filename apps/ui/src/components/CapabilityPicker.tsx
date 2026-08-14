@@ -12,8 +12,8 @@ import Typography from "@mui/material/Typography";
 import type { Capability } from "../api";
 import {
   capabilityDeviceGroupLabel,
+  capabilityOptionContextLine,
   capabilityOptionPrimary,
-  capabilityOptionSecondary,
   filterCapabilitiesForPicker,
   sortCapabilitiesForPicker,
 } from "../lib/capability-picker";
@@ -43,12 +43,20 @@ export function CapabilityPicker({
 }: Props) {
   const [query, setQuery] = useState("");
 
+  const selectedCap = useMemo(
+    () => capabilities.find((c) => c.id === value),
+    [capabilities, value]
+  );
+
   const options = useMemo(() => {
     const filtered = query.trim()
       ? filterCapabilitiesForPicker(capabilities, query)
       : sortCapabilitiesForPicker(capabilities);
+    if (selectedCap && !filtered.some((c) => c.id === value)) {
+      return [selectedCap, ...filtered];
+    }
     return filtered;
-  }, [capabilities, query]);
+  }, [capabilities, query, selectedCap, value]);
 
   const groups = useMemo(() => {
     const map = new Map<string, Capability[]>();
@@ -61,11 +69,8 @@ export function CapabilityPicker({
     return map;
   }, [options]);
 
-  const validValue = options.some((c) => c.id === value)
-    ? value
-    : allowEmpty
-      ? value
-      : options[0]?.id ?? "";
+  const validValue =
+    capabilities.some((c) => c.id === value) ? value : allowEmpty ? "" : options[0]?.id ?? "";
 
   const defaultHelper =
     options.length === 0
@@ -102,7 +107,7 @@ export function CapabilityPicker({
               <MenuItem key={cap.id} value={cap.id}>
                 <ListItemText
                   primary={capabilityOptionPrimary(cap)}
-                  secondary={capabilityOptionSecondary(cap)}
+                  secondary={capabilityOptionContextLine(cap)}
                   primaryTypographyProps={{ variant: "body2" }}
                   secondaryTypographyProps={{ variant: "caption" }}
                 />

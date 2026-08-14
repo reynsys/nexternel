@@ -71,6 +71,13 @@ ALTER TABLE roles
         : VIEWER_PERMISSIONS
       : normalizePermissions(raw);
 
+    // Restored/custom roles with every view flag off → treat as broken, not intentional
+    const canView =
+      next.viewDashboards || next.viewSystem || next.viewDevices || row.slug === "admin";
+    if (!canView) {
+      next = row.is_admin ? { ...ALL_PERMISSIONS_ON } : { ...VIEWER_PERMISSIONS };
+    }
+
     // Always keep system Administrator fully privileged
     if (row.slug === "admin") {
       next = { ...ALL_PERMISSIONS_ON };

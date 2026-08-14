@@ -29,6 +29,7 @@ type Props = {
   signedIn: boolean;
   isAdmin: boolean;
   permissions?: RolePermissions | null;
+  authLoading?: boolean;
   user: User | null;
   onLogout: () => void;
   collapsed: boolean;
@@ -75,6 +76,7 @@ export function SideMenu({
   signedIn,
   isAdmin,
   permissions,
+  authLoading = false,
   user,
   onLogout,
   collapsed,
@@ -161,6 +163,7 @@ export function SideMenu({
           signedIn={signedIn}
           isAdmin={isAdmin}
           permissions={permissions}
+          authLoading={authLoading}
           collapsed={collapsed}
         />
       </Box>

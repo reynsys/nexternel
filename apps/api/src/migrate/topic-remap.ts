@@ -11,6 +11,21 @@ export function remapTopicRoot(topic: string, newRoot: string): string {
   return `${root}${t.slice(slash)}`;
 }
 
+/** Remap only when the topic's first segment is a known legacy installation root. */
+export function remapTopicForLegacyRoots(
+  topic: string,
+  newRoot: string,
+  legacyRoots: string[]
+): string {
+  const t = topic.trim();
+  if (!t || legacyRoots.length === 0) return t;
+  const slash = t.indexOf("/");
+  const first = (slash === -1 ? t : t.slice(0, slash)).toLowerCase();
+  const legacy = new Set(legacyRoots.map((r) => r.toLowerCase()));
+  if (!legacy.has(first)) return t;
+  return remapTopicRoot(t, newRoot);
+}
+
 export function applyTopicRootToPayload<
   T extends {
     devices: {
@@ -36,6 +51,36 @@ export function applyTopicRootToPayload<
         ...r,
         mqttStateTopic: remapTopicRoot(r.mqttStateTopic, root),
         mqttCommandTopic: remapTopicRoot(r.mqttCommandTopic, root),
+      })),
+    })),
+  };
+}
+
+export function applyLegacyTopicRootToPayload<
+  T extends {
+    devices: {
+      mqttTopicPrefix: string;
+      sensors: { mqttStateTopic: string }[];
+      relays: { mqttStateTopic: string; mqttCommandTopic: string }[];
+    }[];
+  },
+>(payload: T, newRoot: string, legacyRoots: string[]): T {
+  const root = newRoot.trim().replace(/^\/+|\/+$/g, "");
+  if (!root || legacyRoots.length === 0) return payload;
+
+  return {
+    ...payload,
+    devices: payload.devices.map((d) => ({
+      ...d,
+      mqttTopicPrefix: remapTopicForLegacyRoots(d.mqttTopicPrefix, root, legacyRoots),
+      sensors: d.sensors.map((s) => ({
+        ...s,
+        mqttStateTopic: remapTopicForLegacyRoots(s.mqttStateTopic, root, legacyRoots),
+      })),
+      relays: d.relays.map((r) => ({
+        ...r,
+        mqttStateTopic: remapTopicForLegacyRoots(r.mqttStateTopic, root, legacyRoots),
+        mqttCommandTopic: remapTopicForLegacyRoots(r.mqttCommandTopic, root, legacyRoots),
       })),
     })),
   };

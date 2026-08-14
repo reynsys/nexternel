@@ -28,12 +28,12 @@ function navItemActive(pathname: string, to: string): boolean {
 
 /** Flat top-nav shell (original V3 look). */
 export function ClassicLayout() {
-  const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
+  const { signedIn, user, isAdmin, permissions, authLoading, logout } = useShellAuth();
   const { themePrefs } = useSkin();
   const { pathname } = useLocation();
   const hasGradient = Boolean(gradientCss(themePrefs.gradientId));
-  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions });
-  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions });
+  const main = filterNav(MAIN_NAV, { signedIn, isAdmin, permissions, authLoading });
+  const secondary = filterNav(SECONDARY_NAV, { signedIn, isAdmin, permissions, authLoading });
 
   return (
     <Box

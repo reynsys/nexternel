@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { api, type SystemInfo, type WidgetInstance } from "../../api";
 import { APP_VERSION } from "../../version";
-import { generalWidgetHeading } from "./config";
+import { useWidgetBodyHeading } from "./heading";
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -34,7 +34,7 @@ function Row({ label, value }: { label: string; value: string }) {
 export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const title = generalWidgetHeading(widget, "System");
+  const title = useWidgetBodyHeading(widget, "System");
 
   useEffect(() => {
     let cancelled = false;
@@ -82,9 +82,11 @@ export function SystemInfoWidget({ widget }: { widget: WidgetInstance }) {
         minHeight: 0,
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.75, flexShrink: 0 }}>
-        {title}
-      </Typography>
+      {title && (
+        <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.75, flexShrink: 0 }}>
+          {title}
+        </Typography>
+      )}
       {error && (
         <Typography variant="caption" color="error">
           {error}

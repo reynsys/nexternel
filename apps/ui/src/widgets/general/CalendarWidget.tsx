@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Typography } from "@mui/material";
 import type { WidgetInstance } from "../../api";
 import { widgetTitleOr } from "./config";
+import { useDashboardTileChrome } from "../../lib/dashboard-tile-context";
 
 function useNow(intervalMs = 60_000) {
   const [now, setNow] = useState(() => new Date());
@@ -29,7 +30,8 @@ export function CalendarWidget({ widget }: { widget: WidgetInstance }) {
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  const title = widgetTitleOr(widget, "Calendar");
+  const { showBodyHeading } = useDashboardTileChrome();
+  const title = showBodyHeading ? widgetTitleOr(widget, "Calendar") : undefined;
 
   return (
     <Box

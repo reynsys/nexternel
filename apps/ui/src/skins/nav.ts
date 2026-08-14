@@ -74,11 +74,13 @@ export function filterNav(
     signedIn: boolean;
     isAdmin: boolean;
     permissions?: RolePermissions | null;
+    authLoading?: boolean;
   }
 ): NavItem[] {
   return items.filter((item) => {
     if (item.auth && !opts.signedIn) return false;
     if (item.permission) {
+      if (opts.authLoading) return true;
       return hasPermission(opts.permissions, item.permission, opts.isAdmin);
     }
     return true;

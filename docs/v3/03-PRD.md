@@ -341,7 +341,71 @@ Matter/Zigbee plugins, MFA, marketplace, energy analytics, collaborative dashboa
 | **V3.1.1** | Foundation: API + SPA + capabilities + dashboards + history |
 | **V3.2** | Plugins loadable; ESPHome UX polish; notifications; viewer ACLs |
 | **V3.5** | Hardening: backup UX, monitoring, performance, template dashboards |
-| **V4** | Ecosystem: marketplace, advanced analytics, broader protocols |
+| **V4** | **Systems, Views, self-maintaining dashboards, capability standard** ([07–10](07-DOMAIN-MODEL.md)) |
+
+---
+
+---
+
+## V4 Addendum (approved direction — supersedes widget requirements for new work)
+
+| Field | Value |
+|-------|--------|
+| **Generation** | V4 |
+| **Status** | Approved in direction · Implementation after bible freeze |
+| **Authority** | [07-DOMAIN-MODEL.md](07-DOMAIN-MODEL.md) · [08-SYSTEM-CATALOGUE.md](08-SYSTEM-CATALOGUE.md) · [09-VIEW-REGISTRY.md](09-VIEW-REGISTRY.md) · [10-CAPABILITY-STANDARD.md](10-CAPABILITY-STANDARD.md) |
+
+V3.1.1 requirements below remain **shipped** for V3. V4 **supersedes** dashboard/widget requirements (WID-*, DASH-*) for all new development.
+
+### V4 product objectives (additions)
+
+1. **Systems own capabilities** — hardware independence ([07-DOMAIN-MODEL.md](07-DOMAIN-MODEL.md))  
+2. **Views replace widgets** — Function → Area → Appearance ([09-VIEW-REGISTRY.md](09-VIEW-REGISTRY.md))  
+3. **Self-maintaining dashboards** — Area + System on device → Views update without edit  
+4. **Universal capability language** — [10-CAPABILITY-STANDARD.md](10-CAPABILITY-STANDARD.md)  
+5. **Automation consumes Systems** — Node-RED + integrations, not dashboard-owned logic  
+
+### V4 dashboard requirements
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| DASH-V4-01 | Dashboards store **Views** with `viewScope` (Area + System + Group) | M |
+| DASH-V4-02 | Add View: Function (System) → Area → Appearance — no default capability picker | M |
+| DASH-V4-03 | Sections bind **Area**; filter Add View and default View Scope | M |
+| DASH-V4-04 | Drag/resize Views (RGL) — unchanged | M |
+| DASH-V4-05 | New device with Area + System → matching Views auto-include capabilities | M |
+| DASH-V4-06 | V3 widgets read-only until migrated | M |
+| DASH-V4-07 | Server-side View Scope resolve for large sites | S |
+| DASH-V4-08 | Optional **Service** subdivision within System | F (V4.1+) |
+
+### V4 view requirements (replaces WID-*)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| VIEW-01 | Core Views per [09-VIEW-REGISTRY.md](09-VIEW-REGISTRY.md) | M |
+| VIEW-02 | View Scope + Appearance + Behaviour editor tabs | M |
+| VIEW-03 | One View kind, many Appearances (not switch_icon variants) | M |
+| VIEW-04 | Charts View — ECharts only | M |
+| VIEW-05 | Plugin View registration | S |
+| VIEW-06 | Advanced include/exclude capability IDs | S |
+
+### V4 device / capability requirements (extends DEV-*)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| DEV-V4-01 | Onboarding: assign **Area** + **System** per capability batch | M |
+| DEV-V4-02 | `capabilities.system_id` required (V4) | M |
+| DEV-V4-03 | Optional `group_id`, future `service_id` | S / F |
+| DEV-V4-04 | Classification rules per [08-SYSTEM-CATALOGUE.md](08-SYSTEM-CATALOGUE.md) | M |
+| DEV-V4-05 | Same capability kind + different System = different meaning | M |
+
+### V4 automation & integration
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| AUTO-V4-01 | Node-RED remains automation runtime | M |
+| AUTO-V4-02 | Automations reference capabilities; System-scoped triggers (future) | S |
+| INT-V4-01 | Integrations (weather, Octopus) feed Systems / automations | S |
 
 ---
 

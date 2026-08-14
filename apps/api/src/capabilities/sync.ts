@@ -1,5 +1,7 @@
 import { getPool } from "../db.js";
 import { kindFromSensorType } from "./kinds.js";
+import { alignInstallationMqttTopics, normalizeEsphomeMqttTopics, repairCapabilityBindingsFromSources } from "../migrate/align-mqtt-topics.js";
+import { migrateShellyDevicePrefixes } from "../shelly/migrate-prefixes.js";
 
 /**
  * Upsert capabilities + bindings from sensors / relays tables.
@@ -8,7 +10,23 @@ import { kindFromSensorType } from "./kinds.js";
 export async function syncCapabilitiesFromLegacy(): Promise<{
   sensors: number;
   relays: number;
+  topicAlignment: Awaited<ReturnType<typeof alignInstallationMqttTopics>>;
+  topicNormalization: Awaited<ReturnType<typeof normalizeEsphomeMqttTopics>>;
+  shellyPrefixMigration: Awaited<ReturnType<typeof migrateShellyDevicePrefixes>>;
+  bindingRepair: Awaited<ReturnType<typeof repairCapabilityBindingsFromSources>>;
 }> {
+  const topicAlignment = await alignInstallationMqttTopics();
+  const topicNormalization = await normalizeEsphomeMqttTopics();
+  const shellyPrefixMigration = await migrateShellyDevicePrefixes();
+  const bindingRepair = await repairCapabilityBindingsFromSources();
+  if (shellyPrefixMigration.devicesUpdated > 0) {
+    try {
+      const { refreshTelemetrySubscriptions } = await import("../telemetry/mqtt.js");
+      await refreshTelemetrySubscriptions();
+    } catch {
+      /* telemetry may not be started yet during bootstrap */
+    }
+  }
   const pool = getPool();
 
   const sensors = await pool.query<{
@@ -108,5 +126,25 @@ export async function syncCapabilitiesFromLegacy(): Promise<{
   const { pruneInternalRelayRows } = await import("./cleanup.js");
   await pruneInternalRelayRows();
 
-  return { sensors: sensorCount, relays: relayCount };
+  const { syncCapabilityAreasFromDevices, classifyAllCapabilities } = await import(
+    "./classify.js"
+  );
+  await syncCapabilityAreasFromDevices();
+  await classifyAllCapabilities();
+
+  try {
+    const { refreshTelemetrySubscriptions } = await import("../telemetry/mqtt.js");
+    await refreshTelemetrySubscriptions();
+  } catch {
+    /* telemetry may not be started yet during bootstrap */
+  }
+
+  return {
+    sensors: sensorCount,
+    relays: relayCount,
+    topicAlignment,
+    topicNormalization,
+    shellyPrefixMigration,
+    bindingRepair,
+  };
 }

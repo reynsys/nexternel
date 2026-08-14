@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { requirePermission } from "../auth/rbac.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
 import { refreshTelemetrySubscriptions } from "../telemetry/mqtt.js";
+import { installationMqttRoot } from "../migrate/align-mqtt-topics.js";
 import { getPool } from "../db.js";
 import {
   listEsphomeYamlFiles,
@@ -11,6 +12,9 @@ import {
 import {
   createDevice,
   deleteDevice,
+  deleteRelay,
+  deleteSensor,
+  esphomeSuggestionForDevice,
   getDeviceDetailed,
   listDevicesDetailed,
   renameRelay,
@@ -57,7 +61,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         const suggestion = await suggestFromEsphome(fileName);
         const esphomeName = suggestion?.esphomeName || fileName;
         const mqttTopicPrefix =
-          suggestion?.mqttTopicPrefix || `damnhome/${fileName}`;
+          suggestion?.mqttTopicPrefix || `${installationMqttRoot()}/${fileName}`;
         const isRegistered = registered.rows.some(
           (d) =>
             d.esphome_name === esphomeName ||
@@ -289,9 +293,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       });
     }
 
-    const suggestion = await suggestFromEsphome(
-      device.esphomeName || device.slug
-    );
+    const suggestion = await esphomeSuggestionForDevice(device);
     if (!suggestion) {
       return reply.code(404).send({
         error: {
@@ -309,9 +311,42 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       yamlFile: suggestion.yamlFile,
       mqttTopicPrefix: suggestion.mqttTopicPrefix,
       relaysInYaml: suggestion.relays.map((r) => r.name),
+      sensorsInYaml: suggestion.sensors.map((s) => s.name),
       isOnline: updated?.isOnline ?? false,
       device: updated,
     };
+  });
+
+  app.delete("/api/v1/devices/:deviceId/sensors/:sensorId", async (request, reply) => {
+    if (!requirePermission(request, reply, "editDevices")) return;
+    const { deviceId, sensorId } = request.params as {
+      deviceId: string;
+      sensorId: string;
+    };
+    const ok = await deleteSensor(deviceId, sensorId);
+    if (!ok) {
+      return reply.code(404).send({
+        error: { code: "not_found", message: "Sensor not found" },
+      });
+    }
+    await afterDeviceMutation();
+    return { ok: true };
+  });
+
+  app.delete("/api/v1/devices/:deviceId/relays/:relayId", async (request, reply) => {
+    if (!requirePermission(request, reply, "editDevices")) return;
+    const { deviceId, relayId } = request.params as {
+      deviceId: string;
+      relayId: string;
+    };
+    const ok = await deleteRelay(deviceId, relayId);
+    if (!ok) {
+      return reply.code(404).send({
+        error: { code: "not_found", message: "Relay not found" },
+      });
+    }
+    await afterDeviceMutation();
+    return { ok: true };
   });
 
   app.patch("/api/v1/devices/:deviceId/relays/:relayId", async (request, reply) => {

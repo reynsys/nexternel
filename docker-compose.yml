@@ -115,9 +115,23 @@ services:
       SERVER_IP: ${SERVER_IP}
       GO2RTC_URL: ${GO2RTC_URL:-http://go2rtc:1984}
       GO2RTC_PUBLIC_URL: ${GO2RTC_PUBLIC_URL:-}
+      NODERED_DATA_DIR: /nodered-data
+      NODERED_TEMPLATE_DIR: /nodered-template
+      MOSQUITTO_CONFIG_DIR: /mosquitto-config
+      BACKUP_JOBS_DIR: /backup-jobs
+      ALLOW_DOCKER_RESTART: "true"
     volumes:
       # ESPHome YAML (rw so System → Adopt can write device configs)
       - ./esphome:/esphome
+      # Node-RED live data (backup / restore)
+      - nodered_data:/nodered-data
+      # Default Node-RED flow template (seed when volume is empty)
+      - ./nodered:/nodered-template:ro
+      # Mosquitto credentials (backup / restore)
+      - ./mosquitto/config:/mosquitto-config
+      # Backup job working files
+      - backup_jobs:/backup-jobs
+      - /var/run/docker.sock:/var/run/docker.sock
       # Host CPU thermal zones for System Information widget (read-only)
       - /sys/class/thermal:/sys/class/thermal:ro
     ports:
@@ -164,3 +178,4 @@ volumes:
   mosquitto_data:
   mosquitto_log:
   nodered_data:
+  backup_jobs:

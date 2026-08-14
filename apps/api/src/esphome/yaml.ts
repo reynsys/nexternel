@@ -496,16 +496,19 @@ export function parseEsphomeYaml(
 export async function listEsphomeYamlFiles(): Promise<string[]> {
   const names = new Set<string>();
   for (const dir of ESPHOME_DIRS) {
-    try {
-      const entries = await readdir(dir);
-      for (const file of entries) {
-        if (!file.endsWith(".yaml")) continue;
-        const base = file.replace(/\.yaml$/, "");
-        if (SKIP_YAML.has(base)) continue;
-        names.add(base);
+    for (const sub of ["", "devices"]) {
+      try {
+        const scanDir = sub ? join(dir, sub) : dir;
+        const entries = await readdir(scanDir);
+        for (const file of entries) {
+          if (!file.endsWith(".yaml")) continue;
+          const base = file.replace(/\.yaml$/, "");
+          if (SKIP_YAML.has(base)) continue;
+          names.add(base);
+        }
+      } catch {
+        /* try next path */
       }
-    } catch {
-      /* try next path */
     }
   }
   return Array.from(names).sort((a, b) => a.localeCompare(b));
@@ -522,10 +525,12 @@ export async function loadEsphomeYaml(esphomeName: string): Promise<string | nul
   for (const base of candidates) {
     const fileName = `${base}.yaml`;
     for (const dir of ESPHOME_DIRS) {
-      try {
-        return await readFile(join(dir, fileName), "utf8");
-      } catch {
-        /* try next path */
+      for (const sub of ["", "devices"]) {
+        try {
+          return await readFile(join(dir, sub, fileName), "utf8");
+        } catch {
+          /* try next path */
+        }
       }
     }
   }

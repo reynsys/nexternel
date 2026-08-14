@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
 import ReactECharts from "echarts-for-react";
 import type { ECharts } from "echarts";
@@ -12,6 +12,7 @@ import {
 import { primaryCapabilityId } from "../../lib/widget-bindings";
 import { buildFinalOption } from "./merge-option";
 import { applyEchartsPalette, echartsPaletteFromTheme } from "./chart-theme";
+import { applySafeChartTooltip } from "./chart-tooltip";
 import { enforceAllGaugeSeries, niceGaugeAxis } from "./gauge-scale";
 import { getEchartsPreset } from "./registry";
 import type { EchartsBuildCtx, HistoryPoint } from "./types";
@@ -21,17 +22,35 @@ function capabilityIdOf(widget: WidgetInstance): string | null {
   return id ?? null;
 }
 
+/** Stroke/font scale for gauge presets. */
+function bucketGaugeSizePx(w: number, h: number): number {
+  if (w <= 0 || h <= 0) return 220;
+  const side = Math.min(w, h);
+  return Math.max(80, Math.round(side / 8) * 8);
+}
+
+function measureHost(el: HTMLElement): { w: number; h: number } | null {
+  const r = el.getBoundingClientRect();
+  const w = Math.max(0, Math.floor(r.width));
+  const h = Math.max(0, Math.floor(r.height));
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+
+/**
+ * Chart body — single sizing authority: [data-nx-chart-host] flex-fills the
+ * panel dial slot. Scale is measured once before the chart mounts so
+ * valueAnimation is not restarted by a later option rebuild.
+ */
 export function EChartsWidgetBody({
   widget,
   cap,
-  title,
-  layoutEpoch = 0,
+  dataLabel,
+  tileTitle = null,
 }: {
   widget: WidgetInstance;
   cap: Capability | undefined;
-  title: string;
-  /** Bumps when dashboard edit chrome changes so charts remeasure. */
-  layoutEpoch?: number;
+  dataLabel: string;
+  tileTitle?: string | null;
 }) {
   const config = parseEchartsConfig(widget.config);
   const preset = getEchartsPreset(config.presetId);
@@ -41,47 +60,67 @@ export function EChartsWidgetBody({
   const capabilityId = capabilityIdOf(widget);
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const hostSizeRef = useRef({ w: 0, h: 0 });
+  /** null until host is measured — chart mounts once with final stroke scale. */
+  const [scalePx, setScalePx] = useState<number | null>(null);
 
   const [points, setPoints] = useState<HistoryPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const needsHistory = preset.dataMode === "history";
-  /** Match ECharts gauge radius (% of min(width,height)) — never use max(w,h) for stroke scale. */
-  const sizePx = box.w > 0 && box.h > 0 ? Math.min(box.w, box.h) : 220;
+  const isGauge = preset.family === "gauge";
+
+  useLayoutEffect(() => {
+    setScalePx(null);
+    const el = hostRef.current;
+    if (!el) return;
+
+    let cancelled = false;
+    const applyMeasure = () => {
+      if (cancelled) return;
+      const size = measureHost(el);
+      if (!size) return;
+      hostSizeRef.current = size;
+      el.setAttribute("data-nx-chart-w", String(size.w));
+      el.setAttribute("data-nx-chart-h", String(size.h));
+      setScalePx(bucketGaugeSizePx(size.w, size.h));
+    };
+
+    applyMeasure();
+    if (hostSizeRef.current.w <= 0) {
+      const id = requestAnimationFrame(applyMeasure);
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(id);
+      };
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [config.presetId]);
 
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
 
     const measure = () => {
-      const r = el.getBoundingClientRect();
-      const w = Math.max(0, Math.floor(r.width));
-      const h = Math.max(0, Math.floor(r.height));
-      if (w > 0 && h > 0) {
-        setBox((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
-        chartRef.current?.resize({ width: w, height: h });
-      }
+      const size = measureHost(el);
+      if (!size) return;
+
+      chartRef.current?.resize({ width: size.w, height: size.h });
+
+      const prev = hostSizeRef.current;
+      if (prev.w === size.w && prev.h === size.h) return;
+      hostSizeRef.current = size;
+      el.setAttribute("data-nx-chart-w", String(size.w));
+      el.setAttribute("data-nx-chart-h", String(size.h));
     };
 
-    measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-
-    let cancelled = false;
-    const settle = () => {
-      if (!cancelled) measure();
-    };
-    requestAnimationFrame(() => requestAnimationFrame(settle));
-    const t = window.setTimeout(settle, 120);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      ro.disconnect();
-    };
-  }, [config.presetId, layoutEpoch]);
+    return () => ro.disconnect();
+  }, [config.presetId]);
 
   useEffect(() => {
     if (!needsHistory) {
@@ -121,11 +160,13 @@ export function EChartsWidgetBody({
 
   const { min, max } = resolveMinMax(config, cap);
   const live = liveValue(cap);
+  const chartName = dataLabel.trim() || tileTitle || "";
+  const resolvedScalePx = scalePx ?? 220;
   const ctx: EchartsBuildCtx = useMemo(() => {
     const base: EchartsBuildCtx = {
       value: live ?? 0,
       unit: cap?.unit ?? "",
-      title,
+      title: chartName,
       kind: cap?.kind ?? "",
       min,
       max,
@@ -133,14 +174,14 @@ export function EChartsWidgetBody({
       palette: chartPalette,
       points,
       range,
-      sizePx,
+      sizePx: resolvedScalePx,
     };
     if (preset.family === "gauge") {
       const nice = niceGaugeAxis(base, 8);
       return { ...base, min: nice.min, max: nice.max, splitNumber: nice.splitNumber };
     }
     return base;
-  }, [cap, title, min, max, config.accent, chartPalette, points, range, sizePx, preset.family, live]);
+  }, [cap, chartName, min, max, config.accent, chartPalette, points, range, resolvedScalePx, preset.family, live]);
 
   const option = useMemo(() => {
     try {
@@ -148,7 +189,7 @@ export function EChartsWidgetBody({
       const gauged =
         preset.family === "gauge" ? enforceAllGaugeSeries(built, ctx) : built;
       const merged = buildFinalOption(gauged, config.optionOverride);
-      return applyEchartsPalette(merged, chartPalette);
+      return applyEchartsPalette(applySafeChartTooltip(merged), chartPalette);
     } catch (err) {
       console.error("ECharts option build failed", err);
       return {
@@ -190,12 +231,13 @@ export function EChartsWidgetBody({
   }
 
   const renderer = needsHistory || preset.family === "heatmap" ? "canvas" : "svg";
-  const ready = box.w > 0 && box.h > 0;
+  const chartReady = scalePx !== null;
 
   return (
     <Box
       ref={hostRef}
       data-nx-chart-host
+      data-nx-chart-preset={config.presetId}
       sx={{
         position: "relative",
         flex: 1,
@@ -204,6 +246,7 @@ export function EChartsWidgetBody({
         height: "100%",
         minHeight: 0,
         minWidth: 0,
+        overflow: "hidden",
       }}
     >
       {needsHistory && (
@@ -216,18 +259,20 @@ export function EChartsWidgetBody({
           {error ? ` · ${error}` : ""}
         </Typography>
       )}
-      {ready && (
+      {chartReady && (
         <ReactECharts
           key={config.presetId}
           option={option}
-          style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+          style={{ width: "100%", height: "100%", display: "block" }}
           opts={{ renderer }}
-          notMerge
+          notMerge={!isGauge}
           onChartReady={(chart) => {
             chartRef.current = chart;
-            const r = hostRef.current?.getBoundingClientRect();
-            if (r && r.width > 0 && r.height > 0) {
-              chart.resize({ width: Math.floor(r.width), height: Math.floor(r.height) });
+            const el = hostRef.current;
+            if (!el) return;
+            const size = measureHost(el);
+            if (size) {
+              chart.resize({ width: size.w, height: size.h });
             }
           }}
         />

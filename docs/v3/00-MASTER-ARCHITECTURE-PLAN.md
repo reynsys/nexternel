@@ -10,7 +10,25 @@
 | **Authority** | Chief Software Architect / Lead Engineering Manager |
 | **Rule** | **No production code** until Vision, Competitive Analysis, PRD, SAS, and Migration Plan are approved |
 
-This document is the **governing charter** for Generation 3. Sibling documents expand each area; where they conflict, **this Master Plan + approved ADRs** win until revised.
+---
+
+## V4 generation — architecture frozen
+
+| Field | Value |
+|-------|--------|
+| **Generation** | V4 |
+| **Status** | **Frozen** — approved 04/08/2026 |
+| **Implementation branch** | `v4.0.0-foundation` |
+| **Normative docs** | [07-DOMAIN-MODEL](07-DOMAIN-MODEL.md) · [08-SYSTEM-CATALOGUE](08-SYSTEM-CATALOGUE.md) · [09-VIEW-REGISTRY](09-VIEW-REGISTRY.md) · [10-CAPABILITY-STANDARD](10-CAPABILITY-STANDARD.md) · [24-V4-BIBLE-CONSISTENCY-REVIEW](24-V4-BIBLE-CONSISTENCY-REVIEW.md) |
+| **Build order** | Meaning → View → Dashboard (not widget-first) |
+
+**V4 rule:** A **Device** provides capabilities. A **System** gives those capabilities meaning. Views query Systems; dashboards host Views.
+
+**Implementation phases:** Phase 1 domain + DB (no UI) → Phase 2 device onboarding (MQTT/driver/mapper) → Phase 3 View registry → Phase 4 dashboards. See [V4-IMPLEMENTATION.md](V4-IMPLEMENTATION.md).
+
+V3 shipped stack (`apps/ui`, `apps/api`) remains operational until V4 cutover. Do not extend V3 widget catalogue for new features — use View Registry.
+
+---
 
 **Sibling bible:**
 

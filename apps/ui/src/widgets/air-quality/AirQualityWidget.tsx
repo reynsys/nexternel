@@ -3,7 +3,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { Capability, WidgetInstance } from "../../api";
 import { gradientCss } from "../../skins/gradientPalettes";
-import { metricTileSurfaceSx } from "../../skins/surfaceStyles";
+import { nestedContentPanelSx } from "../../skins/surfaceStyles";
 import { useSkin } from "../../skins/SkinProvider";
 import { echartsPaletteFromTheme } from "../echarts/chart-theme";
 import {
@@ -161,7 +161,7 @@ export function AirQualityWidget({
   const gradientActive = Boolean(gradientCss(themePrefs.gradientId));
   const solidContentPanels = Boolean(themePrefs.solidContentPanels);
   const tileSx = useMemo(
-    () => metricTileSurfaceSx(theme, gradientActive, solidContentPanels),
+    () => nestedContentPanelSx(theme, gradientActive, solidContentPanels),
     [theme, gradientActive, solidContentPanels]
   );
 

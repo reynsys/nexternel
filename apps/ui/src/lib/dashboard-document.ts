@@ -1,5 +1,6 @@
 import type { DashboardDocument, DashboardSection, WidgetInstance } from "../api";
 import { migrateWidgetToEcharts, isEchartsWidgetType } from "../widgets/echarts";
+import { normalizePanelKind } from "./panel-kind";
 
 export const SECTION_COL_SPANS = [3, 4, 6, 12] as const;
 export type SectionColSpan = (typeof SECTION_COL_SPANS)[number];
@@ -59,11 +60,15 @@ function normalizeWidget(w: WidgetInstance, index: number): WidgetInstance {
     minW: typeof raw.minW === "number" ? raw.minW : undefined,
     minH: typeof raw.minH === "number" ? raw.minH : undefined,
   };
+  const type = typeof w.type === "string" && w.type.trim() ? w.type.trim() : "stat";
+  if (normalizePanelKind(type) === "panel.controls") {
+    layout.minW = 2;
+    layout.minH = 2;
+  }
   const bindings =
     w.bindings && typeof w.bindings === "object" && !Array.isArray(w.bindings)
       ? w.bindings
       : {};
-  const type = typeof w.type === "string" && w.type.trim() ? w.type.trim() : "stat";
   const config =
     w.config && typeof w.config === "object" && !Array.isArray(w.config) ? w.config : {};
   const base: WidgetInstance = {

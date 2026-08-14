@@ -122,16 +122,20 @@ export function widgetTitleOr(
     t === "Device status" ||
     t === "Devices" ||
     t === "Camera" ||
-    t === "Camera live stream"
+    t === "Camera live stream" ||
+    t === "Clock"
   ) {
     return undefined;
   }
   return t;
 }
 
+/** Editor / standalone preview — returns fallback when no custom title. */
 export function generalWidgetHeading(
   widget: WidgetInstance,
   fallback: string
 ): string {
   return widgetTitleOr(widget, fallback) ?? fallback;
 }
+
+export { useWidgetBodyHeading } from "./heading";

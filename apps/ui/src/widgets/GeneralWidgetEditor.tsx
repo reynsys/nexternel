@@ -63,10 +63,9 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
       setWeatherLocation(loc);
       setWeatherLat(String(w.weatherLat));
       setWeatherLon(String(w.weatherLon));
-      setTitle(widgetTitleOr(widget, "Weather") ?? "");
+      setTitle(widget.title ?? "");
     } else {
-      const custom = widgetTitleOr(widget, label);
-      setTitle(custom ?? "");
+      setTitle(widget.title ?? "");
     }
     setOfflineOnly(parseDeviceStatusConfig(widget.config).offlineOnly);
     setCameraId(parseCameraConfig(widget.config).cameraId);
@@ -132,18 +131,8 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
       config.cameraId = cameraId;
     }
     const trimmed = title.trim();
-    const isPlaceholder =
-      !trimmed ||
-      trimmed === label ||
-      trimmed === type ||
-      trimmed === "System information" ||
-      trimmed === "Device status" ||
-      trimmed === "Calendar" ||
-      trimmed === "Weather" ||
-      trimmed === "Camera" ||
-      trimmed === "Camera live stream";
     onSave({
-      title: isPlaceholder ? undefined : trimmed,
+      title: trimmed || undefined,
       config,
     });
     onClose();
@@ -179,11 +168,7 @@ export function GeneralWidgetEditor({ open, widget, onClose, onSave }: Props) {
               ? weatherLocation || "Weather"
               : generalWidgetHeading(widget, label)
           }
-          helperText={
-            type === "weather"
-              ? "Leave blank to use the location label below"
-              : `Leave blank to use “${label}”`
-          }
+          helperText="Optional — shown on the dashboard when set"
         />
 
         {type === "weather" && (

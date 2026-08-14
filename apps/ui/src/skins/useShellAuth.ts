@@ -6,7 +6,8 @@ import { USER_UPDATED_EVENT } from "../lib/user-events";
 export function useShellAuth() {
   const navigate = useNavigate();
   const signedIn = Boolean(getStoredAccessToken());
-  const [user, setUser] = useState<User | null>(null);
+  /** undefined = still loading /api/v1/auth/me */
+  const [user, setUser] = useState<User | null | undefined>(signedIn ? undefined : null);
 
   useEffect(() => {
     if (!signedIn) {
@@ -21,7 +22,11 @@ export function useShellAuth() {
         const r = await api.me();
         if (!cancelled) setUser(r.user);
       } catch {
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          clearStoredTokens();
+          navigate("/login", { replace: true });
+        }
       }
     }
 
@@ -50,6 +55,7 @@ export function useShellAuth() {
   return {
     signedIn,
     user,
+    authLoading: signedIn && user === undefined,
     isAdmin: Boolean(user?.isAdmin ?? user?.role === "admin"),
     permissions: user?.permissions ?? null,
     logout,

@@ -11,7 +11,6 @@ import {
   useTheme,
 } from "@mui/material";
 import type { Capability, WidgetInstance } from "../../api";
-import { capabilityWidgetTitle } from "../../lib/capability-labels";
 import { getDashboardIcon } from "../../lib/dashboard-icons";
 import { isPlaceholderWidgetTitle } from "../../lib/widget-title";
 import { parseSwitchConfig } from "./config";
@@ -37,12 +36,17 @@ function SwitchError({ message }: { message: string }) {
   );
 }
 
-function actionButtonLabel(widget: WidgetInstance, cap: Capability | undefined): string {
+function actionButtonLabel(
+  widget: WidgetInstance,
+  cap: Capability | undefined,
+  momentary: boolean,
+  on: boolean
+): string {
+  if (momentary) return "Pulse";
+  if (cap) return on ? "On" : "Off";
   const custom = widget.title?.trim();
-  if (custom && !isPlaceholderWidgetTitle(custom, widget.type)) {
-    return custom;
-  }
-  return capabilityWidgetTitle(cap, "Control");
+  if (custom && !isPlaceholderWidgetTitle(custom, widget.type)) return custom;
+  return "Control";
 }
 
 export function SwitchWidgetBody({
@@ -63,7 +67,7 @@ export function SwitchWidgetBody({
   const muted = alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.38 : 0.42);
   const iconColor = on ? accent : muted;
   const controlDisabled = disabled || busy || !cap?.hasCommand;
-  const buttonLabel = actionButtonLabel(widget, cap);
+  const buttonLabel = actionButtonLabel(widget, cap, widget.type === "switch_momentary", on);
   const iconBefore = showButtonIcon ? <Icon /> : undefined;
 
   if (widget.type === "switch_button") {

@@ -1,6 +1,10 @@
-import type { PluginManifest, WidgetBindingSlotDef, WidgetContribution } from "@nexternel/plugin-sdk";
+import type { WidgetBindingSlotDef, WidgetContribution } from "@nexternel/plugin-sdk";
+import {
+  AIR_QUALITY_WIDGET_TYPE,
+  airQualityPluginManifest,
+} from "./manifest";
 
-export const AIR_QUALITY_WIDGET_TYPE = "plugin.air-quality";
+export { AIR_QUALITY_WIDGET_TYPE, airQualityPluginManifest } from "./manifest";
 
 export const AIR_QUALITY_BINDING_SLOTS: WidgetBindingSlotDef[] = [
   {
@@ -41,15 +45,6 @@ export const AIR_QUALITY_BINDING_SLOTS: WidgetBindingSlotDef[] = [
     required: true,
   },
 ];
-
-export const airQualityPluginManifest: PluginManifest = {
-  id: "nexternel.air-quality",
-  version: "1.0.0",
-  pluginApi: 1,
-  name: "Air quality",
-  description: "PM, temperature, humidity, AQI, and measure control",
-  contributes: { widgets: [AIR_QUALITY_WIDGET_TYPE] },
-};
 
 export { aqiBandPillStyle, aqiColor, aqiFromPm25, aqiLabel } from "./aqi";
 export { IconAqi, IconHumidity, IconPm, IconTemperature } from "./icons";

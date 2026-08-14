@@ -23,6 +23,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           deviceName: c.device_name,
           roomId: c.room_id,
           roomName: c.room_name,
+          areaId: c.area_id ?? c.room_id,
+          systemId: c.system_id,
+          groupId: c.group_id,
+          serviceId: c.service_id,
           kind: c.kind,
           name: c.name,
           unit: c.unit,
@@ -43,13 +47,23 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/api/v1/capabilities/sync", async (request, reply) => {
     if (!requirePermission(request, reply, "editDevices")) return;
+    const { reconcileAllEsphomeDevicesFromYaml } = await import("../devices/service.js");
+    const { pruneInternalRelayRows } = await import("../capabilities/cleanup.js");
+    const reconcile = await reconcileAllEsphomeDevicesFromYaml();
+    const prunedInternal = await pruneInternalRelayRows();
     const result = await syncCapabilitiesFromLegacy();
     const { repairDashboardCapabilityBindings } = await import(
       "../migrate/repair-dashboard-bindings.js"
     );
     const repaired = await repairDashboardCapabilityBindings();
     await refreshTelemetrySubscriptions();
-    return { ok: true, ...result, dashboardBindingsRemapped: repaired.bindingsRemapped };
+    return {
+      ok: true,
+      reconcile,
+      prunedInternal,
+      ...result,
+      dashboardBindingsRemapped: repaired.bindingsRemapped,
+    };
   });
 
   app.post<{

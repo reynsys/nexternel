@@ -46,7 +46,7 @@ export function SettingsLayout() {
         Settings
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Appearance, server status, backup, and automations.
+        Appearance, server status, configuration, backup, and automations.
       </Typography>
       <SegmentButtonNav items={navItems} activeId={active} />
       <Outlet />

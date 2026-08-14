@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from "fastify";
-import multipart from "@fastify/multipart";
 import { requireAdmin } from "../auth/rbac.js";
 import { config } from "../config.js";
 import { isDirectory, esphomeDir } from "./paths.js";
@@ -16,11 +15,17 @@ import { repairDashboardCapabilityBindings } from "./repair-dashboard-bindings.j
 import { refreshTelemetrySubscriptions } from "../telemetry/mqtt.js";
 import { syncCapabilitiesFromLegacy } from "../capabilities/sync.js";
 
-const MAX_CONFIG_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_CONFIG_BYTES = 50 * 1024 * 1024; // 50 MB — enforced in adopt handler if needed
 
 export const migrateRoutes: FastifyPluginAsync = async (app) => {
-  await app.register(multipart, {
-    limits: { fileSize: MAX_CONFIG_BYTES, files: 1 },
+  app.get("/api/v1/system/config/status", async (request, reply) => {
+    if (!requireAdmin(request, reply)) return;
+    return {
+      currentServerIp: config.serverIp() || null,
+      mqttTopicPrefix: process.env.MQTT_TOPIC_PREFIX?.trim() || "nexternel",
+      esphomeMounted: isDirectory(esphomeDir()),
+      ready: true,
+    };
   });
 
   app.post("/api/v1/system/config/repair-dashboard-bindings", async (request, reply) => {

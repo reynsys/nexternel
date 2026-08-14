@@ -1,15 +1,49 @@
-import type { WidgetContribution } from "@nexternel/plugin-sdk";
+import type { PluginManifest, PanelContribution } from "@nexternel/plugin-sdk";
 
-const byType = new Map<string, WidgetContribution>();
+const panelsByType = new Map<string, PanelContribution>();
+const manifestsById = new Map<string, PluginManifest>();
 
-export function registerWidget(contribution: WidgetContribution) {
-  byType.set(contribution.type, contribution);
+export function registerPlugin(manifest: PluginManifest) {
+  manifestsById.set(manifest.id, manifest);
 }
 
-export function getWidgetContribution(type: string): WidgetContribution | undefined {
-  return byType.get(type);
+export function registerPanel(contribution: PanelContribution) {
+  panelsByType.set(contribution.type, contribution);
 }
 
-export function listWidgetContributions(): WidgetContribution[] {
-  return Array.from(byType.values());
+/** @deprecated use registerPanel */
+export function registerWidget(contribution: PanelContribution) {
+  registerPanel(contribution);
+}
+
+export function getPanelContribution(type: string): PanelContribution | undefined {
+  return panelsByType.get(type);
+}
+
+/** @deprecated use getPanelContribution */
+export function getWidgetContribution(type: string): PanelContribution | undefined {
+  return getPanelContribution(type);
+}
+
+export function listPanelContributions(): PanelContribution[] {
+  return Array.from(panelsByType.values());
+}
+
+/** @deprecated use listPanelContributions */
+export function listWidgetContributions(): PanelContribution[] {
+  return listPanelContributions();
+}
+
+export function listPluginManifests(): PluginManifest[] {
+  return Array.from(manifestsById.values());
+}
+
+export function getPluginManifest(id: string): PluginManifest | undefined {
+  return manifestsById.get(id);
+}
+
+export function getPluginManifestForWidgetType(
+  type: string
+): PluginManifest | undefined {
+  return listPluginManifests().find((m) => m.contributes.widgets?.includes(type));
 }

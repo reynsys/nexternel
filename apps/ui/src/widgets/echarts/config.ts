@@ -9,7 +9,12 @@ const LEGACY_STYLE_TO_PRESET: Record<string, string> = {
 };
 
 export function isEchartsWidgetType(type: string): boolean {
-  return type === "echarts" || type === "gauge" || type === "history";
+  return (
+    type === "echarts" ||
+    type === "gauge" ||
+    type === "history" ||
+    type.startsWith("echarts.")
+  );
 }
 
 export function catalogTypeForPreset(presetId: string): string {
@@ -58,6 +63,18 @@ function coerceOptionalNumber(value: unknown): number | undefined {
 
 /** Map legacy gauge/history widgets onto echarts + presetId. */
 export function migrateWidgetToEcharts(widget: WidgetInstance): WidgetInstance {
+  const catalogPreset = presetIdFromCatalogType(widget.type);
+  if (catalogPreset) {
+    return {
+      ...widget,
+      type: "echarts",
+      config: {
+        ...widget.config,
+        presetId: catalogPreset,
+      },
+    };
+  }
+
   if (widget.type === "echarts") {
     const cfg = parseEchartsConfig(widget.config);
     if (!widget.config.presetId) {

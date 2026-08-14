@@ -2,19 +2,23 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
+import multipart from "@fastify/multipart";
 import { config } from "./config.js";
 import { attachUser } from "./auth/plugin.js";
 import { ensureCapabilitySchema } from "./capabilities/ensure-schema.js";
+import { ensureV4DomainSchema } from "./systems/ensure-schema.js";
 import { ensureDashboardSchema } from "./dashboards/ensure-schema.js";
 import { ensureCameraSchema } from "./cameras/ensure-schema.js";
 import { ensureOctopusSchema } from "./octopus/ensure-schema.js";
 import { ensureDevicesSchema } from "./devices/ensure-schema.js";
+import { ensureEsphomeBuilderSchema } from "./devices/ensure-esphome-builder-schema.js";
 import { syncAllCamerasToGo2rtc } from "./cameras/service.js";
 import { ensureUsersRoleSchema } from "./auth/ensure-users-role.js";
 import { ensureUsersThemeSchema } from "./auth/ensure-users-theme.js";
 import { ensureUsersAvatarSchema } from "./auth/ensure-users-avatar.js";
 import { ensureRolesSchema } from "./auth/ensure-roles-schema.js";
 import { ensureAdminFromEnv } from "./auth/ensure-admin.js";
+import { bootstrapInstallationState } from "./installation-meta.js";
 import { syncCapabilitiesFromLegacy } from "./capabilities/sync.js";
 import { startTelemetry } from "./telemetry/mqtt.js";
 import { healthRoutes } from "./routes/health.js";
@@ -30,9 +34,13 @@ import { usersRoutes } from "./routes/users.js";
 import { rolesRoutes } from "./routes/roles.js";
 import { systemRoutes } from "./routes/system.js";
 import { migrateRoutes } from "./migrate/routes.js";
+import { backupRoutes } from "./backup/routes.js";
+import { setupRoutes } from "./routes/setup.js";
 import { weatherRoutes } from "./routes/weather.js";
 import { shellyRoutes } from "./routes/shelly.js";
 import { octopusRoutes } from "./routes/octopus.js";
+import { pluginsRoutes } from "./routes/plugins.js";
+import { v4Routes } from "./v4/routes.js";
 import { wsRoutes } from "./telemetry/ws.js";
 import { APP_VERSION } from "./version.js";
 
@@ -63,6 +71,9 @@ await app.register(async (api) => {
   api.addHook("onRequest", async (request) => {
     await attachUser(request);
   });
+  await api.register(multipart, {
+    limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 1 },
+  });
   await api.register(healthRoutes);
   await api.register(diagnosticsRoutes);
   await api.register(authRoutes);
@@ -75,10 +86,14 @@ await app.register(async (api) => {
   await api.register(usersRoutes);
   await api.register(rolesRoutes);
   await api.register(systemRoutes);
+  await api.register(pluginsRoutes);
   await api.register(migrateRoutes);
+  await api.register(backupRoutes);
+  await api.register(setupRoutes);
   await api.register(weatherRoutes);
   await api.register(shellyRoutes);
   await api.register(octopusRoutes);
+  await api.register(v4Routes);
   await api.register(wsRoutes);
 });
 
@@ -92,12 +107,67 @@ try {
   await ensureUsersAvatarSchema();
   await ensureRolesSchema();
   await ensureDevicesSchema();
+  await ensureEsphomeBuilderSchema();
   await ensureCapabilitySchema();
+  const v4Domain = await ensureV4DomainSchema();
+  app.log.info(v4Domain, "V4 domain schema ensured");
   await ensureDashboardSchema();
   await ensureCameraSchema();
   await ensureOctopusSchema();
-  const adminSeed = await ensureAdminFromEnv();
-  app.log.info({ adminSeed }, "admin bootstrap from ADMIN_* env");
+  const installState = await bootstrapInstallationState();
+  app.log.info(installState, "installation bootstrap");
+  let adminSeed: "created" | "exists" | "skipped" = "skipped";
+  if (!installState.needsSetup) {
+    adminSeed = await ensureAdminFromEnv();
+  }
+  app.log.info({ adminSeed, needsSetup: installState.needsSetup }, "admin bootstrap");
+  try {
+    const { ensureEsphomeSecretsForServer } = await import(
+      "./migrate/ensure-esphome-secrets.js"
+    );
+    const secrets = ensureEsphomeSecretsForServer();
+    if (secrets.updated) {
+      app.log.warn(
+        secrets,
+        "esphome/secrets.yaml mqtt_broker updated to SERVER_IP after stale backup restore"
+      );
+    }
+  } catch (err) {
+    app.log.warn({ err }, "ESPHome secrets alignment skipped");
+  }
+  try {
+    const { syncMosquittoPasswdForInstallation, mosquittoPasswdNeedsSync } =
+      await import("./migrate/ensure-mosquitto-credentials.js");
+    const { restartNexternelServices } = await import("./backup/post-restore.js");
+    if (mosquittoPasswdNeedsSync()) {
+      const mqttCreds = await syncMosquittoPasswdForInstallation();
+      if (mqttCreds.ok) {
+        app.log.warn(
+          { users: mqttCreds.users },
+          "Mosquitto passwd created/updated from .env"
+        );
+        const restart = await restartNexternelServices("mqtt");
+        if (!restart.ok) {
+          app.log.error({ restart }, "Mosquitto restart after passwd sync failed");
+        }
+      } else {
+        app.log.error({ error: mqttCreds.error }, "Mosquitto passwd sync FAILED");
+      }
+    }
+  } catch (err) {
+    app.log.warn({ err }, "Mosquitto credential sync skipped");
+  }
+  try {
+    const { ensureNoderedFlows } = await import("./nodered/bootstrap.js");
+    const nodered = await ensureNoderedFlows();
+    if (nodered.action !== "unchanged" || nodered.tabCount === 0) {
+      app.log.warn(nodered, "Node-RED flows");
+    } else {
+      app.log.info(nodered, "Node-RED flows");
+    }
+  } catch (err) {
+    app.log.warn({ err }, "Node-RED flows check skipped");
+  }
   try {
     const { reconcileAllEsphomeDevicesFromYaml } = await import(
       "./devices/service.js"
@@ -121,6 +191,28 @@ try {
     app.log.warn({ err }, "ESPHome YAML reconcile skipped");
   }
   const synced = await syncCapabilitiesFromLegacy();
+  if (
+    synced.topicAlignment.devicesUpdated > 0 ||
+    synced.topicAlignment.sensorsUpdated > 0 ||
+    synced.topicAlignment.relaysUpdated > 0
+  ) {
+    app.log.info(synced.topicAlignment, "MQTT topics aligned to installation prefix");
+  }
+  if (
+    synced.topicNormalization.sensorsUpdated > 0 ||
+    synced.topicNormalization.relaysUpdated > 0
+  ) {
+    app.log.info(synced.topicNormalization, "ESPHome MQTT topics normalized from entity ids");
+  }
+  if (
+    synced.shellyPrefixMigration.devicesUpdated > 0 ||
+    synced.shellyPrefixMigration.relaysUpdated > 0
+  ) {
+    app.log.info(synced.shellyPrefixMigration, "Shelly device MQTT prefixes migrated");
+  }
+  if (synced.bindingRepair.sensors > 0 || synced.bindingRepair.relays > 0) {
+    app.log.info(synced.bindingRepair, "capability bindings repaired from sensor/relay topics");
+  }
   app.log.info(synced, "capabilities synced from sensors/relays");
   try {
     const { getOctopusSettings, ensureOctopusDeviceAndSensors } = await import(

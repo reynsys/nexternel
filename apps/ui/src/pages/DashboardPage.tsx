@@ -8,6 +8,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -18,7 +19,6 @@ import {
   FormControlLabel,
   IconButton,
   InputLabel,
-  ListSubheader,
   MenuItem,
   Popover,
   Select,
@@ -42,16 +42,23 @@ import {
   type Capability,
   type DashboardDocument,
   type DashboardSection,
+  type ResolvedPanelCapability,
   type WidgetInstance,
 } from "../api";
-import { getWidgetContribution } from "../plugins/registry";
+import { getPanelContribution } from "../plugins/registry";
 import {
-  catalogByCategory,
-  categoriesWithEntries,
-  getCatalogEntry,
-  groupCatalogByEchartsFamily,
-  type WidgetCategoryId,
-} from "../library/widget-catalog";
+  findAddPanelCatalogItem,
+  loadAddPanelCatalog,
+  type UnifiedPanelCatalogItem,
+} from "../lib/add-panel-catalog";
+import {
+  isCorePanelCatalogType,
+  panelCatalogItemId,
+  panelIsIntegrationKind,
+  panelUsesAreaScope,
+  panelUsesCapabilityScope,
+  type PanelContentMode,
+} from "@nexternel/domain";
 import {
   DEFAULT_SECTION_ICON,
   emptyDocument,
@@ -63,40 +70,47 @@ import {
   sortSections,
   type SectionColSpan,
 } from "../lib/dashboard-document";
-import {
-  generalDefaultConfig,
-  generalDefaultSize,
-  isGeneralWidgetType,
-} from "../widgets/general";
 import { SlotBindingFields } from "../components/SlotBindingFields";
+import { PanelContentFields } from "../components/PanelContentFields";
 import { bindingsFromSlots } from "../lib/widget-bindings";
 import { suggestSlotBindings } from "../lib/slot-bindings";
 import { SectionGrid } from "../components/SectionGrid";
+import { AREA } from "../lib/area-labels";
+import {
+  panelDefaultSize,
+  fetchSelectablePanelOptions,
+} from "../widgets/panel";
+import {
+  loadSystemsInScope,
+} from "../lib/panel-catalog";
+import {
+  buildPanelScopeConfig,
+  defaultContentModeForPanel,
+  previewPanelScopeForItemOptions,
+  previewPanelScopeFromEditorFields,
+} from "../lib/panel-scope";
+import { PLUGIN_ITEM_PICKER_HEADING } from "../lib/panel-content-copy";
+import { prepareDashboardSections } from "../lib/panel-normalize";
 import { DashboardTabBar } from "../components/DashboardTabBar";
 import { ManageDashboardsPanel } from "../components/ManageDashboardsPanel";
 import { DashboardErrorBoundary } from "../components/DashboardErrorBoundary";
 import { DashboardIconPicker } from "../components/DashboardIconPicker";
-import { CapabilityPicker } from "../components/CapabilityPicker";
 import { getDashboardIcon } from "../lib/dashboard-icons";
-import {
-  defaultPresetForKind,
-  getEchartsPreset,
-  presetIdFromCatalogType,
-} from "../widgets/echarts";
-import {
-  defaultWidgetTitle,
-  controllableSwitches,
-} from "../lib/capability-labels";
-import {
-  isSwitchWidgetType,
-  switchDefaultLayout,
-} from "../widgets/switch";
 import { useShellAuth } from "../skins/useShellAuth";
 import { hasPermission } from "../lib/permissions";
 import { chromeSurfaceSx } from "../skins/surfaceStyles";
 import { useGradientActive } from "../skins/useSurfaceStyles";
 import { resolveHomeDashboardId } from "../lib/home-dashboard";
+import { generalDefaultConfig } from "../widgets/general/config";
+import { GAUGE_WIDGET_TYPE } from "../widgets/gauge";
+import { defaultPresetForKind } from "../widgets/echarts/config";
 import { AIR_QUALITY_WIDGET_TYPE } from "@nexternel/plugin-air-quality";
+
+function sectionContentSummary(widgets: WidgetInstance[]): string {
+  const count = widgets.length;
+  if (!count) return "";
+  return `${count} panel${count === 1 ? "" : "s"}`;
+}
 
 export function DashboardPage() {
   const { id: routeDashboardId } = useParams<{ id?: string }>();
@@ -123,46 +137,71 @@ export function DashboardPage() {
   const [editMode, setEditMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [addPanelSectionId, setAddPanelSectionId] = useState("");
+  const [addPanelType, setAddPanelType] = useState("panel.controls");
+  const [addPanelInheritSection, setAddPanelInheritSection] = useState(true);
+  const [addPanelAreaId, setAddPanelAreaId] = useState("");
+  const [addPanelAppearance, setAddPanelAppearance] = useState("card");
+  const [addPanelAreas, setAddPanelAreas] = useState<{ id: string; name: string }[]>([]);
+  const [addPanelSystemIds, setAddPanelSystemIds] = useState<string[]>([]);
+  const [addPanelCapabilityIds, setAddPanelCapabilityIds] = useState<string[]>([]);
+  const [addPanelContentMode, setAddPanelContentMode] = useState<PanelContentMode>("auto");
+  const [addPanelScopeCapabilities, setAddPanelScopeCapabilities] = useState<
+    ResolvedPanelCapability[]
+  >([]);
+  const [addPanelCatalog, setAddPanelCatalog] = useState<UnifiedPanelCatalogItem[]>([]);
+  const [addPanelSlotValues, setAddPanelSlotValues] = useState<Record<string, string>>({});
+  const [addPanelTitle, setAddPanelTitle] = useState("");
+  const [scopedSystems, setScopedSystems] = useState<{ id: string; label: string }[]>([]);
   const [addSectionId, setAddSectionId] = useState<string>("");
-  const [addCategory, setAddCategory] = useState<WidgetCategoryId>("status");
-  const [addType, setAddType] = useState("stat");
-  const [addCapId, setAddCapId] = useState("");
-  const [addRange, setAddRange] = useState("24h");
-  const [addSlotValues, setAddSlotValues] = useState<Record<string, string>>({});
   const [iconPickerSectionId, setIconPickerSectionId] = useState<string | null>(null);
   const [iconPickerAnchor, setIconPickerAnchor] = useState<HTMLElement | null>(null);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
-  const [tabMetaExpanded, setTabMetaExpanded] = useState(false);
-  const [manageExpanded, setManageExpanded] = useState(false);
+  const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
+  const [manageDashboardsOpen, setManageDashboardsOpen] = useState(false);
+  const [editBaseline, setEditBaseline] = useState<{
+    name: string;
+    tabIcon: string;
+    showTabLabel: boolean;
+    showSectionNav: boolean;
+    sections: DashboardSection[];
+  } | null>(null);
   const [widgetDrag, setWidgetDrag] = useState<{
     widgetId: string;
     fromSectionId: string;
   } | null>(null);
 
-  const categoryOptions = categoriesWithEntries();
-  const typeOptions = catalogByCategory(addCategory);
-  const typeGroups = groupCatalogByEchartsFamily(typeOptions);
-  const selectedEntry = getCatalogEntry(addType);
-
-  const selectedPlugin = getWidgetContribution(addType);
-  const bindingSlots = selectedPlugin?.bindingSlots ?? [];
+  const addPanelIsCore = isCorePanelCatalogType(addPanelType);
+  const addPanelShowsAreaScope = addPanelIsCore && panelUsesAreaScope(addPanelType);
+  const addPanelShowsSystemFilter = addPanelIsCore && panelUsesCapabilityScope(addPanelType);
+  const addPanelShowsLayout = addPanelIsCore && !panelIsIntegrationKind(addPanelType);
+  const selectedContribution = addPanelIsCore ? undefined : getPanelContribution(addPanelType);
+  const bindingSlots = selectedContribution?.bindingSlots ?? [];
   const hasBindingSlots = bindingSlots.length > 0;
+  const selectedCatalogItem = findAddPanelCatalogItem(addPanelCatalog, addPanelType);
 
-  const addCapabilityOptions = useMemo(() => {
-    const presetId =
-      selectedEntry?.presetId ?? presetIdFromCatalogType(addType) ?? null;
-    if (presetId && getEchartsPreset(presetId).dataMode === "history") {
-      return capabilities.filter((c) => c.kind !== "switch");
-    }
-    if (isSwitchWidgetType(addType)) {
-      return controllableSwitches(capabilities);
-    }
-    if (addType === "stat") {
-      return capabilities.filter((c) => c.kind !== "switch");
-    }
-    return capabilities;
-  }, [addType, capabilities, selectedEntry?.presetId]);
+  const addPanelPreviewScope = useMemo(() => {
+    const section = sections.find((s) => s.id === addPanelSectionId);
+    return previewPanelScopeFromEditorFields({
+      inheritSectionArea: addPanelInheritSection,
+      sectionRoomId: section?.roomId ?? null,
+      areaId: addPanelAreaId,
+      systemIds: addPanelSystemIds,
+      contentMode: addPanelContentMode,
+      capabilityIds: addPanelCapabilityIds,
+    });
+  }, [
+    sections,
+    addPanelSectionId,
+    addPanelInheritSection,
+    addPanelAreaId,
+    addPanelSystemIds,
+    addPanelContentMode,
+    addPanelCapabilityIds,
+  ]);
+
+  const addPanelPreviewScopeKey = `${addPanelPreviewScope.contentMode}|${addPanelPreviewScope.areaIds.join(",")}|${addPanelPreviewScope.systemIds.join(",")}|${addPanelPreviewScope.groupIds.join(",")}|${addPanelPreviewScope.capabilityIds.join(",")}`;
 
   const ordered = useMemo(() => sortSections(sections), [sections]);
 
@@ -181,23 +220,57 @@ export function DashboardPage() {
     setTabIcon(normalized.tabIcon ?? "dashboard");
     setShowTabLabel(normalized.showTabLabel !== false);
     setShowSectionNav(normalized.showSectionNav === true);
-    setSections(normalized.sections);
+    setSections(prepareDashboardSections(normalized.sections));
     if (normalized.sections[0]) setAddSectionId(normalized.sections[0].id);
   }
 
   useEffect(() => {
-    if (!addOpen) return;
-    const plug = getWidgetContribution(addType);
-    if (plug?.bindingSlots?.length) {
-      setAddSlotValues(
-        suggestSlotBindings(plug.bindingSlots, capabilities, {
-          deviceName: addType === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
-        })
-      );
-    } else {
-      setAddSlotValues({});
+    if (!addPanelOpen || addPanelIsCore) return;
+    const panel = getPanelContribution(addPanelType);
+    if (!panel?.bindingSlots?.length) {
+      setAddPanelSlotValues({});
+      return;
     }
-  }, [addOpen, addType, capabilities]);
+    setAddPanelSlotValues(
+      suggestSlotBindings(panel.bindingSlots, capabilities, {
+        deviceName: addPanelType === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
+      })
+    );
+  }, [addPanelOpen, addPanelType, addPanelIsCore]);
+
+  /** Fill empty binding slots when capabilities load — never overwrite a user pick. */
+  useEffect(() => {
+    if (!addPanelOpen || addPanelIsCore) return;
+    const panel = getPanelContribution(addPanelType);
+    if (!panel?.bindingSlots?.length) return;
+    setAddPanelSlotValues((prev) => {
+      const suggested = suggestSlotBindings(panel.bindingSlots, capabilities, {
+        deviceName: addPanelType === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
+      });
+      let changed = false;
+      const next = { ...prev };
+      for (const slot of panel.bindingSlots) {
+        if (!prev[slot.key]?.trim() && suggested[slot.key]) {
+          next[slot.key] = suggested[slot.key];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [capabilities, addPanelOpen, addPanelType, addPanelIsCore]);
+
+  /** Reload capabilities when opening Add Panel (picks up devices added after page load). */
+  useEffect(() => {
+    if (!addPanelOpen) return;
+    void (async () => {
+      try {
+        const caps = await api.capabilities();
+        setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
+      } catch {
+        /* keep existing list */
+      }
+    })();
+  }, [addPanelOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,7 +297,6 @@ export function DashboardPage() {
         setDashboardId(targetId);
         loadDocument(dash.dashboard.document, dash.dashboard.name);
         setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
-        if (caps.capabilities[0]) setAddCapId(caps.capabilities[0].id);
         setError(null);
       } catch (err) {
         if (!cancelled) {
@@ -255,24 +327,6 @@ export function DashboardPage() {
     };
   }, [pageLoading, dashboardId, routeDashboardId]);
 
-  /** Reload capabilities when opening Add widget (picks up devices added after page load). */
-  useEffect(() => {
-    if (!addOpen) return;
-    void (async () => {
-      try {
-        const caps = await api.capabilities();
-        setCapabilities(mergeCapabilitiesWithLiveCache(caps.capabilities));
-        const switches = controllableSwitches(caps.capabilities);
-        if (isSwitchWidgetType(addType) || addCategory === "controls") {
-          setAddCapId((prev) =>
-            switches.some((c) => c.id === prev) ? prev : switches[0]?.id ?? ""
-          );
-        }
-      } catch {
-        /* keep existing list */
-      }
-    })();
-  }, [addOpen]);
 
   useEffect(() => {
     return connectLiveSocket((ev) => {
@@ -375,136 +429,235 @@ export function DashboardPage() {
     setSections(reordered);
   }
 
-  function addWidget() {
-    const sectionId = addSectionId || sections[0]?.id;
+  function openAddPanel(sectionId?: string) {
+    const sid = sectionId || addSectionId || sections[0]?.id || "";
+    if (sectionId) setAddSectionId(sectionId);
+    const section = sections.find((s) => s.id === sid);
+    setAddPanelSectionId(sid);
+    setAddPanelType("panel.controls");
+    setAddPanelInheritSection(Boolean(section?.roomId));
+    setAddPanelAreaId("");
+    setAddPanelSystemIds([]);
+    setAddPanelCapabilityIds([]);
+    setAddPanelScopeCapabilities([]);
+    setAddPanelAppearance("card");
+    setAddPanelSlotValues({});
+    setAddPanelTitle("");
+    setAddPanelOpen(true);
+    void api.rooms().then((r) => {
+      setAddPanelAreas(r.rooms.map((room) => ({ id: room.id, name: room.name })));
+    });
+    void Promise.all([loadAddPanelCatalog(), fetchSelectablePanelOptions()]).then(
+      ([catalog]) => {
+        setAddPanelCatalog(catalog);
+        const defaultCore = catalog.find((item) => item.source === "core");
+        if (defaultCore) {
+          setAddPanelType(defaultCore.kind);
+        } else if (catalog[0]) {
+          setAddPanelType(
+            catalog[0].source === "core" ? catalog[0].kind : catalog[0].type
+          );
+        }
+      }
+    );
+  }
+
+  function addPanel() {
+    const sectionId = addPanelSectionId || sections[0]?.id;
     if (!sectionId) {
       setError("Add a section first");
       return;
     }
-    const entry = getCatalogEntry(addType);
-    const plugin = getWidgetContribution(addType);
-    const slotDefs = plugin?.bindingSlots ?? [];
-    const hasSlots = slotDefs.length > 0;
-    const requiresCapability =
-      !hasSlots &&
-      (entry?.needsCapability ?? (plugin ? plugin.needsCapability !== false : true));
 
-    const effectiveCapId =
-      addCapabilityOptions.some((c) => c.id === addCapId)
-        ? addCapId
-        : addCapabilityOptions[0]?.id || "";
+    if (!isCorePanelCatalogType(addPanelType)) {
+      const contribution = getPanelContribution(addPanelType);
+      if (!contribution) {
+        setError("Unknown panel type");
+        return;
+      }
+      const slotDefs = contribution.bindingSlots ?? [];
+      const hasSlots = slotDefs.length > 0;
 
-    if (requiresCapability && !effectiveCapId) {
-      setError(
-        isSwitchWidgetType(addType)
-          ? "No switch/relay capability available — register a device first"
-          : "Choose a capability first"
+      if (hasSlots) {
+        const missing = slotDefs.filter(
+          (s) => s.required && !addPanelSlotValues[s.key]?.trim()
+        );
+        if (missing.length > 0) {
+          setError(`Choose: ${missing.map((s) => s.label).join(", ")}`);
+          return;
+        }
+      }
+
+      const widgetId = newId("w");
+      const size = contribution.defaultSize ?? { w: 4, h: 4 };
+      const w = size.w;
+      const h = size.h;
+
+      const config: Record<string, unknown> = {};
+      const boundCapId =
+        addPanelSlotValues.primary ??
+        Object.values(addPanelSlotValues).find((id) => id?.trim()) ??
+        "";
+      const boundCap = capabilities.find((c) => c.id === boundCapId);
+      const customTitle = addPanelTitle.trim();
+      if (addPanelType === "plugin.clock") {
+        config.timeMode = "digital";
+        config.digitalStyle = "standard";
+        config.showSeconds = true;
+        config.showDate = true;
+        config.fontScale = 1;
+      } else if (addPanelType === GAUGE_WIDGET_TYPE) {
+        config.presetId = defaultPresetForKind(boundCap?.kind);
+      }
+
+      setSections((prev) =>
+        prev.map((s) => {
+          if (s.id !== sectionId) return s;
+          const pos = nextWidgetPlacement(s.widgets, w);
+          const widget: WidgetInstance = {
+            id: widgetId,
+            type: addPanelType,
+            title:
+              customTitle ||
+              (addPanelType === GAUGE_WIDGET_TYPE ? boundCap?.name : undefined) ||
+              undefined,
+            layout: {
+              i: widgetId,
+              x: pos.x,
+              y: pos.y,
+              w,
+              h,
+              minW: 2,
+              minH: 2,
+            },
+            bindings: hasSlots ? bindingsFromSlots(addPanelSlotValues) : {},
+            config,
+          };
+          return { ...s, widgets: [...s.widgets, widget] };
+        })
       );
+      setError(null);
+      setAddPanelOpen(false);
       return;
     }
 
-    if (hasSlots) {
-      const missing = slotDefs.filter((s) => s.required && !addSlotValues[s.key]?.trim());
-      if (missing.length > 0) {
-        setError(`Choose: ${missing.map((s) => s.label).join(", ")}`);
-        return;
-      }
-    }
-
-    const cap = effectiveCapId
-      ? capabilities.find((c) => c.id === effectiveCapId)
-      : undefined;
+    const section = sections.find((s) => s.id === sectionId);
+    const size = panelDefaultSize(addPanelType);
     const widgetId = newId("w");
-
-    const catalogPresetId =
-      entry?.presetId ?? presetIdFromCatalogType(addType) ?? null;
-    const isEcharts = Boolean(catalogPresetId);
-
-    let type: string;
-    if (addType === "auto") {
-      type = cap?.kind === "switch" ? "switch" : "stat";
-    } else if (isEcharts) {
-      type = "echarts";
-    } else {
-      type = addType;
-    }
-
-    const preset = catalogPresetId ? getEchartsPreset(catalogPresetId) : null;
-    const generalSize = isGeneralWidgetType(type) ? generalDefaultSize(type) : null;
-    const pluginSize = plugin?.defaultSize;
-    const switchLayout = isSwitchWidgetType(type) ? switchDefaultLayout(type) : null;
-    const size = preset?.defaultSize ??
-      pluginSize ??
-      generalSize ??
-      (switchLayout ? { w: switchLayout.w, h: switchLayout.h } : null) ?? {
-        w: type === "plugin.clock" ? 4 : type.startsWith("plugin.") ? 4 : 3,
-        h: type === "plugin.clock" ? 3 : type === AIR_QUALITY_WIDGET_TYPE ? 4 : 3,
-      };
-    const w = size.w;
-    const h = size.h;
-
-    const presetId =
-      catalogPresetId ||
-      (isEcharts ? defaultPresetForKind(cap?.kind) : undefined);
-
-    const config: Record<string, unknown> = {
-      ...(isGeneralWidgetType(type) ? generalDefaultConfig(type) : {}),
-      ...(entry?.defaultConfig ?? {}),
-      ...(presetId ? { presetId } : {}),
-    };
-    if (preset?.dataMode === "history") {
-      config.range = addRange;
-    }
-    if (type === "plugin.clock") {
-      config.timeMode = "digital";
-      config.digitalStyle = "standard";
-      config.showSeconds = true;
-      config.showDate = true;
-      config.fontScale = 1;
-    }
-
-    const title =
-      type === "plugin.clock" || type === AIR_QUALITY_WIDGET_TYPE || isGeneralWidgetType(type)
-        ? undefined
-        : isSwitchWidgetType(type) || type === "stat" || addType === "auto"
-          ? defaultWidgetTitle(cap, entry?.label || type)
-          : entry?.label || plugin?.label || defaultWidgetTitle(cap, type);
+    const customTitle = addPanelTitle.trim();
 
     setSections((prev) =>
       prev.map((s) => {
         if (s.id !== sectionId) return s;
-        const pos = nextWidgetPlacement(s.widgets, w);
+        const pos = nextWidgetPlacement(s.widgets, size.w);
         const widget: WidgetInstance = {
           id: widgetId,
-          type,
-          title,
+          type: addPanelType,
+          title: customTitle || undefined,
           layout: {
             i: widgetId,
             x: pos.x,
             y: pos.y,
-            w,
-            h,
-            minW: preset?.dataMode === "history" ? 3 : switchLayout?.minW ?? 2,
-            minH: preset?.dataMode === "history" ? 3 : switchLayout?.minH ?? 2,
+            w: size.w,
+            h: size.h,
+            minW: size.minW,
+            minH: size.minH,
           },
-          bindings: hasSlots
-            ? bindingsFromSlots(addSlotValues)
-            : requiresCapability && effectiveCapId
-              ? {
-                  capabilityId: effectiveCapId,
-                  ...(cap?.sourceId
-                    ? { sourceId: cap.sourceId, sourceType: cap.sourceType }
-                    : {}),
-                }
-              : {},
-          config,
+          bindings: {},
+          config: {
+            panelScope: buildPanelScopeConfig({
+              inheritSectionArea:
+                addPanelInheritSection && Boolean(section?.roomId),
+              areaIds:
+                !addPanelInheritSection && addPanelAreaId ? [addPanelAreaId] : [],
+              systemIds: addPanelSystemIds,
+              groupIds: [],
+              contentMode: addPanelContentMode,
+              capabilityIds: addPanelCapabilityIds,
+            }),
+            ...(addPanelType === "panel.charts"
+              ? { chartRange: "24h", chartPresetId: "line-basic" }
+              : {}),
+            ...(addPanelType === "panel.weather" ? generalDefaultConfig("weather") : {}),
+            ...(addPanelType === "panel.devices" ? generalDefaultConfig("device_status") : {}),
+            appearance: { layout: addPanelAppearance },
+          },
         };
         return { ...s, widgets: [...s.widgets, widget] };
       })
     );
     setError(null);
-    setAddOpen(false);
+    setAddPanelOpen(false);
   }
+
+  function resolveAddPanelAreaIds(): string[] {
+    const section = sections.find((s) => s.id === addPanelSectionId);
+    if (addPanelInheritSection && section?.roomId) return [section.roomId];
+    if (!addPanelInheritSection && addPanelAreaId) return [addPanelAreaId];
+    return [];
+  }
+
+  useEffect(() => {
+    if (!addPanelOpen || !addPanelShowsSystemFilter) {
+      if (!addPanelOpen) return;
+      setScopedSystems([]);
+      setAddPanelScopeCapabilities([]);
+      return;
+    }
+    const areaIds = resolveAddPanelAreaIds();
+    void loadSystemsInScope(areaIds).then((systems) => {
+      setScopedSystems(systems);
+      setAddPanelSystemIds((prev) =>
+        prev.filter((id) => systems.some((s) => s.id === id))
+      );
+    });
+  }, [
+    addPanelOpen,
+    addPanelShowsSystemFilter,
+    addPanelSectionId,
+    addPanelInheritSection,
+    addPanelAreaId,
+    sections,
+  ]);
+
+  useEffect(() => {
+    if (!addPanelOpen || !addPanelShowsSystemFilter || !addPanelIsCore) {
+      return;
+    }
+    const section = sections.find((s) => s.id === addPanelSectionId);
+    const optionsScope = previewPanelScopeForItemOptions({
+      inheritSectionArea: addPanelInheritSection,
+      sectionRoomId: section?.roomId ?? null,
+      areaId: addPanelAreaId,
+      systemIds: addPanelSystemIds,
+    });
+    void api
+      .v4ResolvePanel({
+        panelKind: addPanelType,
+        panelScope: optionsScope,
+      })
+      .then((result) => {
+        setAddPanelScopeCapabilities(result.capabilities);
+        setAddPanelCapabilityIds((prev) =>
+          prev.filter((id) => result.capabilities.some((c) => c.id === id))
+        );
+      })
+      .catch(() => setAddPanelScopeCapabilities([]));
+  }, [
+    addPanelOpen,
+    addPanelShowsSystemFilter,
+    addPanelIsCore,
+    addPanelType,
+    addPanelSectionId,
+    addPanelInheritSection,
+    addPanelAreaId,
+    addPanelSystemIds,
+  ]);
+
+  useEffect(() => {
+    setAddPanelCapabilityIds([]);
+    setAddPanelContentMode(defaultContentModeForPanel(addPanelType));
+  }, [addPanelType]);
 
   function removeWidget(sectionId: string, widgetId: string) {
     updateSection(sectionId, (s) => ({
@@ -580,6 +733,37 @@ export function DashboardPage() {
     }));
   }
 
+  function enterEditMode() {
+    setEditBaseline({
+      name,
+      tabIcon,
+      showTabLabel,
+      showSectionNav,
+      sections: JSON.parse(JSON.stringify(sections)) as DashboardSection[],
+    });
+    setEditMode(true);
+    setError(null);
+  }
+
+  function cancelEdit() {
+    if (editBaseline) {
+      setName(editBaseline.name);
+      setTabIcon(editBaseline.tabIcon);
+      setShowTabLabel(editBaseline.showTabLabel);
+      setShowSectionNav(editBaseline.showSectionNav);
+      setSections(editBaseline.sections);
+    } else if (dashboardId) {
+      void api.getDashboard(dashboardId).then((d) => {
+        loadDocument(d.dashboard.document, d.dashboard.name);
+      });
+    }
+    setEditMode(false);
+    setEditBaseline(null);
+    setTabSettingsOpen(false);
+    setManageDashboardsOpen(false);
+    setError(null);
+  }
+
   async function save() {
     if (!dashboardId) return;
     setSaving(true);
@@ -598,7 +782,10 @@ export function DashboardPage() {
         })),
       };
       await api.saveDashboard(dashboardId, { name, document });
+      setEditBaseline(null);
       setEditMode(false);
+      setTabSettingsOpen(false);
+      setManageDashboardsOpen(false);
       setTabRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -630,14 +817,12 @@ export function DashboardPage() {
         canEdit={canEditDashboards}
         onDashboardOptions={() => {
           if (!canEditDashboards) return;
-          setEditMode(true);
-          setTabMetaExpanded(true);
-          setManageExpanded(true);
+          if (!editMode) enterEditMode();
         }}
       />
 
       {editMode && canEditDashboards && (
-        <Stack spacing={2}>
+        <Stack spacing={1.5}>
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1}
@@ -653,130 +838,103 @@ export function DashboardPage() {
               <Button variant="outlined" onClick={addSection}>
                 Add section
               </Button>
+              <Button variant="outlined" onClick={() => openAddPanel()}>
+                Add Panel
+              </Button>
               <Button
                 variant="outlined"
-                onClick={() => {
-                  if (!addSectionId && sections[0]) setAddSectionId(sections[0].id);
-                  setAddCategory("controls");
-                  setAddType("switch");
-                  setAddOpen(true);
-                }}
+                startIcon={<TabRoundedIcon />}
+                onClick={() => setTabSettingsOpen(true)}
               >
-                Add widget
+                Tab settings
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<FolderOpenIcon />}
+                onClick={() => setManageDashboardsOpen(true)}
+              >
+                Manage dashboards
               </Button>
               <Button variant="contained" disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save"}
               </Button>
-              <Button
-                onClick={() => {
-                  setEditMode(false);
-                  setTabMetaExpanded(false);
-                  setManageExpanded(false);
-                  if (dashboardId) {
-                    void api.getDashboard(dashboardId).then((d) => {
-                      loadDocument(d.dashboard.document, d.dashboard.name);
-                    });
-                  }
-                }}
-              >
-                Done
+              <Button variant="outlined" color="inherit" disabled={saving} onClick={cancelEdit}>
+                Cancel
               </Button>
             </Stack>
           </Stack>
-
-          <Accordion
-            expanded={tabMetaExpanded}
-            onChange={(_e, exp) => setTabMetaExpanded(exp)}
-            disableGutters
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
-              "&:before": { display: "none" },
-              overflow: "hidden",
-            }}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TabRoundedIcon fontSize="small" color="action" />
-                <Typography fontWeight={600}>This tab (horizontal menu)</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Name · icon · label
-                </Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <Stack spacing={1.5}>
-                <TextField
-                  size="small"
-                  label="Tab name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  helperText="Shown on the top dashboard tabs — Save to keep the rename"
-                  sx={{ maxWidth: 360 }}
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={showTabLabel}
-                      onChange={(e) => setShowTabLabel(e.target.checked)}
-                    />
-                  }
-                  label="Show name on tab (off = icon only)"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={showSectionNav}
-                      onChange={(e) => setShowSectionNav(e.target.checked)}
-                    />
-                  }
-                  label="Show section quick-jump row"
-                />
-                <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion
-            expanded={manageExpanded}
-            onChange={(_e, exp) => setManageExpanded(exp)}
-            disableGutters
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
-              "&:before": { display: "none" },
-              overflow: "hidden",
-            }}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <FolderOpenIcon fontSize="small" color="action" />
-                <Typography fontWeight={600}>Manage dashboards</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Create · default · other tabs
-                </Typography>
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <ManageDashboardsPanel
-                compact
-                currentDashboardId={dashboardId ?? undefined}
-                onDashboardsChanged={() => {
-                  setTabRefreshKey((k) => k + 1);
-                }}
-                onCurrentTabMeta={(meta) => {
-                  setName(meta.name);
-                  setTabIcon(meta.tabIcon);
-                  setShowTabLabel(meta.showTabLabel);
-                  setTabRefreshKey((k) => k + 1);
-                }}
-              />
-            </AccordionDetails>
-          </Accordion>
         </Stack>
       )}
+
+      <Dialog
+        open={tabSettingsOpen}
+        onClose={() => setTabSettingsOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>This tab (horizontal menu)</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+            <TextField
+              size="small"
+              label="Tab name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              helperText="Shown on the top dashboard tabs — Save to keep changes"
+              fullWidth
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showTabLabel}
+                  onChange={(e) => setShowTabLabel(e.target.checked)}
+                />
+              }
+              label="Show name on tab (off = icon only)"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showSectionNav}
+                  onChange={(e) => setShowSectionNav(e.target.checked)}
+                />
+              }
+              label="Show section quick-jump row"
+            />
+            <DashboardIconPicker value={tabIcon} onChange={setTabIcon} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTabSettingsOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={manageDashboardsOpen}
+        onClose={() => setManageDashboardsOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>Manage dashboards</DialogTitle>
+        <DialogContent>
+          <ManageDashboardsPanel
+            compact
+            currentDashboardId={dashboardId ?? undefined}
+            onDashboardsChanged={() => {
+              setTabRefreshKey((k) => k + 1);
+            }}
+            onCurrentTabMeta={(meta) => {
+              setName(meta.name);
+              setTabIcon(meta.tabIcon);
+              setShowTabLabel(meta.showTabLabel);
+              setTabRefreshKey((k) => k + 1);
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setManageDashboardsOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -899,7 +1057,7 @@ export function DashboardPage() {
                     variant="caption"
                     sx={{ flexShrink: 0, color: "primary.main", fontWeight: 500 }}
                   >
-                    {section.widgets.length} widget{section.widgets.length === 1 ? "" : "s"}
+                    {sectionContentSummary(section.widgets)}
                   </Typography>
                   {editMode && (
                     <Stack
@@ -954,14 +1112,9 @@ export function DashboardPage() {
                       </Button>
                       <Button
                         size="small"
-                        onClick={() => {
-                          setAddSectionId(section.id);
-                          setAddCategory("controls");
-                          setAddType("switch");
-                          setAddOpen(true);
-                        }}
+                        onClick={() => openAddPanel(section.id)}
                       >
-                        Add widget
+                        Add Panel
                       </Button>
                     </Stack>
                   )}
@@ -970,6 +1123,8 @@ export function DashboardPage() {
               <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
                 <SectionGrid
                   sectionId={section.id}
+                  sectionRoomId={section.roomId ?? null}
+                  sectionTitle={section.title}
                   widgets={section.widgets}
                   capabilities={capabilities}
                   editMode={editMode}
@@ -1017,17 +1172,28 @@ export function DashboardPage() {
         </Box>
       </Popover>
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm" keepMounted={false}>
-        <DialogTitle>Add widget</DialogTitle>
+      <Dialog
+        open={addPanelOpen}
+        onClose={() => setAddPanelOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        keepMounted={false}
+      >
+        <DialogTitle>Add Panel</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <FormControl fullWidth>
-              <InputLabel id="section-target">Section</InputLabel>
+              <InputLabel id="panel-section-target">Section</InputLabel>
               <Select
-                labelId="section-target"
+                labelId="panel-section-target"
                 label="Section"
-                value={addSectionId || ordered[0]?.id || ""}
-                onChange={(e) => setAddSectionId(e.target.value)}
+                value={addPanelSectionId || ordered[0]?.id || ""}
+                onChange={(e) => {
+                  const sid = e.target.value;
+                  setAddPanelSectionId(sid);
+                  const sec = sections.find((s) => s.id === sid);
+                  setAddPanelInheritSection(Boolean(sec?.roomId));
+                }}
               >
                 {ordered.map((s) => (
                   <MenuItem key={s.id} value={s.id}>
@@ -1036,172 +1202,176 @@ export function DashboardPage() {
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel id="widget-cat">Category</InputLabel>
-              <Select
-                labelId="widget-cat"
-                label="Category"
-                value={addCategory}
-                onChange={(e) => {
-                  const cat = e.target.value as WidgetCategoryId;
-                  setAddCategory(cat);
-                  const first = catalogByCategory(cat)[0];
-                  if (first) setAddType(first.type);
-                }}
-              >
-                {categoryOptions.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+
+            <Typography variant="subtitle2">Panel type</Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {addPanelCatalog.map((opt) => {
+                const id = panelCatalogItemId(opt);
+                return (
+                  <Button
+                    key={id}
+                    variant={addPanelType === id ? "contained" : "outlined"}
+                    onClick={() => {
+                      setAddPanelType(id);
+                      if (opt.source === "core") {
+                        setAddPanelSystemIds([]);
+                      }
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </Stack>
             <Typography variant="caption" color="text.secondary">
-              {categoryOptions.find((c) => c.id === addCategory)?.description}
+              {selectedCatalogItem?.description}
             </Typography>
-            <FormControl fullWidth>
-              <InputLabel id="widget-type">Type</InputLabel>
-              <Select
-                labelId="widget-type"
-                label="Type"
-                value={
-                  typeOptions.some((t) => t.type === addType)
-                    ? addType
-                    : typeOptions[0]?.type || ""
-                }
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setAddType(next);
-                  const plug = getWidgetContribution(next);
-                  if (plug?.bindingSlots?.length) {
-                    setAddSlotValues(
-                      suggestSlotBindings(plug.bindingSlots, capabilities, {
-                        deviceName:
-                          next === AIR_QUALITY_WIDGET_TYPE ? "air" : undefined,
-                      })
-                    );
-                  } else {
-                    setAddSlotValues({});
-                  }
-                  const entry = getCatalogEntry(next);
-                  const presetId = entry?.presetId ?? presetIdFromCatalogType(next);
-                  let pool = capabilities;
-                  if (isSwitchWidgetType(next)) {
-                    pool = controllableSwitches(capabilities);
-                  } else if (
-                    next === "stat" ||
-                    (presetId && getEchartsPreset(presetId).dataMode === "history")
-                  ) {
-                    pool = capabilities.filter((c) => c.kind !== "switch");
-                  }
-                  const stillValid = pool.some((c) => c.id === addCapId);
-                  if (!stillValid) {
-                    setAddCapId(pool[0]?.id ?? "");
-                  }
-                }}
-              >
-                {typeGroups.flatMap((g) => [
-                  <ListSubheader key={`g-${g.familyLabel}`}>
-                    {g.familyLabel}
-                  </ListSubheader>,
-                  ...g.entries.map((t) => (
-                    <MenuItem key={t.type} value={t.type}>
-                      {t.label}
-                    </MenuItem>
-                  )),
-                ])}
-              </Select>
-            </FormControl>
-            {typeGroups.find((g) => g.entries.some((e) => e.type === addType))?.familyHint && (
-              <Typography variant="caption" color="text.secondary">
-                {
-                  typeGroups.find((g) => g.entries.some((e) => e.type === addType))
-                    ?.familyHint
-                }
-              </Typography>
+
+            <TextField
+              label="Title (optional)"
+              size="small"
+              fullWidth
+              value={addPanelTitle}
+              onChange={(e) => setAddPanelTitle(e.target.value)}
+              helperText="Shown above the panel on the dashboard when set"
+            />
+
+            {addPanelIsCore && (
+              <>
+                {addPanelShowsAreaScope && sections.find((s) => s.id === addPanelSectionId)?.roomId ? (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={addPanelInheritSection}
+                        onChange={(e) => setAddPanelInheritSection(e.target.checked)}
+                      />
+                    }
+                    label={`Use this section's ${AREA.singular.toLowerCase()}`}
+                  />
+                ) : addPanelShowsAreaScope ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Link this section to an {AREA.singular.toLowerCase()} in section settings to
+                    scope panels automatically.
+                  </Typography>
+                ) : null}
+
+                {addPanelShowsAreaScope && !addPanelInheritSection && (
+                  <FormControl fullWidth>
+                    <InputLabel id="panel-area-target">{AREA.singular}</InputLabel>
+                    <Select
+                      labelId="panel-area-target"
+                      label={AREA.singular}
+                      value={addPanelAreaId}
+                      onChange={(e) => setAddPanelAreaId(e.target.value)}
+                    >
+                      <MenuItem value="">All {AREA.plural.toLowerCase()}</MenuItem>
+                      {addPanelAreas.map((a) => (
+                        <MenuItem key={a.id} value={a.id}>
+                          {a.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
+                {addPanelShowsSystemFilter && scopedSystems.length > 0 && (
+                  <FormControl fullWidth>
+                    <InputLabel id="panel-system-filter">Category (optional)</InputLabel>
+                    <Select
+                      labelId="panel-system-filter"
+                      label="Category (optional)"
+                      multiple
+                      value={addPanelSystemIds}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setAddPanelSystemIds(
+                          typeof value === "string" ? value.split(",") : value
+                        );
+                      }}
+                      renderValue={(selected) =>
+                        selected.length === 0
+                          ? "All categories in scope"
+                          : selected
+                              .map(
+                                (id) =>
+                                  scopedSystems.find((s) => s.id === id)?.label ?? id
+                              )
+                              .join(", ")
+                      }
+                    >
+                      {scopedSystems.map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          <Checkbox checked={addPanelSystemIds.includes(s.id)} />
+                          {s.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
+                {addPanelShowsSystemFilter && (
+                  <PanelContentFields
+                    panelKind={addPanelType}
+                    contentMode={addPanelContentMode}
+                    onContentModeChange={setAddPanelContentMode}
+                    capabilityIds={addPanelCapabilityIds}
+                    onCapabilityIdsChange={setAddPanelCapabilityIds}
+                    options={addPanelScopeCapabilities}
+                  />
+                )}
+
+                {addPanelShowsLayout && (
+                  <FormControl fullWidth>
+                    <InputLabel id="panel-appearance">Layout</InputLabel>
+                    <Select
+                      labelId="panel-appearance"
+                      label="Layout"
+                      value={addPanelAppearance}
+                      onChange={(e) => setAddPanelAppearance(e.target.value)}
+                    >
+                      <MenuItem value="card">Card</MenuItem>
+                      <MenuItem value="compact">Compact</MenuItem>
+                      <MenuItem value="grid">Grid</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+              </>
             )}
-            {selectedEntry?.description && (
-              <Typography variant="caption" color="text.secondary">
-                {selectedEntry.description}
-              </Typography>
-            )}
-            {selectedEntry?.presetId &&
-              getEchartsPreset(selectedEntry.presetId).dataMode === "history" && (
-              <FormControl fullWidth>
-                <InputLabel id="hist-range">Range</InputLabel>
-                <Select
-                  labelId="hist-range"
-                  label="Range"
-                  value={addRange}
-                  onChange={(e) => setAddRange(e.target.value)}
-                >
-                  <MenuItem value="1h">Last 1 hour</MenuItem>
-                  <MenuItem value="6h">Last 6 hours</MenuItem>
-                  <MenuItem value="24h">Last 24 hours</MenuItem>
-                  <MenuItem value="7d">Last 7 days</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-            {(selectedEntry?.needsCapability ?? true) && !hasBindingSlots && (
-              <CapabilityPicker
-                capabilities={addCapabilityOptions}
-                value={
-                  addCapabilityOptions.some((c) => c.id === addCapId)
-                    ? addCapId
-                    : addCapabilityOptions[0]?.id ?? ""
-                }
-                onChange={setAddCapId}
-                label={isSwitchWidgetType(addType) ? "Relay / switch" : "Sensor"}
-                disabled={addCapabilityOptions.length === 0}
-              />
-            )}
-            {hasBindingSlots && (
+
+            {!addPanelIsCore && hasBindingSlots && (
               <Stack spacing={1}>
-                <Typography variant="subtitle2">Capability bindings</Typography>
+                <Typography variant="subtitle2">{PLUGIN_ITEM_PICKER_HEADING}</Typography>
                 <SlotBindingFields
                   slots={bindingSlots}
                   capabilities={capabilities}
-                  values={addSlotValues}
+                  values={addPanelSlotValues}
                   onChange={(key, id) =>
-                    setAddSlotValues((prev) => ({ ...prev, [key]: id }))
+                    setAddPanelSlotValues((prev) => ({ ...prev, [key]: id }))
                   }
                 />
               </Stack>
             )}
-            {isSwitchWidgetType(addType) && addCapabilityOptions.length === 0 && (
-              <Typography variant="caption" color="warning.main">
-                No switches found. Add a device under Devices (ESPHome or Shelly), then
-                open Add widget again.
-              </Typography>
-            )}
-            {selectedEntry?.needsCapability !== false &&
-              addCapabilityOptions.length > 0 &&
-              addCapId && (
-                <Typography variant="caption" color="text.secondary">
-                  Widget title will default to the relay/sensor name. You can rename it with Edit
-                  after adding.
-                </Typography>
-              )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddPanelOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
             disabled={
-              (selectedEntry?.needsCapability ?? true)
-                ? addCapabilityOptions.length === 0
-                : false
+              !addPanelIsCore &&
+              hasBindingSlots &&
+              bindingSlots.some((s) => s.required && !addPanelSlotValues[s.key]?.trim())
             }
             onClick={() => {
               try {
-                addWidget();
+                addPanel();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not add widget");
+                setError(err instanceof Error ? err.message : "Could not add panel");
               }
             }}
           >
-            Add
+            Add Panel
           </Button>
         </DialogActions>
       </Dialog>

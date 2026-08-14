@@ -32,27 +32,27 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import SyncRoundedIcon from "@mui/icons-material/SyncRounded";
+import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import {
   api,
   type DeviceRecord,
   type EsphomeCatalogEntry,
-  type EsphomeImportSuggestion,
 } from "../../api";
 import { AREA } from "../../lib/area-labels";
 import {
   esphomeDashboardUrl,
+  esphomeLifecycleLabel,
   formatLastSeen,
-  friendlyDeviceName,
 } from "../../lib/device-utils";
 import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
 import { OctopusSettingsCard } from "./OctopusSettingsCard";
+import { EsphomeAddDeviceWizard } from "./EsphomeAddDeviceWizard";
 
 type AreaOption = { id: string; name: string };
 
 const emptyForm = {
-  esphomeFile: "",
   name: "",
   roomId: "",
   mqttTopicPrefix: "",
@@ -103,6 +103,8 @@ export function DevicesPage() {
   const contentSurface = useContentSurfaceSx();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardImportFile, setWizardImportFile] = useState<string | null>(null);
   const [shellyDialogOpen, setShellyDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DeviceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -112,8 +114,10 @@ export function DevicesPage() {
     []
   );
   const [discoverBusy, setDiscoverBusy] = useState(false);
-  const [imported, setImported] = useState<EsphomeImportSuggestion | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRecord | null>(null);
+  const [compileTarget, setCompileTarget] = useState<DeviceRecord | null>(null);
+  const [compileLog, setCompileLog] = useState("");
+  const [systems, setSystems] = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
     setHostname(window.location.hostname);
@@ -130,6 +134,16 @@ export function DevicesPage() {
       setDevices(devRes.devices);
       setAreas(roomRes.rooms.map((r) => ({ id: r.id, name: r.name })));
       setIsAdmin(Boolean(me.user.permissions?.editDevices ?? me.user.isAdmin ?? me.user.role === "admin"));
+      if (me.user.permissions?.editDevices ?? me.user.isAdmin ?? me.user.role === "admin") {
+        const sysRes = await api.v4Systems({ catalog: true });
+        setSystems(
+          sysRes.systems
+            .filter((s) => s.operatorVisible !== false && s.tier !== "deprecated")
+            .map((s) => ({ id: s.id, label: s.label }))
+        );
+      } else {
+        setSystems([]);
+      }
       setCatalog(catRes.configs);
       setCatalogHint(catRes.esphomeDirHint);
       setError(null);
@@ -154,12 +168,9 @@ export function DevicesPage() {
     [catalog]
   );
 
-  function openCreate(fileName?: string) {
-    setEditing(null);
-    setForm(emptyForm);
-    setImported(null);
-    setDialogOpen(true);
-    if (fileName) void applyEsphomeImport(fileName);
+  function openAddDeviceWizard(fileName?: string) {
+    setWizardImportFile(fileName ?? null);
+    setWizardOpen(true);
   }
 
   function openShellyCreate() {
@@ -226,8 +237,8 @@ export function DevicesPage() {
       const channels = model?.switchCount ?? 1;
       setInfo(
         channels > 1
-          ? `Shelly added with ${channels} switches. Add Switch widgets on the Dashboard.`
-          : "Shelly added. Dashboard → Edit → Add widget → Controls → Switch."
+          ? `Shelly added with ${channels} switches. Dashboard → Edit → Add panel → Controls.`
+          : "Shelly added. Dashboard → Edit → Add panel → Controls."
       );
       await load();
     } catch (err) {
@@ -239,9 +250,7 @@ export function DevicesPage() {
 
   function openEdit(device: DeviceRecord) {
     setEditing(device);
-    setImported(null);
     setForm({
-      esphomeFile: "",
       name: device.name,
       roomId: device.roomId ?? "",
       mqttTopicPrefix: device.mqttTopicPrefix,
@@ -251,60 +260,26 @@ export function DevicesPage() {
     setDialogOpen(true);
   }
 
-  async function applyEsphomeImport(fileName: string) {
-    if (!fileName) {
-      setImported(null);
-      setForm((f) => ({ ...f, esphomeFile: "" }));
-      return;
-    }
-    try {
-      const suggestion = await api.esphomeSuggest(fileName);
-      setImported(suggestion);
-      setForm((f) => ({
-        ...f,
-        esphomeFile: fileName,
-        name: friendlyDeviceName(suggestion.esphomeName),
-        mqttTopicPrefix: suggestion.mqttTopicPrefix,
-        esphomeName: suggestion.esphomeName,
-      }));
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not read ESPHome YAML");
-    }
-  }
-
   async function onSave(e: FormEvent) {
     e.preventDefault();
+    if (!editing) return;
     if (!form.name.trim() || !form.mqttTopicPrefix.trim()) {
       setError("Name and MQTT topic prefix are required");
       return;
     }
     setBusy(true);
     try {
-      if (editing) {
-        await api.updateDevice(editing.id, {
-          name: form.name.trim(),
-          roomId: form.roomId || null,
-          mqttTopicPrefix: form.mqttTopicPrefix.trim(),
-          esphomeName: form.esphomeName.trim() || null,
-          ipAddress: form.ipAddress.trim() || null,
-        });
-      } else {
-        await api.createDevice({
-          name: form.name.trim(),
-          roomId: form.roomId || null,
-          mqttTopicPrefix: form.mqttTopicPrefix.trim(),
-          esphomeName: form.esphomeName.trim() || null,
-          ipAddress: form.ipAddress.trim() || null,
-          sensors: imported?.sensors,
-          relays: imported?.relays,
-        });
-      }
+      await api.updateDevice(editing.id, {
+        name: form.name.trim(),
+        roomId: form.roomId || null,
+        mqttTopicPrefix: form.mqttTopicPrefix.trim(),
+        esphomeName: form.esphomeName.trim() || null,
+        ipAddress: form.ipAddress.trim() || null,
+      });
       setDialogOpen(false);
       setEditing(null);
-      setImported(null);
       setForm(emptyForm);
-      setInfo(editing ? "Device updated" : "Device registered");
+      setInfo("Device updated");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -342,8 +317,20 @@ export function DevicesPage() {
     setInfo(null);
     try {
       const res = await api.syncCapabilities();
+      const pruneParts: string[] = [];
+      if (res.reconcile?.removedRelays) {
+        pruneParts.push(`${res.reconcile.removedRelays} ghost relay(s)`);
+      }
+      if (res.reconcile?.removedSensors) {
+        pruneParts.push(`${res.reconcile.removedSensors} stale sensor(s)`);
+      }
+      if (res.prunedInternal) {
+        pruneParts.push(`${res.prunedInternal} internal output(s)`);
+      }
+      const pruneNote =
+        pruneParts.length > 0 ? ` — removed ${pruneParts.join(", ")}` : "";
       setInfo(
-        `Synced capabilities from sensors/relays (${res.sensors} sensors, ${res.relays} relays)`
+        `Synced capabilities from sensors/relays (${res.sensors} sensors, ${res.relays} relays)${pruneNote}`
       );
       await load();
     } catch (err) {
@@ -357,8 +344,13 @@ export function DevicesPage() {
     setBusy(true);
     try {
       const res = await api.syncDeviceEsphome(device.id);
+      const pruneParts: string[] = [];
+      if (res.removedRelays > 0) pruneParts.push(`${res.removedRelays} relay(s)`);
+      if (res.removedSensors > 0) pruneParts.push(`${res.removedSensors} sensor(s)`);
+      const pruneNote =
+        pruneParts.length > 0 ? ` — removed ${pruneParts.join(", ")} not in YAML` : "";
       setInfo(
-        `Synced ${device.name} from ${res.yamlFile}.yaml — added ${res.addedRelays} relay(s), ${res.totalRelays} total`
+        `Synced ${device.name} from ${res.yamlFile}.yaml — ${res.totalRelays} relay(s), ${res.sensorsInYaml.length} sensor(s) in YAML${pruneNote}`
       );
       await load();
     } catch (err) {
@@ -394,6 +386,38 @@ export function DevicesPage() {
     }
   }
 
+  async function compileFirmware(device: DeviceRecord) {
+    setCompileTarget(device);
+    setCompileLog("Compiling firmware… this may take a few minutes.");
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.esphomeCompile(device.id);
+      setCompileLog(res.log || (res.ok ? "Compile finished." : "Compile failed."));
+      setInfo(
+        res.ok
+          ? `Firmware ready for ${device.name}. Open ESPHome to install (USB or OTA).`
+          : `Compile failed for ${device.name}.`
+      );
+      await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Compile failed";
+      setCompileLog(message);
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateCapabilitySystem(capabilityId: string, systemId: string | null) {
+    try {
+      await api.v4UpdateCapabilitySystem(capabilityId, systemId);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    }
+  }
+
   async function renameEntity(
     kind: "sensor" | "relay",
     deviceId: string,
@@ -408,6 +432,25 @@ export function DevicesPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rename failed");
+    }
+  }
+
+  async function removeEntity(kind: "sensor" | "relay", deviceId: string, entityId: string, name: string) {
+    const label = kind === "relay" ? "relay" : "sensor";
+    if (
+      !window.confirm(
+        `Remove ${label} "${name}" from this device? Dashboard bindings to it will stop working until you sync again.`
+      )
+    ) {
+      return;
+    }
+    try {
+      if (kind === "relay") await api.deleteRelay(deviceId, entityId);
+      else await api.deleteSensor(deviceId, entityId);
+      setInfo(`Removed ${label} "${name}"`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remove failed");
     }
   }
 
@@ -445,7 +488,7 @@ export function DevicesPage() {
               <Button variant="outlined" onClick={() => openShellyCreate()}>
                 Add Shelly
               </Button>
-              <Button variant="contained" onClick={() => openCreate()}>
+              <Button variant="contained" onClick={() => openAddDeviceWizard()}>
                 Add device
               </Button>
             </>
@@ -513,7 +556,11 @@ export function DevicesPage() {
                     {entry.sensorCount} sensor(s), {entry.relayCount} relay(s)
                   </Typography>
                 </Box>
-                <Button size="small" variant="contained" onClick={() => openCreate(entry.fileName)}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => openAddDeviceWizard(entry.fileName)}
+                >
                   Register
                 </Button>
               </Stack>
@@ -554,6 +601,23 @@ export function DevicesPage() {
                   }
                 />
                 {!d.isEnabled && <Chip size="small" label="Disabled" color="warning" />}
+                {esphomeLifecycleLabel(d.esphomeLifecycleState) && (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={
+                      d.esphomeLifecycleState === "firmware_ready"
+                        ? "success"
+                        : d.esphomeLifecycleState === "error" ||
+                            d.esphomeLifecycleState === "validation_failed"
+                          ? "error"
+                          : d.esphomeLifecycleState === "building"
+                            ? "info"
+                            : "default"
+                    }
+                    label={esphomeLifecycleLabel(d.esphomeLifecycleState)}
+                  />
+                )}
                 <Chip size="small" variant="outlined" label={d.roomName ?? `No ${AREA.singular}`} />
                 <Typography variant="caption" color="text.secondary">
                   {d.sensors.length} sensor(s) · {d.relays.length} relay(s) · last seen{" "}
@@ -585,6 +649,14 @@ export function DevicesPage() {
                     </Button>
                     {(d.firmwareType || "esphome") === "esphome" && (
                       <>
+                        <Button
+                          size="small"
+                          startIcon={<BuildRoundedIcon />}
+                          disabled={busy}
+                          onClick={() => void compileFirmware(d)}
+                        >
+                          Compile firmware
+                        </Button>
                         <Button
                           size="small"
                           startIcon={<SyncRoundedIcon />}
@@ -628,6 +700,7 @@ export function DevicesPage() {
                     <TableRow>
                       <TableCell>Entity</TableCell>
                       <TableCell>Type</TableCell>
+                      {isAdmin && <TableCell>Function</TableCell>}
                       <TableCell>MQTT</TableCell>
                       {isAdmin && <TableCell align="right">Actions</TableCell>}
                     </TableRow>
@@ -637,6 +710,35 @@ export function DevicesPage() {
                       <TableRow key={s.id}>
                         <TableCell>{s.name}</TableCell>
                         <TableCell>sensor · {s.sensorType}</TableCell>
+                        {isAdmin && (
+                          <TableCell sx={{ minWidth: 140 }}>
+                            {s.capabilityId ? (
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={s.systemId ?? ""}
+                                  displayEmpty
+                                  onChange={(e) =>
+                                    void updateCapabilitySystem(
+                                      s.capabilityId!,
+                                      e.target.value ? String(e.target.value) : null
+                                    )
+                                  }
+                                >
+                                  <MenuItem value="">—</MenuItem>
+                                  {systems.map((sys) => (
+                                    <MenuItem key={sys.id} value={sys.id}>
+                                      {sys.label}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                Sync capabilities
+                              </Typography>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Typography variant="caption" fontFamily="monospace">
                             {s.mqttStateTopic}
@@ -644,12 +746,21 @@ export function DevicesPage() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell align="right">
-                            <Button
-                              size="small"
-                              onClick={() => void renameEntity("sensor", d.id, s.id, s.name)}
-                            >
-                              Rename
-                            </Button>
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                onClick={() => void renameEntity("sensor", d.id, s.id, s.name)}
+                              >
+                                Rename
+                              </Button>
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => void removeEntity("sensor", d.id, s.id, s.name)}
+                              >
+                                Remove
+                              </Button>
+                            </Stack>
                           </TableCell>
                         )}
                       </TableRow>
@@ -661,6 +772,35 @@ export function DevicesPage() {
                           {r.lastState ? ` (${r.lastState})` : ""}
                         </TableCell>
                         <TableCell>relay</TableCell>
+                        {isAdmin && (
+                          <TableCell sx={{ minWidth: 140 }}>
+                            {r.capabilityId ? (
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={r.systemId ?? ""}
+                                  displayEmpty
+                                  onChange={(e) =>
+                                    void updateCapabilitySystem(
+                                      r.capabilityId!,
+                                      e.target.value ? String(e.target.value) : null
+                                    )
+                                  }
+                                >
+                                  <MenuItem value="">—</MenuItem>
+                                  {systems.map((sys) => (
+                                    <MenuItem key={sys.id} value={sys.id}>
+                                      {sys.label}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                Sync capabilities
+                              </Typography>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Typography variant="caption" fontFamily="monospace">
                             {r.mqttStateTopic}
@@ -668,19 +808,28 @@ export function DevicesPage() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell align="right">
-                            <Button
-                              size="small"
-                              onClick={() => void renameEntity("relay", d.id, r.id, r.name)}
-                            >
-                              Rename
-                            </Button>
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                onClick={() => void renameEntity("relay", d.id, r.id, r.name)}
+                              >
+                                Rename
+                              </Button>
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => void removeEntity("relay", d.id, r.id, r.name)}
+                              >
+                                Remove
+                              </Button>
+                            </Stack>
                           </TableCell>
                         )}
                       </TableRow>
                     ))}
                     {d.sensors.length === 0 && d.relays.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 4 : 3}>
+                        <TableCell colSpan={isAdmin ? 5 : 3}>
                           <Typography variant="body2" color="text.secondary">
                             No sensors or relays — import from ESPHome YAML or sync.
                           </Typography>
@@ -697,6 +846,25 @@ export function DevicesPage() {
 
       {isAdmin && <OctopusSettingsCard />}
 
+      {isAdmin && (
+        <EsphomeAddDeviceWizard
+          open={wizardOpen}
+          busy={busy}
+          hostname={hostname}
+          areas={areas}
+          catalog={catalog}
+          initialImportFile={wizardImportFile}
+          onClose={() => {
+            setWizardOpen(false);
+            setWizardImportFile(null);
+          }}
+          onBusy={setBusy}
+          onError={setError}
+          onSuccess={setInfo}
+          onCreated={() => void load()}
+        />
+      )}
+
       <Dialog
         open={dialogOpen}
         onClose={() => !busy && setDialogOpen(false)}
@@ -704,33 +872,9 @@ export function DevicesPage() {
         maxWidth="sm"
       >
         <form onSubmit={(e) => void onSave(e)}>
-          <DialogTitle>{editing ? "Edit device" : "Register device"}</DialogTitle>
+          <DialogTitle>Edit device</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              {!editing && (
-                <FormControl fullWidth size="small">
-                  <InputLabel id="esphome-file">Import from ESPHome YAML</InputLabel>
-                  <Select
-                    labelId="esphome-file"
-                    label="Import from ESPHome YAML"
-                    value={form.esphomeFile}
-                    onChange={(e) => void applyEsphomeImport(e.target.value)}
-                  >
-                    <MenuItem value="">— Manual entry —</MenuItem>
-                    {catalog.map((c) => (
-                      <MenuItem key={c.fileName} value={c.fileName}>
-                        {c.fileName}.yaml{c.registered ? " (registered)" : ""}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-              {imported && (
-                <Typography variant="caption" color="text.secondary">
-                  Will create {imported.sensors.length} sensor(s) and {imported.relays.length}{" "}
-                  relay(s) from YAML.
-                </Typography>
-              )}
               <TextField
                 label="Name"
                 value={form.name}
@@ -1009,6 +1153,32 @@ export function DevicesPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(compileTarget)}
+        onClose={() => !busy && setCompileTarget(null)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>
+          Compile firmware{compileTarget ? ` — ${compileTarget.name}` : ""}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            value={compileLog}
+            multiline
+            minRows={12}
+            fullWidth
+            InputProps={{ readOnly: true }}
+            sx={{ mt: 1, fontFamily: "monospace", fontSize: "0.8rem" }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompileTarget(null)} disabled={busy}>
+            Close
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog

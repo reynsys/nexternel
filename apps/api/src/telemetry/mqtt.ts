@@ -2,6 +2,7 @@ import mqtt, { type MqttClient } from "mqtt";
 import { config } from "../config.js";
 import {
   listDevicePrefixes,
+  listEsphomeLiveEntities,
   listShellySwitchBindings,
   listStateTopicBindings,
   getCapabilityById,
@@ -22,11 +23,33 @@ import {
   type DiscoveredShellyBase,
 } from "../shelly/discover.js";
 import { guessShellyGen } from "../shelly/models.js";
+import { installationMqttRoot } from "../migrate/align-mqtt-topics.js";
+import {
+  collectMqttSubscriptionTopics,
+  deviceSlugFromMqttPrefix,
+} from "./mqtt-subscriptions.js";
+import {
+  clearLiveTopicMap,
+  getLiveTopicBindings,
+  getLiveTopicMapSize,
+  registerEsphomeEntityTopics,
+  registerLiveTopicBinding,
+} from "./topic-resolver.js";
+import {
+  getMqttObservationRing,
+  getMessagesForTopicPrefix,
+  recordMqttObservation,
+  startBrokerSniffWindow,
+  getBrokerSniffSamples,
+  type MqttObservationKind,
+} from "./mqtt-observer.js";
 
 let client: MqttClient | null = null;
 let status: "disconnected" | "connecting" | "connected" | "error" = "disconnected";
 let lastError: string | null = null;
 let presenceTimer: ReturnType<typeof setInterval> | null = null;
+const subscribedTopics = new Set<string>();
+let brokerSniffTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** state_topic → capability ids (usually one) */
 const topicIndex = new Map<string, { capabilityId: string; kind: string }[]>();
@@ -43,6 +66,8 @@ const lastOnlineTouch = new Map<string, number>();
 /** Debounce capability-driven presence (capability id → last ms) */
 const lastCapabilityOnlineTouch = new Map<string, number>();
 let cachedPrefixes: string[] = [];
+let mqttMessagesReceived = 0;
+let mqttCapabilityUpdates = 0;
 
 /** Phase 3 discovery temporary listeners (announce / RPC probe replies). */
 type DiscoveryCollector = (topic: string, payload: string) => void;
@@ -60,6 +85,55 @@ function notifyDiscoveryCollectors(topic: string, payload: string) {
 
 export function getMqttStatus() {
   return { status, lastError, broker: config.mqttBroker() };
+}
+
+export function getMqttClientDiagnostics() {
+  return {
+    status,
+    lastError,
+    broker: config.mqttBroker(),
+    connected: client?.connected ?? false,
+    subscribedTopicCount: subscribedTopics.size,
+    subscribedTopics: [...subscribedTopics].sort(),
+    indexedStateTopicCount: topicIndex.size,
+    indexedStateTopics: [...topicIndex.keys()].sort(),
+    devicePrefixCount: cachedPrefixes.length,
+    devicePrefixes: [...cachedPrefixes].sort(),
+    shellyPrefixCount: shellyPrefixes.size,
+    shellyPrefixes: [...shellyPrefixes].sort(),
+    shellySwitchBindingCount: shellySwitchIndex.size,
+    liveTopicMapSize: getLiveTopicMapSize(),
+    messagesReceived: mqttMessagesReceived,
+    capabilityUpdates: mqttCapabilityUpdates,
+    observationRingSize: getMqttObservationRing().length,
+    brokerSniff: getBrokerSniffSamples(),
+  };
+}
+
+/** Admin-only: subscribe to `#` briefly to sample live broker traffic (read-only). */
+export async function startBrokerTopicSniff(durationMs: number): Promise<{
+  ok: boolean;
+  message: string;
+  durationMs: number;
+}> {
+  if (!client?.connected) {
+    return { ok: false, message: "MQTT client is not connected.", durationMs: 0 };
+  }
+  const ms = Math.min(Math.max(durationMs, 5_000), 120_000);
+  startBrokerSniffWindow(ms);
+  if (brokerSniffTimer) clearTimeout(brokerSniffTimer);
+  client.subscribe("#", { qos: 0 }, (err) => {
+    if (err) lastError = err.message;
+  });
+  brokerSniffTimer = setTimeout(() => {
+    client?.unsubscribe("#");
+    brokerSniffTimer = null;
+  }, ms);
+  return {
+    ok: true,
+    message: `Broker sniff active for ${Math.round(ms / 1000)}s`,
+    durationMs: ms,
+  };
 }
 
 function shellyIndexKey(prefix: string, componentKey: string): string {
@@ -80,12 +154,26 @@ async function rebuildTopicIndex() {
   topicIndex.clear();
   shellySwitchIndex.clear();
   shellyPrefixes.clear();
+  clearLiveTopicMap();
 
   const bindings = await listStateTopicBindings();
   for (const b of bindings) {
-    const list = topicIndex.get(b.state_topic) ?? [];
-    list.push({ capabilityId: b.capability_id, kind: b.kind });
-    topicIndex.set(b.state_topic, list);
+    registerTopicBinding(b.state_topic, b.capability_id, b.kind);
+  }
+
+  const entities = await listEsphomeLiveEntities();
+  for (const row of entities) {
+    registerEsphomeEntityTopics({
+      capabilityId: row.capability_id,
+      kind: row.kind,
+      devicePrefix: row.prefix,
+      deviceSlug: row.slug,
+      entityId: row.entity_id,
+      segment: row.segment,
+    });
+    if (row.state_topic) {
+      registerTopicBinding(row.state_topic, row.capability_id, row.kind);
+    }
   }
 
   cachedPrefixes = await listDevicePrefixes();
@@ -291,6 +379,7 @@ function inferSensorMatchFromEntity(entityId: string): {
   }
   if (e.includes("temp")) return { sensorType: "temperature", nameHint: "temp" };
   if (e.includes("humid")) return { sensorType: "humidity", nameHint: "humid" };
+  if (e.includes("batt")) return { sensorType: "battery", nameHint: "batt" };
   if (e.includes("power")) return { sensorType: "power", nameHint: "power" };
   if (e.includes("daily")) return { sensorType: "energy", nameHint: "daily" };
   if (e.includes("total") && e.includes("energy")) {
@@ -306,6 +395,7 @@ function registerTopicBinding(topic: string, capabilityId: string, kind: string)
     list.push({ capabilityId, kind });
     topicIndex.set(topic, list);
   }
+  registerLiveTopicBinding(topic, capabilityId, kind);
 }
 
 /** Self-heal when DB state_topic lags ESPHome MQTT object_id (common after Glow import fixes). */
@@ -318,6 +408,7 @@ async function tryHealEsphomeSensorTopic(
   if (!m) return false;
   const prefix = m[1]!;
   const entityId = m[2]!;
+  const deviceSlug = deviceSlugFromMqttPrefix(prefix);
   const hint = inferSensorMatchFromEntity(entityId);
 
   let row:
@@ -339,10 +430,10 @@ async function tryHealEsphomeSensorTopic(
      FROM devices d
      JOIN sensors s ON s.device_id = d.id
      JOIN capabilities c ON c.source_type = 'sensor' AND c.source_id = s.id AND c.is_enabled = TRUE
-     WHERE d.mqtt_topic_prefix = $1
+     WHERE (d.mqtt_topic_prefix = $1 OR ($4::text IS NOT NULL AND d.slug = $4))
        AND (s.esphome_entity_id = $2 OR s.mqtt_state_topic = $3)
      LIMIT 1`,
-    [prefix, entityId, topic]
+    [prefix, entityId, topic, deviceSlug]
   );
   row = exact.rows[0];
 
@@ -357,12 +448,12 @@ async function tryHealEsphomeSensorTopic(
        FROM devices d
        JOIN sensors s ON s.device_id = d.id
        JOIN capabilities c ON c.source_type = 'sensor' AND c.source_id = s.id AND c.is_enabled = TRUE
-       WHERE d.mqtt_topic_prefix = $1
+       WHERE (d.mqtt_topic_prefix = $1 OR ($4::text IS NOT NULL AND d.slug = $4))
          AND s.sensor_type = $2
          AND ($3::text IS NULL OR LOWER(s.name) LIKE '%' || $3 || '%')
        ORDER BY s.updated_at DESC
        LIMIT 1`,
-      [prefix, hint.sensorType, hint.nameHint]
+      [prefix, hint.sensorType, hint.nameHint, deviceSlug]
     );
     row = fuzzy.rows[0];
   }
@@ -370,6 +461,13 @@ async function tryHealEsphomeSensorTopic(
   if (!row) return false;
 
   if (row.stored_topic !== topic) {
+    await getPool().query(
+      `UPDATE devices d
+       SET mqtt_topic_prefix = $2, updated_at = NOW()
+       FROM sensors s
+       WHERE s.id = $1 AND s.device_id = d.id AND d.mqtt_topic_prefix IS DISTINCT FROM $2`,
+      [row.sensor_id, prefix]
+    );
     await getPool().query(
       `UPDATE sensors
        SET mqtt_state_topic = $2, esphome_entity_id = $3, updated_at = NOW()
@@ -403,6 +501,7 @@ async function tryHealEsphomeSwitchTopic(
   const prefix = m[1]!;
   const entityId = m[2]!;
   const commandTopic = `${prefix}/switch/${entityId}/command`;
+  const deviceSlug = deviceSlugFromMqttPrefix(prefix);
 
   const exact = await getPool().query<{
     capability_id: string;
@@ -415,10 +514,10 @@ async function tryHealEsphomeSwitchTopic(
      FROM devices d
      JOIN relays r ON r.device_id = d.id
      JOIN capabilities c ON c.source_type = 'relay' AND c.source_id = r.id AND c.is_enabled = TRUE
-     WHERE d.mqtt_topic_prefix = $1
+     WHERE (d.mqtt_topic_prefix = $1 OR ($4::text IS NOT NULL AND d.slug = $4))
        AND (r.esphome_entity_id = $2 OR r.mqtt_state_topic = $3)
      LIMIT 1`,
-    [prefix, entityId, topic]
+    [prefix, entityId, topic, deviceSlug]
   );
   let row = exact.rows[0];
 
@@ -434,11 +533,11 @@ async function tryHealEsphomeSwitchTopic(
        FROM devices d
        JOIN relays r ON r.device_id = d.id
        JOIN capabilities c ON c.source_type = 'relay' AND c.source_id = r.id AND c.is_enabled = TRUE
-       WHERE d.mqtt_topic_prefix = $1
+       WHERE (d.mqtt_topic_prefix = $1 OR ($2::text IS NOT NULL AND d.slug = $2))
          AND (LOWER(r.name) LIKE '%measur%' OR LOWER(r.slug) LIKE '%pms%')
        ORDER BY r.updated_at DESC
        LIMIT 1`,
-      [prefix]
+      [prefix, deviceSlug]
     );
     row = fuzzy.rows[0];
   }
@@ -446,6 +545,13 @@ async function tryHealEsphomeSwitchTopic(
   if (!row) return false;
 
   if (row.stored_state !== topic || row.stored_command !== commandTopic) {
+    await getPool().query(
+      `UPDATE devices d
+       SET mqtt_topic_prefix = $2, updated_at = NOW()
+       FROM relays r
+       WHERE r.id = $1 AND r.device_id = d.id AND d.mqtt_topic_prefix IS DISTINCT FROM $2`,
+      [row.relay_id, prefix]
+    );
     await getPool().query(
       `UPDATE relays
        SET mqtt_state_topic = $2, mqtt_command_topic = $3, esphome_entity_id = $4, updated_at = NOW()
@@ -466,38 +572,77 @@ async function tryHealEsphomeSwitchTopic(
   return true;
 }
 
-function handleMessage(
+function lookupTopicBindings(topic: string): { capabilityId: string; kind: string }[] {
+  const fromIndex = topicIndex.get(topic);
+  if (fromIndex?.length) return fromIndex;
+  return getLiveTopicBindings(topic).map((b) => ({
+    capabilityId: b.capabilityId,
+    kind: b.kind,
+  }));
+}
+
+async function handleMessage(
   topic: string,
   payloadBuf: Buffer,
   packet: { retain?: boolean }
 ) {
+  mqttMessagesReceived += 1;
   const payload = payloadBuf.toString("utf8");
   const retained = Boolean(packet.retain);
+  let observationKind: MqttObservationKind = "unmatched";
+  const observationCapabilityIds: string[] = [];
+
+  const finishObservation = () => {
+    recordMqttObservation({
+      topic,
+      payloadPreview: payload.slice(0, 200),
+      retained,
+      receivedAt: new Date().toISOString(),
+      kind: observationKind,
+      capabilityIds: observationCapabilityIds,
+    });
+  };
 
   notifyDiscoveryCollectors(topic, payload);
 
   const presenceHandled =
     applyDeviceRootStatusTopic(topic, payload, retained) ||
     applyDeviceShellyOnlineTopic(topic, payload, retained);
+  if (presenceHandled) {
+    observationKind = "device_presence";
+    finishObservation();
+    return;
+  }
   if (!presenceHandled) {
     touchDeviceOnlineFromTopic(topic, retained);
   }
 
   // Shelly app / physical switch / status_update → events/rpc or /status
   const shellyHandled = applyShellyTopicUpdates(topic, payload, retained);
+  if (shellyHandled) {
+    observationKind = "shelly_switch";
+    const prefix = longestPrefixForTopic(topic);
+    if (prefix) {
+      const updates = parseShellyMqttSwitchUpdates(topic, payload);
+      for (const u of updates) {
+        const capId = shellySwitchIndex.get(shellyIndexKey(prefix, u.componentKey));
+        if (capId) observationCapabilityIds.push(capId);
+      }
+    }
+  }
 
-  const entries = topicIndex.get(topic);
-  if (!entries?.length) {
-    void tryHealEsphomeSensorTopic(topic, payload, retained)
-      .then((healed) => {
-        if (!healed) {
-          return tryHealEsphomeSwitchTopic(topic, payload, retained);
-        }
-        return healed;
-      })
-      .catch(() => {
-        /* ignore heal errors */
-      });
+  const entries = lookupTopicBindings(topic);
+  if (!entries.length) {
+    if (shellyHandled) {
+      finishObservation();
+      return;
+    }
+    let healed = await tryHealEsphomeSensorTopic(topic, payload, retained);
+    if (!healed) {
+      healed = await tryHealEsphomeSwitchTopic(topic, payload, retained);
+    }
+    if (healed) observationKind = "esphome_heal";
+    finishObservation();
     return;
   }
 
@@ -506,13 +651,18 @@ function handleMessage(
     shellyHandled &&
     (/\/status\/switch:\d+$/i.test(topic) || /\/relay\/\d+$/i.test(topic))
   ) {
+    finishObservation();
     return;
   }
 
+  observationKind = "capability_binding";
   for (const { capabilityId, kind } of entries) {
+    observationCapabilityIds.push(capabilityId);
     const value = parseMqttPayload(kind, payload);
     applyLiveCapability(capabilityId, value, retained, kind);
+    mqttCapabilityUpdates += 1;
   }
+  finishObservation();
 }
 
 /** Ask each Shelly to publish full status (fills cache after API restart). */
@@ -639,14 +789,14 @@ export async function startTelemetry(): Promise<void> {
     try {
       await rebuildTopicIndex();
       const prefixes = await listDevicePrefixes();
-      const topics = new Set<string>();
-      for (const prefix of prefixes) {
-        topics.add(`${prefix}/#`);
-      }
-      for (const topic of topicIndex.keys()) {
-        topics.add(topic);
-      }
+      cachedPrefixes = prefixes;
+      const topics = collectMqttSubscriptionTopics({
+        installationRoot: installationMqttRoot(),
+        devicePrefixes: prefixes,
+        bindingStateTopics: [...topicIndex.keys()],
+      });
       for (const topic of topics) {
+        subscribedTopics.add(topic);
         client?.subscribe(topic, { qos: 0 }, (err) => {
           if (err) lastError = err.message;
         });
@@ -661,7 +811,9 @@ export async function startTelemetry(): Promise<void> {
   });
 
   client.on("message", (topic, payload, packet) => {
-    handleMessage(topic, payload, packet);
+    void handleMessage(topic, payload, packet).catch(() => {
+      /* ignore handler errors */
+    });
   });
 
   client.on("error", (err) => {
@@ -679,8 +831,15 @@ export async function refreshTelemetrySubscriptions(): Promise<void> {
   if (!client?.connected) return;
   const prefixes = await listDevicePrefixes();
   cachedPrefixes = prefixes;
-  for (const prefix of prefixes) {
-    client.subscribe(`${prefix}/#`, { qos: 0 });
+  const topics = collectMqttSubscriptionTopics({
+    installationRoot: installationMqttRoot(),
+    devicePrefixes: prefixes,
+    bindingStateTopics: [...topicIndex.keys()],
+  });
+  for (const topic of topics) {
+    if (subscribedTopics.has(topic)) continue;
+    subscribedTopics.add(topic);
+    client.subscribe(topic, { qos: 0 });
   }
   requestShellyStatusUpdates();
 }

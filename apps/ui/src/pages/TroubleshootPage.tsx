@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -20,6 +21,7 @@ import {
   formatDiagnosticsReport,
   type AuthExtras,
 } from "../diagnostics/formatReport";
+import { copyTextToClipboard, downloadTextFile } from "../lib/copyText";
 import {
   clearVisualScan,
   loadVisualScan,
@@ -102,22 +104,19 @@ export function TroubleshootPage() {
   }, [refresh]);
 
   async function copyReport() {
-    try {
-      await navigator.clipboard.writeText(report);
-      setCopyStatus("Copied — paste wherever you need help (support chat, ticket, email)");
-    } catch {
-      setCopyStatus("Copy failed — select the report text manually");
-    }
+    const ok = await copyTextToClipboard(report);
+    setCopyStatus(
+      ok
+        ? "Copied — paste wherever you need help (support chat, ticket, email)"
+        : "Copy failed — use Download .txt or select the report text manually"
+    );
   }
 
   function downloadReport() {
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `nexternel-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile(
+      `nexternel-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`,
+      report
+    );
   }
 
   function clearErrors() {
@@ -267,6 +266,20 @@ export function TroubleshootPage() {
               has the issue, then Refresh.
             </Typography>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle2" gutterBottom>
+            Developer tools
+          </Typography>
+          <Button component={RouterLink} to="/troubleshoot/panel-preview" variant="outlined">
+            Panel preview
+          </Button>
+          <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+            Test panel types against live capabilities. Operators add panels on Dashboards.
+          </Typography>
         </CardContent>
       </Card>
 

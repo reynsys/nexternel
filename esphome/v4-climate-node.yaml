@@ -1,0 +1,78 @@
+# Nexternel V4 — Climate node reference (temperature + humidity + battery)
+# Reference YAML for Phase 2 onboarding pipeline — not required for existing DHT rooms.
+# Flash only when deploying a new ESP32 climate node with battery reporting.
+# 1) Edit substitutions (MQTT must match ~/nexternel/.env)
+# 2) ESPHome :6052 → v4-climate-node → Install
+# 3) API: POST /api/v1/v4/devices/onboard/esphome { "yamlName": "v4-climate-node", "roomId": "..." }
+
+substitutions:
+  device_name: v4-climate-node
+  friendly_name: V4 Climate Node
+  mqtt_topic_prefix: nexternel/v4-climate-node
+  wifi_ssid: "DAMN"
+  wifi_password: "n3v3rm1nd"
+  mqtt_broker: "192.168.3.101"
+  mqtt_username: "damn_nexternel"
+  mqtt_password: "n3v3rm1nd"
+  ota_password: "change-me-ota-password"
+  ap_ssid: "V4-Climate-Node Hotspot"
+  ap_password: "change-me-ap-password"
+
+esphome:
+  name: "${device_name}"
+  friendly_name: "${friendly_name}"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+    password: "${ota_password}"
+
+wifi:
+  ssid: "${wifi_ssid}"
+  password: "${wifi_password}"
+  ap:
+    ssid: "${ap_ssid}"
+    password: "${ap_password}"
+
+captive_portal:
+
+mqtt:
+  broker: "${mqtt_broker}"
+  port: 1883
+  username: "${mqtt_username}"
+  password: "${mqtt_password}"
+  topic_prefix: ${mqtt_topic_prefix}
+  discovery: false
+
+sensor:
+  - platform: dht
+    pin: GPIO2
+    temperature:
+      name: "Climate Node Temperature"
+      id: climate_node_temperature
+      unit_of_measurement: "°C"
+      accuracy_decimals: 1
+    humidity:
+      name: "Climate Node Humidity"
+      id: climate_node_humidity
+      unit_of_measurement: "%"
+      accuracy_decimals: 0
+    update_interval: 60s
+
+  # Battery level — template for nodes with voltage divider / fuel gauge (adjust lambda for hardware)
+  - platform: template
+    name: "Climate Node Battery"
+    id: climate_node_battery
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 60s
+    lambda: |-
+      return 100.0;

@@ -1,10 +1,19 @@
-import { clockWidgetContribution } from "@nexternel/plugin-example-clock";
-import { createAirQualityWidgetContribution } from "@nexternel/plugin-air-quality";
+import { clockPluginManifest, clockWidgetContribution } from "@nexternel/plugin-example-clock";
+import {
+  airQualityPluginManifest,
+  createAirQualityWidgetContribution,
+} from "@nexternel/plugin-air-quality";
 import { AirQualityWidget } from "../widgets/air-quality/AirQualityWidget";
-import { registerWidget } from "./registry";
+import { registerPlugin, registerPanel } from "./registry";
+import { gaugePanelMeta, GaugeWidget } from "../widgets/gauge";
 
-/** Trusted first-party plugins — add one import + register line per plugin. */
+/** Trusted first-party panels — add manifest + panel registration per type. */
 export function loadBuiltins() {
-  registerWidget(clockWidgetContribution);
-  registerWidget(createAirQualityWidgetContribution(AirQualityWidget));
+  registerPanel({ ...gaugePanelMeta, Component: GaugeWidget });
+
+  registerPlugin(clockPluginManifest);
+  registerPanel(clockWidgetContribution);
+
+  registerPlugin(airQualityPluginManifest);
+  registerPanel(createAirQualityWidgetContribution(AirQualityWidget));
 }

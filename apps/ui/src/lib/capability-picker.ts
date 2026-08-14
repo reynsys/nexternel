@@ -25,7 +25,21 @@ export function capabilityOptionPrimary(cap: Capability): string {
   return name;
 }
 
-function kindHint(kind: string | undefined): string {
+/** Context line: place · device (e.g. Utility Room · Utility Room ESP32). */
+export function capabilityOptionContextLine(cap: Capability): string {
+  const area = (cap.roomName ?? "").trim();
+  const device = tidyDeviceName(cap.deviceName, cap.roomName);
+  const parts: string[] = [];
+  if (area) parts.push(area);
+  if (device) {
+    if (!area || device.toLowerCase() !== area.toLowerCase()) {
+      parts.push(device);
+    }
+  }
+  return parts.join(" · ") || device || "Unassigned";
+}
+
+export function capabilityKindHint(kind: string | undefined): string {
   if (!kind) return "Sensor";
   switch (kind) {
     case "power":
@@ -61,7 +75,7 @@ function formatLiveSnippet(cap: Capability): string {
 
 /** Secondary hint under each option (kind + optional live reading). */
 export function capabilityOptionSecondary(cap: Capability): string {
-  const parts = [kindHint(cap.kind)];
+  const parts = [capabilityKindHint(cap.kind)];
   const live = formatLiveSnippet(cap);
   if (live) parts.push(live);
   return parts.join(" · ");

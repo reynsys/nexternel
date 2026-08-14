@@ -3,6 +3,7 @@ import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import Hls from "hls.js";
 import { api, type WidgetInstance } from "../../api";
 import { generalWidgetHeading, parseCameraConfig } from "./config";
+import { useDashboardTileChrome } from "../../lib/dashboard-tile-context";
 
 type PlayUrls = { hlsUrl: string; mseUrl: string; name: string };
 
@@ -59,6 +60,7 @@ function waitForVideoPlaying(
 
 export function CameraWidget({ widget }: { widget: WidgetInstance }) {
   const { cameraId } = parseCameraConfig(widget.config);
+  const { showBodyHeading } = useDashboardTileChrome();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [title, setTitle] = useState(generalWidgetHeading(widget, "Camera"));
   const [error, setError] = useState<string | null>(null);
@@ -286,9 +288,11 @@ export function CameraWidget({ widget }: { widget: WidgetInstance }) {
         gap: 0.5,
       }}
     >
-      <Typography variant="subtitle2" noWrap title={title} sx={{ fontWeight: 600 }}>
-        {title}
-      </Typography>
+      {showBodyHeading && (
+        <Typography variant="subtitle2" noWrap title={title} sx={{ fontWeight: 600 }}>
+          {title}
+        </Typography>
+      )}
       {error ? (
         <Stack direction="row" spacing={1} alignItems="center">
           <Alert severity="warning" sx={{ py: 0.5, flex: 1 }}>

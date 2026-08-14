@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Chip, Stack, Typography } from "@mui/material";
 import { api, type DeviceRecord, type WidgetInstance } from "../../api";
-import { parseDeviceStatusConfig, generalWidgetHeading } from "./config";
+import { parseDeviceStatusConfig } from "./config";
+import { useWidgetBodyHeading } from "./heading";
 import { formatLastSeen } from "../../lib/device-utils";
 
 export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
   const { offlineOnly } = parseDeviceStatusConfig(widget.config);
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const title = generalWidgetHeading(widget, "Devices");
+  const title = useWidgetBodyHeading(widget, "Devices");
 
   useEffect(() => {
     let cancelled = false;
@@ -56,9 +57,11 @@ export function DeviceStatusWidget({ widget }: { widget: WidgetInstance }) {
         minHeight: 0,
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
-        {title}
-      </Typography>
+      {title && (
+        <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ mb: 0.5, flexShrink: 0 }}>
+          {title}
+        </Typography>
+      )}
       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 0.75, flexShrink: 0 }}>
         <Chip size="small" color="success" label={`${online} online`} />
         <Chip size="small" color={offline ? "warning" : "default"} label={`${offline} offline`} />

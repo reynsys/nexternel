@@ -3,6 +3,7 @@ import { Link as RouterLink, Navigate, Route, Routes } from "react-router-dom";
 import { Alert, Button, CircularProgress, Stack } from "@mui/material";
 import { AppLayout } from "./layout/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
+import { SetupPage } from "./pages/SetupPage";
 import { DashboardsPage } from "./pages/DashboardsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TroubleshootPage } from "./pages/TroubleshootPage";
@@ -10,13 +11,16 @@ import { SettingsLayout } from "./pages/admin/settings/SettingsLayout";
 import { SettingsIndexRedirect } from "./pages/admin/settings/SettingsIndexRedirect";
 import { AppearanceSettingsPage } from "./pages/admin/settings/AppearanceSettingsPage";
 import { SystemStatusPage } from "./pages/admin/settings/SystemStatusPage";
+import { PluginsSettingsPage } from "./pages/admin/settings/PluginsSettingsPage";
 import { BackupSettingsPage } from "./pages/admin/settings/BackupSettingsPage";
+import { ConfigurationSettingsPage } from "./pages/admin/settings/ConfigurationSettingsPage";
 import { AutomationsSettingsPage } from "./pages/admin/settings/AutomationsSettingsPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { RolesPage } from "./pages/admin/RolesPage";
 import { AreasPage } from "./pages/admin/AreasPage";
 import { DevicesPage } from "./pages/admin/DevicesPage";
 import { CamerasPage } from "./pages/admin/CamerasPage";
+import { PanelsPage } from "./pages/PanelsPage";
 import { api, getStoredAccessToken, type User } from "./api";
 import {
   hasPermission,
@@ -83,21 +87,65 @@ function RequirePermission({
   return children;
 }
 
+function SetupGate({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<"loading" | "needs" | "ready">("loading");
+
+  useEffect(() => {
+    void api
+      .setupStatus()
+      .then((status) => setState(status.needsSetup ? "needs" : "ready"))
+      .catch(() => setState("ready"));
+  }, []);
+
+  if (state === "loading") {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ py: 8 }}>
+        <CircularProgress size={28} />
+      </Stack>
+    );
+  }
+  if (state === "needs") {
+    return <Navigate to="/setup" replace />;
+  }
+  return children;
+}
+
 export function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="login" element={<LoginPage />} />
+        <Route path="setup" element={<SetupPage />} />
+        <Route
+          path="login"
+          element={
+            <SetupGate>
+              <LoginPage />
+            </SetupGate>
+          }
+        />
         <Route path="troubleshoot" element={<TroubleshootPage />} />
+        <Route
+          path="troubleshoot/panel-preview"
+          element={
+            <RequireAuth>
+              <RequirePermission permission="viewDashboards">
+                <PanelsPage />
+              </RequirePermission>
+            </RequireAuth>
+          }
+        />
+        <Route path="panels" element={<Navigate to="/troubleshoot/panel-preview" replace />} />
 
         <Route
           index
           element={
-            <RequireAuth>
-              <RequirePermission permission="viewDashboards">
-                <DashboardPage />
-              </RequirePermission>
-            </RequireAuth>
+            <SetupGate>
+              <RequireAuth>
+                <RequirePermission permission="viewDashboards">
+                  <DashboardPage />
+                </RequirePermission>
+              </RequireAuth>
+            </SetupGate>
           }
         />
         <Route
@@ -120,6 +168,8 @@ export function App() {
             </RequireAuth>
           }
         />
+
+        <Route path="views" element={<Navigate to="/troubleshoot/panel-preview" replace />} />
 
         <Route
           path="manage/dashboards"
@@ -156,6 +206,22 @@ export function App() {
             element={
               <RequirePermission permission="viewSystem">
                 <SystemStatusPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="plugins"
+            element={
+              <RequirePermission permission="viewSystem">
+                <PluginsSettingsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="configuration"
+            element={
+              <RequirePermission permission="manageUsers">
+                <ConfigurationSettingsPage />
               </RequirePermission>
             }
           />

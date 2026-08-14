@@ -10,7 +10,7 @@ import { AppNavbar } from "./AppNavbar";
 
 /** Free MUI dashboard-style shell: permanent side menu + mobile app bar. */
 export function MuiDashboardLayout() {
-  const { signedIn, user, isAdmin, permissions, logout } = useShellAuth();
+  const { signedIn, user, isAdmin, permissions, authLoading, logout } = useShellAuth();
   const [collapsed, setCollapsed] = useSideMenuCollapsed();
   const { themePrefs } = useSkin();
   const hasGradient = Boolean(gradientCss(themePrefs.gradientId));
@@ -21,7 +21,8 @@ export function MuiDashboardLayout() {
         signedIn={signedIn}
         isAdmin={isAdmin}
         permissions={permissions}
-        user={user}
+        authLoading={authLoading}
+        user={user ?? null}
         onLogout={() => void logout()}
         collapsed={collapsed}
         onCollapsedChange={setCollapsed}
@@ -30,7 +31,8 @@ export function MuiDashboardLayout() {
         signedIn={signedIn}
         isAdmin={isAdmin}
         permissions={permissions}
-        user={user}
+        authLoading={authLoading}
+        user={user ?? null}
         onLogout={() => void logout()}
       />
       <Box

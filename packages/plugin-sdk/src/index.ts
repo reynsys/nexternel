@@ -5,7 +5,10 @@
 export type PluginApiVersion = 1;
 
 export interface PluginContributions {
+  /** Contributed dashboard panel type ids (`plugin.*`). */
   widgets?: string[];
+  /** Alias for {@link PluginContributions.widgets}. */
+  panels?: string[];
   drivers?: string[];
   services?: string[];
   navigation?: string[];
@@ -21,8 +24,8 @@ export interface PluginManifest {
   contributes: PluginContributions;
 }
 
-/** UI host registers React widgets by type id. */
-export type WidgetCategoryId =
+/** Catalog group for Add Panel picker (contributed panels). */
+export type PanelCategoryId =
   | "status"
   | "sensors"
   | "history"
@@ -31,26 +34,32 @@ export type WidgetCategoryId =
   | "system"
   | "plugins";
 
-export type WidgetBindingSlotDef = {
+/** @deprecated use PanelCategoryId */
+export type WidgetCategoryId = PanelCategoryId;
+
+export type PanelBindingSlotDef = {
   key: string;
   label: string;
   /** Accepted capability kinds (any match). */
   kinds?: string[];
   /** Substrings matched against capability name (case-insensitive). */
   nameHints?: string[];
-  /** When true, Add widget / editor should require a selection. */
+  /** When true, Add Panel / editor should require a selection. */
   required?: boolean;
 };
 
-export type WidgetContribution = {
+/** @deprecated use PanelBindingSlotDef */
+export type WidgetBindingSlotDef = PanelBindingSlotDef;
+
+export type PanelContribution = {
   type: string;
   label: string;
-  /** Catalog group for Add widget picker. Defaults to plugins. */
-  category?: WidgetCategoryId;
-  /** When false, Add Widget skips single-capability picker. */
+  /** Catalog group for Add Panel picker. Defaults to plugins. */
+  category?: PanelCategoryId;
+  /** When false, Add Panel skips single-capability picker. */
   needsCapability?: boolean;
-  /** Named multi-capability bindings (composite widgets). */
-  bindingSlots?: WidgetBindingSlotDef[];
+  /** Named multi-capability bindings (composite panels). */
+  bindingSlots?: PanelBindingSlotDef[];
   /** Default grid size when added from dashboard. */
   defaultSize?: { w: number; h: number };
   /** React component — typed loosely so SDK stays React-free at compile time for API pkgs. */
@@ -58,14 +67,24 @@ export type WidgetContribution = {
   Component: any;
 };
 
+/** @deprecated use PanelContribution */
+export type WidgetContribution = PanelContribution;
+
 export interface PluginHostContext {
-  registerWidget(contribution: WidgetContribution): void;
+  registerPanel(contribution: PanelContribution): void;
+  /** @deprecated use registerPanel */
+  registerWidget(contribution: PanelContribution): void;
+  registerPlugin(manifest: PluginManifest): void;
   registerDriver(driverId: string): void;
 }
 
   /** Optional props the UI host may pass to plugin widget components. */
 export type PluginWidgetHostProps = {
   editMode?: boolean;
+  /** Bumps when the dashboard grid cell resizes (charts should remeasure). */
+  layoutEpoch?: number;
+  /** When false, do not render an in-widget title (dashboard tile chrome owns it). */
+  showBodyHeading?: boolean;
   onCapabilityCommand?: (
     capabilityId: string,
     action: "on" | "off"

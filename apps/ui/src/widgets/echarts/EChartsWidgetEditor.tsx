@@ -20,6 +20,7 @@ import {
   persistBoundWidgetTitle,
 } from "../../lib/widget-title";
 import { EChartsWidgetBody } from "./EChartsWidgetBody";
+import { GAUGE_WIDGET_TYPE } from "../gauge/manifest";
 import { parseEchartsConfig } from "./config";
 import type { EchartsPreset } from "./types";
 import {
@@ -222,11 +223,15 @@ export function EChartsWidgetEditor({
       setJsonError("Max must be a number");
       return;
     }
+    const saveType =
+      widget.type === GAUGE_WIDGET_TYPE || widget.type.startsWith("plugin.")
+        ? widget.type
+        : "echarts";
     onSave({
       title:
         persistBoundWidgetTitle(title, widget.type, cap) ??
         (title.trim() || undefined),
-      type: "echarts",
+      type: saveType,
       bindings: capabilityId ? { capabilityId } : {},
       config: {
         presetId,
@@ -252,7 +257,7 @@ export function EChartsWidgetEditor({
         <Typography variant="h6">{editorTitle(editScope)}</Typography>
         <Typography variant="caption" color="text.secondary">
           {editScope === "gauge"
-            ? "Pick a gauge style (ECharts gauge). To add a history chart, use Add widget → Charts (history)."
+            ? "Pick a gauge style (ECharts gauge). To add a history chart, use Add panel → Charts."
             : editScope === "history"
               ? "Chart type filters the preset list (or choose All chart types). Presets are sensor-history layouts — not every Apache demo (many demos need multi-series sample data)."
               : editScope === "liveDiagram"
@@ -335,7 +340,7 @@ export function EChartsWidgetEditor({
             capabilities={sensorCapabilities}
             value={capabilityId}
             onChange={setCapabilityId}
-            label={preset.dataMode === "history" ? "History sensor" : "Live sensor"}
+            label={preset.dataMode === "history" ? "What to chart" : "What to use"}
           />
         )}
 
@@ -425,7 +430,8 @@ export function EChartsWidgetEditor({
             <EChartsWidgetBody
               widget={previewWidget}
               cap={cap}
-              title={title || previewWidget.title || preset.label}
+              dataLabel={cap?.name ?? (title || preset.label)}
+              tileTitle={title.trim() || previewWidget.title?.trim() || null}
             />
           )}
         </Box>
