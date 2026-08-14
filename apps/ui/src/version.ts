@@ -1,2 +1,2 @@
 /** Nexternel V3 UI — keep in sync with package.json / CHANGELOG */
-export const APP_VERSION = "V4.0.096";
+export const APP_VERSION = "V4.0.101";

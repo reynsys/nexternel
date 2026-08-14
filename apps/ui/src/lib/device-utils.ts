@@ -32,13 +32,32 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   building: "Building",
   firmware_ready: "Firmware ready",
   awaiting_installation: "Awaiting installation",
-  connecting: "Connecting",
+  connecting: "Waiting for device",
   online: "Online",
   offline: "Offline",
   error: "Error",
+  configuration_missing: "YAML missing",
 };
 
 export function esphomeLifecycleLabel(state: string | null | undefined): string | null {
   if (!state) return null;
   return LIFECYCLE_LABELS[state] ?? state.replace(/_/g, " ");
 }
+
+/** Build/install/config lifecycle — excludes MQTT connectivity states. */
+export function esphomeProvisioningLifecycleLabel(
+  state: string | null | undefined
+): string | null {
+  if (!state || state === "online" || state === "offline") return null;
+  return esphomeLifecycleLabel(state);
+}
+
+/** Install workflow shown in Add device wizard review step. */
+export const ESPHOME_WIZARD_INSTALL_TITLE = "Install workflow";
+
+export const ESPHOME_WIZARD_INSTALL_STEPS = [
+  { state: "configured", detail: "Create device and YAML on this server" },
+  { state: "awaiting_installation", detail: "Devices → ESPHome → Compile firmware" },
+  { state: "firmware_ready", detail: "Install OTA or download flash YAML for USB" },
+  { state: "online", detail: "Device connects over MQTT" },
+] as const;

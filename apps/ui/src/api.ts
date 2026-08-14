@@ -788,8 +788,15 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  deleteDevice: (id: string) =>
-    apiFetch<{ ok: boolean }>(`/api/v1/devices/${id}`, { method: "DELETE" }),
+  deleteDevice: (id: string, options?: { deleteYaml?: boolean }) => {
+    const params =
+      options?.deleteYaml === undefined
+        ? ""
+        : `?deleteYaml=${options.deleteYaml ? "true" : "false"}`;
+    return apiFetch<{ ok: boolean }>(`/api/v1/devices/${id}${params}`, {
+      method: "DELETE",
+    });
+  },
 
   cameras: () => apiFetch<{ cameras: CameraRecord[] }>("/api/v1/cameras"),
 
@@ -855,6 +862,10 @@ export const api = {
     apiFetch<{
       configs: EsphomeCatalogEntry[];
       esphomeDirHint: string | null;
+      yamlStatus?: {
+        markedMissing: { id: string; name: string }[];
+        restored: { id: string; name: string }[];
+      };
       pruned?: { id: string; name: string }[];
     }>("/api/v1/devices/esphome-catalog"),
 
@@ -895,6 +906,12 @@ export const api = {
   esphomeAdoptManaged: (deviceId: string) =>
     apiFetch<{ ok: boolean; deviceId: string; managementMode: string }>(
       `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/adopt-managed`,
+      { method: "POST" }
+    ),
+
+  esphomeRestoreYaml: (deviceId: string) =>
+    apiFetch<{ ok: boolean; deviceId: string; yamlPath: string; lifecycleState: string }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/restore-yaml`,
       { method: "POST" }
     ),
 

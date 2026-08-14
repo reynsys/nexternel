@@ -20,6 +20,7 @@ import {
   createManagedEsphomeDevice,
   getManagedBuilderConfig,
   previewManagedEsphomeDevice,
+  restoreManagedEsphomeYaml,
   updateManagedEsphomeDevice,
 } from "../esphome/builder/registry.js";
 import { validateEsphomeBuilderConfig } from "../esphome/builder/validate.js";
@@ -380,6 +381,30 @@ export const v4Routes: FastifyPluginAsync = async (app) => {
           error: {
             code: "adopt_managed_failed",
             message: err instanceof Error ? err.message : "Adopt failed",
+          },
+        });
+      }
+    }
+  );
+
+  app.post<{ Params: { deviceId: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/restore-yaml",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      if (!deviceId) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId is required" },
+        });
+      }
+      try {
+        const result = await restoreManagedEsphomeYaml(deviceId);
+        return { ok: true, ...result };
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "restore_yaml_failed",
+            message: err instanceof Error ? err.message : "Restore failed",
           },
         });
       }

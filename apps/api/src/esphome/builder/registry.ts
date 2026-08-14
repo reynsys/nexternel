@@ -12,7 +12,7 @@ import {
   getDeviceDetailed,
   syncDeviceFromEsphomeSuggestion,
 } from "../../devices/service.js";
-import { loadEsphomeYaml, parseEsphomeYaml, suggestFromEsphome } from "../yaml.js";
+import { loadEsphomeYamlMerged, parseEsphomeYaml, suggestFromEsphome } from "../yaml.js";
 import { buildEsphomeDriverManifest } from "../../v4/drivers/esphome.js";
 import {
   mapCandidatesToCapabilities,
@@ -21,7 +21,7 @@ import {
 import { refreshTelemetrySubscriptions } from "../../telemetry/mqtt.js";
 import { installationMqttRoot } from "../../migrate/align-mqtt-topics.js";
 import { generateEsphomeYaml } from "./generate.js";
-import { parseManagedBuilderConfigFromYaml } from "./parse-config.js";
+import { inferBuilderConfigFromYaml, parseManagedBuilderConfigFromYaml } from "./parse-config.js";
 import { writeManagedEsphomeYaml } from "./storage.js";
 import {
   normalizeBuilderConfig,
@@ -46,6 +46,7 @@ export function builderCatalogPayload() {
       "online",
       "offline",
       "error",
+      "configuration_missing",
     ] as EsphomeLifecycleState[],
   };
 }
@@ -275,13 +276,13 @@ export async function adoptEsphomeDeviceToManaged(deviceId: string): Promise<{
   }
 
   const slug = device.esphomeName?.trim() || device.slug;
-  const yaml = await loadEsphomeYaml(slug);
+  const yaml = await loadEsphomeYamlMerged(slug);
   if (!yaml) throw new Error("ESPHome YAML not found for this device");
 
-  const parsed = parseManagedBuilderConfigFromYaml(yaml, slug, device.name);
+  const parsed = inferBuilderConfigFromYaml(yaml, slug, device.name);
   if (!parsed) {
     throw new Error(
-      "This YAML was not created by the Device Builder — use Advanced edit or import as-is"
+      "Could not infer builder configuration from this YAML — use Advanced edit or keep as imported"
     );
   }
 
@@ -304,4 +305,51 @@ export async function adoptEsphomeDeviceToManaged(deviceId: string): Promise<{
   );
 
   return { deviceId, config, managementMode: "managed" };
+}
+
+/** Regenerate managed YAML from builder config when server file is missing. */
+export async function restoreManagedEsphomeYaml(deviceId: string): Promise<{
+  deviceId: string;
+  yamlPath: string;
+  lifecycleState: EsphomeLifecycleState;
+}> {
+  const device = await getDeviceDetailed(deviceId);
+  if (!device) throw new Error("Device not found");
+  if ((device.firmwareType || "esphome") !== "esphome") {
+    throw new Error("Only ESPHome devices can restore YAML");
+  }
+  if (device.esphomeManagementMode !== "managed") {
+    throw new Error("Only managed devices can regenerate YAML from the Device Builder");
+  }
+
+  const config = await getManagedBuilderConfig(deviceId);
+  const preview = await previewManagedEsphomeDevice(config, device.roomId);
+  if (!preview.validation.valid || !preview.config || !preview.yaml) {
+    const first = preview.validation.issues[0];
+    throw new Error(first?.message ?? "Invalid builder configuration");
+  }
+
+  const { relativePath } = await writeManagedEsphomeYaml(preview.config, preview.yaml);
+
+  await getPool().query(
+    `UPDATE devices SET
+       esphome_yaml_path = $2,
+       esphome_lifecycle_state = 'configured',
+       updated_at = NOW()
+     WHERE id = $1`,
+    [deviceId, relativePath]
+  );
+
+  const suggestion = await suggestFromEsphome(device.esphomeName || device.slug);
+  if (suggestion) {
+    await syncDeviceFromEsphomeSuggestion(deviceId, suggestion);
+  }
+  await syncAndClassifyCapabilities(deviceId);
+  await refreshTelemetrySubscriptions();
+
+  return {
+    deviceId,
+    yamlPath: relativePath,
+    lifecycleState: "configured",
+  };
 }

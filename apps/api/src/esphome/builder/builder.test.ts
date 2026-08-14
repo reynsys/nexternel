@@ -5,7 +5,10 @@ import {
   normalizeBuilderConfig,
   validateEsphomeBuilderConfig,
 } from "./validate.js";
-import { parseManagedBuilderConfigFromYaml } from "./parse-config.js";
+import {
+  inferBuilderConfigFromYaml,
+  parseManagedBuilderConfigFromYaml,
+} from "./parse-config.js";
 import { parseEsphomeYaml } from "../yaml.js";
 
 const baseConfig = {
@@ -35,6 +38,15 @@ describe("esphome builder validate", () => {
     const result = validateEsphomeBuilderConfig(baseConfig);
     assert.equal(result.valid, true);
     assert.equal(result.issues.length, 0);
+  });
+
+  it("rejects device names starting with a number", () => {
+    const result = validateEsphomeBuilderConfig({
+      ...baseConfig,
+      displayName: "2Garden",
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.issues.some((i) => i.code === "invalid_name"));
   });
 
   it("rejects duplicate GPIO pins", () => {
@@ -117,5 +129,138 @@ describe("esphome builder generate", () => {
     assert.equal(roundTrip!.components.length, 2);
     assert.equal(roundTrip!.components[0]?.kind, "dht");
     assert.equal(roundTrip!.components[1]?.kind, "gpio_switch");
+  });
+
+  it("infers legacy DHT YAML without builder marker", () => {
+    const yaml = `
+esphome:
+  name: living-room
+  friendly_name: Living Room
+esp32:
+  board: esp32dev
+sensor:
+  - platform: dht
+    pin: GPIO2
+    temperature:
+      name: "Living Room Temperature"
+      id: living_room_temperature
+    humidity:
+      name: "Living Room Humidity"
+      id: living_room_humidity
+    update_interval: 60s
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "living-room", "Living Room");
+    assert.ok(inferred);
+    assert.equal(inferred!.components.length, 1);
+    assert.equal(inferred!.components[0]?.kind, "dht");
+    assert.equal((inferred!.components[0] as { pin: number }).pin, 2);
+  });
+
+  it("infers legacy relay YAML without builder marker", () => {
+    const yaml = `
+esp32:
+  board: esp32dev
+switch:
+  - platform: gpio
+    pin: GPIO32
+    name: "Relay 1"
+    id: relay_1
+    inverted: true
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "garden-relays", "Garden Relays");
+    assert.ok(inferred);
+    assert.equal(inferred!.components[0]?.kind, "gpio_switch");
+    assert.equal((inferred!.components[0] as { pin: number }).pin, 32);
+  });
+
+  it("infers DHT YAML with substitutions", () => {
+    const yaml = `
+substitutions:
+  dht_pin: GPIO4
+  friendly_name: Kids Room
+esp32:
+  board: esp32dev
+sensor:
+  - platform: dht
+    pin: \${dht_pin}
+    temperature:
+      id: kids_room_temperature
+    humidity:
+      id: kids_room_humidity
+    update_interval: 60s
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "kids-room", "Kids Room");
+    assert.ok(inferred);
+    assert.equal(inferred!.components[0]?.kind, "dht");
+    assert.equal((inferred!.components[0] as { pin: number }).pin, 4);
+  });
+
+  it("infers pulse meter YAML with substitutions (Glow-style)", () => {
+    const yaml = `
+substitutions:
+  pulse_pin: GPIO12
+  pulse_rate: "1000"
+esp8266:
+  board: nodemcuv2
+sensor:
+  - platform: pulse_meter
+    id: sensor_energy_pulse_meter
+    pin: \${pulse_pin}
+    filters:
+      - lambda: return x * ((60.0 / \${pulse_rate}) * 1000.0);
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "glow-energy", "Glow Energy");
+    assert.ok(inferred);
+    assert.equal(inferred!.components[0]?.kind, "pulse_meter");
+    assert.equal((inferred!.components[0] as { pin: number }).pin, 12);
+    assert.equal((inferred!.components[0] as { pulseRate: number }).pulseRate, 1000);
+  });
+
+  it("infers relay from output + switch platform output", () => {
+    const yaml = `
+esp32:
+  board: esp32dev
+output:
+  - platform: gpio
+    pin: GPIO16
+    id: relay_out
+switch:
+  - platform: output
+    name: "Garden Light"
+    id: garden_light
+    output: relay_out
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "garden", "Garden");
+    assert.ok(inferred);
+    assert.equal(inferred!.components[0]?.kind, "gpio_switch");
+    assert.equal((inferred!.components[0] as { pin: number }).pin, 16);
+  });
+
+  it("skips internal status lights when inferring", () => {
+    const yaml = `
+esp8266:
+  board: nodemcuv2
+output:
+  - platform: gpio
+    pin: GPIO2
+    id: output_red
+light:
+  - platform: binary
+    internal: true
+    id: led_red
+    name: Red
+    output: output_red
+sensor:
+  - platform: dht
+    pin: GPIO4
+    temperature:
+      id: test_temperature
+    humidity:
+      id: test_humidity
+`;
+    const inferred = inferBuilderConfigFromYaml(yaml, "test", "Test");
+    assert.ok(inferred);
+    assert.equal(inferred!.components.length, 1);
+    assert.equal(inferred!.components[0]?.kind, "dht");
   });
 });

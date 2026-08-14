@@ -14,6 +14,26 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.101 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 12)** — missing server YAML marks device `configuration_missing` instead of auto-deleting; managed devices can **Regenerate YAML**; delete keeps imported/advanced YAML unless opted in; Advanced YAML clears builder config; adopt confirmation; connectivity vs provisioning lifecycle chips
+
+## V4.0.100 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 11)** — **Adopt to builder** infers config from substitution-based YAML, `!include` fragments, output/switch/light actuator blocks, and nested GPIO pin syntax; internal status LEDs are skipped
+
+## V4.0.099 — 14/08/2026
+
+- **ESPHome Device Builder** — unified install workflow stepper on Review and Device created screens (all four steps always visible); device names cannot start with a number (wizard + API validation)
+
+## V4.0.098 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 10)** — After **Create device**, wizard stays open on a success screen with next steps and **Open ESPHome** (opens compile/install panel on Devices)
+
+## V4.0.097 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 9)** — Add device wizard review shows install workflow (lifecycle steps); **Adopt to builder** infers DHT/relay/PMS/pulse config from legacy server YAML (not only builder-generated files)
+
 ## V4.0.096 — 14/08/2026
 
 - **ESPHome Device Builder (Phase 8)** — Background orphan prune every 15 min; lifecycle chips sync online/offline from MQTT; **Adopt to builder** for imported/advanced devices with builder-generated YAML

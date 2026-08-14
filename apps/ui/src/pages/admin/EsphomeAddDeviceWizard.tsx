@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import BuildRoundedIcon from "@mui/icons-material/BuildRounded";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import {
@@ -38,13 +39,20 @@ import {
   type EsphomeCatalogEntry,
 } from "../../api";
 import { AREA } from "../../lib/area-labels";
-import { esphomeDashboardUrl } from "../../lib/device-utils";
+import {
+  esphomeDashboardUrl,
+  ESPHOME_WIZARD_INSTALL_STEPS,
+  ESPHOME_WIZARD_INSTALL_TITLE,
+} from "../../lib/device-utils";
+import { InstallWorkflowStepper } from "./InstallWorkflowStepper";
 
 type AreaOption = { id: string; name: string };
 
-type Path = "choose" | "new" | "import";
+type Path = "choose" | "new" | "import" | "created";
 
 type NewStep = "hardware" | "identity" | "components" | "review";
+
+type CreatedDevice = { deviceId: string; name: string };
 
 type Props = {
   open: boolean;
@@ -60,7 +68,9 @@ type Props = {
   onBusy: (busy: boolean) => void;
   onError: (message: string | null) => void;
   onSuccess: (message: string) => void;
-  onCreated: () => void;
+  onCreated: () => void | Promise<void>;
+  /** Open the Devices ESPHome panel for compile / install (Phase 10). */
+  onOpenEsphomePanel?: (deviceId: string) => void;
 };
 
 function newComponentId(): string {
@@ -131,6 +141,7 @@ export function EsphomeAddDeviceWizard({
   onError,
   onSuccess,
   onCreated,
+  onOpenEsphomePanel,
 }: Props) {
   const [path, setPath] = useState<Path>("choose");
   const [newStep, setNewStep] = useState<NewStep>("hardware");
@@ -146,6 +157,7 @@ export function EsphomeAddDeviceWizard({
   const [importFile, setImportFile] = useState("");
   const [importPreview, setImportPreview] = useState<EsphomeBuilderPreview | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [createdDevice, setCreatedDevice] = useState<CreatedDevice | null>(null);
 
   const isEditMode = Boolean(editDeviceId);
 
@@ -181,6 +193,18 @@ export function EsphomeAddDeviceWizard({
     setPreview(null);
     setImportFile("");
     setImportPreview(null);
+    setCreatedDevice(null);
+  }
+
+  function finishWizard() {
+    reset();
+    onClose();
+  }
+
+  function openEsphomePanelForCreated() {
+    if (!createdDevice) return;
+    onOpenEsphomePanel?.(createdDevice.deviceId);
+    finishWizard();
   }
 
   useEffect(() => {
@@ -267,9 +291,17 @@ export function EsphomeAddDeviceWizard({
   }, [open, path, newStep, builderConfig, roomId, onError]);
 
   async function validateCurrentNewStep(): Promise<boolean> {
-    if (newStep === "hardware" || newStep === "identity") {
-      if (newStep === "identity" && !displayName.trim()) {
+    if (newStep === "hardware") {
+      onError(null);
+      return true;
+    }
+    if (newStep === "identity") {
+      if (!displayName.trim()) {
         onError("Device name is required");
+        return false;
+      }
+      if (/^\d/.test(displayName.trim())) {
+        onError("Device name must not start with a number");
         return false;
       }
       onError(null);
@@ -315,15 +347,15 @@ export function EsphomeAddDeviceWizard({
         onSuccess(
           `Saved ${displayName.trim()}. Open ESPHome → Compile firmware, then Install OTA if hardware changed.`
         );
+        await Promise.resolve(onCreated());
+        finishWizard();
       } else {
-        await api.esphomeBuilderCreate(builderConfig, roomId || null);
-        onSuccess(
-          `Created ${displayName.trim()}. On the Devices page, open ESPHome → Compile firmware, then Install OTA.`
-        );
+        const result = await api.esphomeBuilderCreate(builderConfig, roomId || null);
+        await Promise.resolve(onCreated());
+        setCreatedDevice({ deviceId: result.deviceId, name: displayName.trim() });
+        setPath("created");
+        onSuccess(`Created ${displayName.trim()}. Continue with firmware install below.`);
       }
-      onCreated();
-      onClose();
-      reset();
     } catch (err) {
       onError(err instanceof Error ? err.message : isEditMode ? "Save failed" : "Create failed");
     } finally {
@@ -362,18 +394,24 @@ export function EsphomeAddDeviceWizard({
   }
 
   const dialogTitle =
-    isEditMode
-      ? "Edit ESPHome configuration"
-      : path === "choose"
-        ? "Add device"
-        : path === "import"
-          ? "Import ESPHome device"
-          : "New ESPHome device";
+    path === "created"
+      ? "Device created"
+      : isEditMode
+        ? "Edit ESPHome configuration"
+        : path === "choose"
+          ? "Add device"
+          : path === "import"
+            ? "Import ESPHome device"
+            : "New ESPHome device";
+
+  const installActiveStep = ESPHOME_WIZARD_INSTALL_STEPS.findIndex(
+    (s) => s.state === "awaiting_installation"
+  );
 
   return (
     <Dialog
       open={open}
-      onClose={() => !busy && onClose()}
+      onClose={() => !busy && finishWizard()}
       fullWidth
       maxWidth="md"
     >
@@ -482,7 +520,7 @@ export function EsphomeAddDeviceWizard({
                     required
                     fullWidth
                     autoFocus
-                    helperText="Shown in Nexternel (e.g. Garden Controller)"
+                    helperText="Shown in Nexternel (e.g. Garden Controller). Must not start with a number."
                   />
                   <FormControl fullWidth size="small">
                     <InputLabel id="esp-area">{AREA.singular}</InputLabel>
@@ -792,6 +830,14 @@ export function EsphomeAddDeviceWizard({
                       </ul>
                     </Box>
                   ) : null}
+                  {!isEditMode && (
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom>
+                        {ESPHOME_WIZARD_INSTALL_TITLE}
+                      </Typography>
+                      <InstallWorkflowStepper activeStep={0} />
+                    </Box>
+                  )}
                   <Alert severity="info">
                     After creating, open <strong>ESPHome</strong> on the Devices page to compile
                     and install firmware.
@@ -857,9 +903,47 @@ export function EsphomeAddDeviceWizard({
               )}
             </Stack>
           )}
+
+          {!editLoading && path === "created" && createdDevice && (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Alert severity="success">
+                <strong>{createdDevice.name}</strong> is registered. YAML is on this server —
+                continue with firmware install.
+              </Alert>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  {ESPHOME_WIZARD_INSTALL_TITLE}
+                </Typography>
+                <InstallWorkflowStepper activeStep={installActiveStep} />
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  variant="contained"
+                  startIcon={<BuildRoundedIcon />}
+                  onClick={openEsphomePanelForCreated}
+                >
+                  Open ESPHome
+                </Button>
+                <Button
+                  href={esphomeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  endIcon={<OpenInNewRoundedIcon />}
+                >
+                  ESPHome dashboard
+                </Button>
+              </Stack>
+            </Stack>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => onClose()} disabled={busy}>
+          {path === "created" ? (
+            <Button variant="contained" onClick={finishWizard}>
+              Done
+            </Button>
+          ) : (
+            <>
+          <Button onClick={() => finishWizard()} disabled={busy}>
             Cancel
           </Button>
           {path === "choose" ? null : path === "import" ? (
@@ -889,6 +973,8 @@ export function EsphomeAddDeviceWizard({
               <Button variant="contained" onClick={() => void onNextNew()} disabled={busy}>
                 Next
               </Button>
+            </>
+          )}
             </>
           )}
         </DialogActions>

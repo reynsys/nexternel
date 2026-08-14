@@ -204,6 +204,7 @@ export async function saveDeviceEsphomeYaml(
     `UPDATE devices SET
        esphome_management_mode = 'advanced',
        esphome_lifecycle_state = 'configured',
+       esphome_builder_config = NULL,
        esphome_yaml_path = $2,
        updated_at = NOW()
      WHERE id = $1`,

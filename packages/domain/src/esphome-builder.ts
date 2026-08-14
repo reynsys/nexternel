@@ -28,7 +28,8 @@ export type EsphomeLifecycleState =
   | "connecting"
   | "online"
   | "offline"
-  | "error";
+  | "error"
+  | "configuration_missing";
 
 export type BuilderComponentKind = "dht" | "gpio_switch" | "pms" | "pulse_meter";
 

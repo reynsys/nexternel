@@ -29,7 +29,7 @@ async function yamlExistsForStem(stem: string): Promise<boolean> {
   return Boolean(yaml);
 }
 
-async function yamlExistsForDevice(device: {
+export async function yamlExistsForDevice(device: {
   esphomeName: string | null;
   slug: string;
   mqttTopicPrefix: string;
@@ -52,38 +52,61 @@ async function yamlExistsForDevice(device: {
   return false;
 }
 
+export type EsphomeYamlConfigSyncResult = {
+  markedMissing: { id: string; name: string }[];
+  restored: { id: string; name: string }[];
+};
+
 /**
- * Remove ESPHome device rows whose YAML no longer exists on the server
- * (e.g. deleted from the ESPHome dashboard). Skips when the config folder
- * is not readable to avoid mass deletion on a mount failure.
+ * Mark ESPHome devices whose YAML is missing (configuration_missing).
+ * Restore devices when YAML reappears. Never deletes device rows.
  */
-export async function pruneEsphomeDevicesMissingYaml(): Promise<{
-  removed: { id: string; name: string }[];
-}> {
+export async function syncEsphomeYamlConfigStatus(): Promise<EsphomeYamlConfigSyncResult> {
   if (!(await esphomeDirReadable())) {
-    return { removed: [] };
+    return { markedMissing: [], restored: [] };
   }
 
   const devices = await listDevicesDetailed();
-  const removed: { id: string; name: string }[] = [];
+  const markedMissing: { id: string; name: string }[] = [];
+  const restored: { id: string; name: string }[] = [];
 
   for (const device of devices) {
     if ((device.firmwareType || "esphome") !== "esphome") continue;
-    if (await yamlExistsForDevice(device)) continue;
+    const exists = await yamlExistsForDevice(device);
 
-    const result = await getPool().query(`DELETE FROM devices WHERE id = $1 RETURNING id`, [
-      device.id,
-    ]);
-    if ((result.rowCount ?? 0) > 0) {
-      removed.push({ id: device.id, name: device.name });
+    if (!exists && device.esphomeLifecycleState !== "configuration_missing") {
+      await getPool().query(
+        `UPDATE devices SET esphome_lifecycle_state = 'configuration_missing', updated_at = NOW()
+         WHERE id = $1`,
+        [device.id]
+      );
+      markedMissing.push({ id: device.id, name: device.name });
+      continue;
+    }
+
+    if (exists && device.esphomeLifecycleState === "configuration_missing") {
+      await getPool().query(
+        `UPDATE devices SET esphome_lifecycle_state = 'configured', updated_at = NOW()
+         WHERE id = $1`,
+        [device.id]
+      );
+      restored.push({ id: device.id, name: device.name });
     }
   }
 
-  if (removed.length > 0) {
+  if (markedMissing.length > 0 || restored.length > 0) {
     await refreshTelemetrySubscriptions();
   }
 
-  return { removed };
+  return { markedMissing, restored };
+}
+
+/** @deprecated Use syncEsphomeYamlConfigStatus — kept for callers expecting the old name. */
+export async function pruneEsphomeDevicesMissingYaml(): Promise<{
+  removed: { id: string; name: string }[];
+}> {
+  const { markedMissing } = await syncEsphomeYamlConfigStatus();
+  return { removed: markedMissing };
 }
 
 function pruneIntervalMs(): number {
@@ -93,7 +116,7 @@ function pruneIntervalMs(): number {
   return Number.isFinite(parsed) && parsed >= 60_000 ? parsed : DEFAULT_PRUNE_INTERVAL_MS;
 }
 
-/** Periodic background check — complements Devices page catalog prune. */
+/** Periodic background YAML presence check — marks missing config, never deletes devices. */
 export function startEsphomeOrphanPruneLoop(
   log: { info: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void }
 ): void {
@@ -101,12 +124,15 @@ export function startEsphomeOrphanPruneLoop(
 
   const run = async () => {
     try {
-      const { removed } = await pruneEsphomeDevicesMissingYaml();
-      if (removed.length > 0) {
-        log.info({ removed }, "ESPHome orphan prune removed devices");
+      const { markedMissing, restored } = await syncEsphomeYamlConfigStatus();
+      if (markedMissing.length > 0) {
+        log.info({ markedMissing }, "ESPHome YAML missing — devices marked configuration_missing");
+      }
+      if (restored.length > 0) {
+        log.info({ restored }, "ESPHome YAML restored — devices cleared configuration_missing");
       }
     } catch (err) {
-      log.warn({ err }, "ESPHome orphan prune failed");
+      log.warn({ err }, "ESPHome YAML config sync failed");
     }
   };
 

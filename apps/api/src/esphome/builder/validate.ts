@@ -64,6 +64,14 @@ export function validateEsphomeBuilderConfig(
     issues.push(
       issue("displayName", "Device display name is too long", "max_length")
     );
+  } else if (/^\d/.test(config.displayName.trim())) {
+    issues.push(
+      issue(
+        "displayName",
+        "Device name must not start with a number",
+        "invalid_name"
+      )
+    );
   }
 
   const board = config.boardId ? boardCatalogEntry(config.boardId) : undefined;

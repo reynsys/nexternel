@@ -34,7 +34,8 @@ export function esphomeObjectIdFromName(name: string): string {
   return name.trim().toLowerCase().replace(/ /g, "_");
 }
 
-function resolveSubstitutions(yaml: string): string {
+/** Inline `substitutions:` values into `${key}` placeholders (best-effort). */
+export function resolveSubstitutions(yaml: string): string {
   const subs: Record<string, string> = {};
   const subSection = extractTopLevelSection(yaml, "substitutions");
   if (!subSection) return yaml;
@@ -537,24 +538,45 @@ export async function loadEsphomeYaml(esphomeName: string): Promise<string | nul
   return null;
 }
 
-/** Load YAML and append any same-folder `!include` files (common in ESPHome builder). */
+async function readEsphomeRelativePath(relPath: string): Promise<string | null> {
+  const fileName = relPath.endsWith(".yaml") ? relPath : `${relPath}.yaml`;
+  for (const dir of ESPHOME_DIRS) {
+    try {
+      return await readFile(join(dir, fileName), "utf8");
+    } catch {
+      /* try next path */
+    }
+  }
+  return null;
+}
+
+/** Load YAML and append any `!include` fragments (one level, deduped by content). */
 export async function loadEsphomeYamlMerged(esphomeName: string): Promise<string | null> {
   const base = await loadEsphomeYaml(esphomeName);
   if (!base) return null;
 
-  let merged = base;
-  const includes = [
-    ...base.matchAll(/!include\s+['"]?([^'"\s#]+\.yaml)['"]?/g),
-    ...base.matchAll(/!include\s+['"]?([^'"\s#]+)['"]?/g),
-  ];
+  const mergedParts = [base];
+  const seenPaths = new Set<string>();
+  const queue = [...base.matchAll(/!include\s+['"]?([^'"\s#]+)['"]?/g)].map((m) => m[1]);
 
-  for (const [, file] of includes) {
-    const stem = file.replace(/\.yaml$/, "");
-    const inc = await loadEsphomeYaml(stem);
-    if (inc && !merged.includes(inc)) merged += `\n${inc}`;
+  while (queue.length > 0) {
+    const relPath = queue.shift()!;
+    const normalized = relPath.replace(/\.yaml$/, "");
+    if (seenPaths.has(normalized)) continue;
+    seenPaths.add(normalized);
+
+    const inc =
+      (await readEsphomeRelativePath(relPath)) ??
+      (await loadEsphomeYaml(normalized));
+    if (!inc || mergedParts.some((part) => part.includes(inc))) continue;
+
+    mergedParts.push(inc);
+    for (const nested of inc.matchAll(/!include\s+['"]?([^'"\s#]+)['"]?/g)) {
+      queue.push(nested[1]);
+    }
   }
 
-  return merged;
+  return mergedParts.join("\n");
 }
 
 export async function suggestFromEsphome(

@@ -55,6 +55,45 @@ Device list includes `esphomeLifecycleState`, `esphomeManagementMode`, `esphomeY
 
 First-time USB flash may still require ESPHome dashboard if the device has never been on the network.
 
+## Phase 12 — Lifecycle & ownership consolidation (V4.0.101+)
+
+| Area | Behaviour |
+|------|-----------|
+| Missing YAML | Device row kept; `configuration_missing` lifecycle; auto-restore when file returns |
+| Managed delete | Removes Nexternel device + server YAML |
+| Imported / Advanced delete | Removes registration only; optional checkbox to delete YAML |
+| Advanced YAML save | Clears `esphome_builder_config`; mode → `advanced` |
+| Adopt to builder | Browser confirm; especially for Advanced devices |
+| Regenerate YAML | `POST .../restore-yaml` for managed devices with builder config |
+| Connectivity | Online/offline chip uses `is_online`; provisioning uses separate lifecycle chip |
+| Commissioning | `connecting` shown as “Waiting for device” until MQTT seen |
+
+## Phase 11 — Complex legacy YAML infer (V4.0.100+)
+
+**Adopt to builder** and legacy YAML inference now handle:
+
+| Pattern | Behaviour |
+|---------|-----------|
+| `substitutions:` + `${key}` | Resolved before inferring pins, pulse rates, friendly names |
+| `!include` fragments | Merged when loading YAML for adopt (nested includes, subpaths) |
+| `output:` + `switch: platform: output` | GPIO relay inferred from output pin map |
+| `output:` + `light: platform: binary/gpio` | User-facing lights inferred as gpio_switch (internal/status LEDs skipped) |
+| Nested `pin: number: GPIOx` | Parsed on switches and sensors |
+
+## Phase 10 — Post-create install guide (V4.0.098+)
+
+After **Create device**, the wizard shows a **Device created** screen instead of closing immediately:
+
+- Success confirmation and **Next steps** stepper (highlight on **Awaiting installation**)
+- **Open ESPHome** — closes wizard and opens the Devices ESPHome panel (Compile / Install OTA / flash YAML)
+- **Done** — return to Devices list
+
+## Phase 9 — Install workflow preview + legacy adopt (V4.0.097+)
+
+**Add device wizard → Review** — vertical install workflow using existing lifecycle labels (Configured → Awaiting installation → Firmware ready → Online).
+
+**Adopt to builder (extended)** — infers builder config from common legacy YAML (DHT, GPIO relays, PMS, pulse meter) without requiring the Nexternel builder marker comment. Review inferred hardware in **Edit configuration** before saving.
+
 ## Phase 8 — Lifecycle sync + adopt to builder (V4.0.096+)
 
 **Background orphan prune** — API runs YAML orphan cleanup on startup (after 60s) and every 15 minutes (`ESPHOME_ORPHAN_PRUNE_INTERVAL_MS` optional). Complements the Devices page check from Phase 7.
@@ -149,7 +188,7 @@ POST /api/v1/v4/devices/esphome/builder/create
 
 Result: device row + sensors/relays + capabilities + `esphome/devices/garden-controller.yaml` + lifecycle `awaiting_installation`.
 
-## Next phases (not in Phase 8)
+## Next phases (not in Phase 11)
 
-- Full YAML round-trip for hand-written legacy configs (non-builder YAML)
-- Wizard preview of lifecycle steps before first flash
+- Additional component types in the builder catalogue (beyond DHT, relay, PMS, pulse meter)
+- Wizard import preview of inferred builder config before adopt

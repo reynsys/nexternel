@@ -687,14 +687,19 @@ export async function updateDevice(
   return getDeviceDetailed(id);
 }
 
-export async function deleteDevice(id: string): Promise<boolean> {
+export async function deleteDevice(
+  id: string,
+  options?: { deleteYaml?: boolean }
+): Promise<boolean> {
   const meta = await getPool().query<{
     firmware_type: string;
     esphome_yaml_path: string | null;
     esphome_name: string | null;
     slug: string;
+    esphome_management_mode: string | null;
   }>(
-    `SELECT firmware_type, esphome_yaml_path, esphome_name, slug FROM devices WHERE id = $1`,
+    `SELECT firmware_type, esphome_yaml_path, esphome_name, slug, esphome_management_mode
+     FROM devices WHERE id = $1`,
     [id]
   );
   const row = meta.rows[0];
@@ -705,10 +710,14 @@ export async function deleteDevice(id: string): Promise<boolean> {
   const deleted = (result.rowCount ?? 0) > 0;
 
   if (deleted && row?.firmware_type === "esphome") {
-    const yamlPath =
-      row.esphome_yaml_path?.trim() ||
-      (row.esphome_name ? `${row.esphome_name}.yaml` : `${row.slug}.yaml`);
-    await removeDeviceYamlFile(yamlPath);
+    const mode = row.esphome_management_mode?.trim() || "imported";
+    const shouldDeleteYaml = options?.deleteYaml ?? mode === "managed";
+    if (shouldDeleteYaml) {
+      const yamlPath =
+        row.esphome_yaml_path?.trim() ||
+        (row.esphome_name ? `${row.esphome_name}.yaml` : `${row.slug}.yaml`);
+      await removeDeviceYamlFile(yamlPath);
+    }
   }
 
   return deleted;

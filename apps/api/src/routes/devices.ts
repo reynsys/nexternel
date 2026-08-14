@@ -9,7 +9,7 @@ import {
   suggestFromEsphome,
   type EsphomeImportSuggestion,
 } from "../esphome/yaml.js";
-import { pruneEsphomeDevicesMissingYaml } from "../esphome/orphan-prune.js";
+import { syncEsphomeYamlConfigStatus } from "../esphome/orphan-prune.js";
 import {
   createDevice,
   deleteDevice,
@@ -50,12 +50,12 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/devices/esphome-catalog", async (request, reply) => {
     if (!requirePermission(request, reply, "viewDevices")) return;
 
-    const pruned =
+    const yamlStatus =
       request.user?.isAdmin ||
       request.user?.role === "admin" ||
       request.user?.permissions?.editDevices
-        ? await pruneEsphomeDevicesMissingYaml()
-        : { removed: [] as { id: string; name: string }[] };
+        ? await syncEsphomeYamlConfigStatus()
+        : { markedMissing: [] as { id: string; name: string }[], restored: [] as { id: string; name: string }[] };
 
     const files = await listEsphomeYamlFiles();
     const registered = await getPool().query<{
@@ -95,7 +95,9 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         files.length === 0
           ? "No YAML files found in /esphome — create a device in ESPHome Builder first, then ensure the esphome/ folder is on the server."
           : null,
-      pruned: pruned.removed,
+      yamlStatus,
+      /** @deprecated use yamlStatus.markedMissing */
+      pruned: yamlStatus.markedMissing,
     };
   });
 
@@ -282,7 +284,11 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   app.delete("/api/v1/devices/:id", async (request, reply) => {
     if (!requirePermission(request, reply, "editDevices")) return;
     const { id } = request.params as { id: string };
-    const ok = await deleteDevice(id);
+    const q = request.query as { deleteYaml?: string };
+    let deleteYaml: boolean | undefined;
+    if (q.deleteYaml === "true") deleteYaml = true;
+    else if (q.deleteYaml === "false") deleteYaml = false;
+    const ok = await deleteDevice(id, { deleteYaml });
     if (!ok) {
       return reply.code(404).send({
         error: { code: "not_found", message: "Device not found" },

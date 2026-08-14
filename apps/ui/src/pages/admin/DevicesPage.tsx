@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -43,7 +44,7 @@ import {
 import { AREA } from "../../lib/area-labels";
 import {
   esphomeDashboardUrl,
-  esphomeLifecycleLabel,
+  esphomeProvisioningLifecycleLabel,
   formatLastSeen,
 } from "../../lib/device-utils";
 import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
@@ -117,6 +118,7 @@ export function DevicesPage() {
   );
   const [discoverBusy, setDiscoverBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRecord | null>(null);
+  const [deleteYamlToo, setDeleteYamlToo] = useState(false);
   const [esphomePanelDevice, setEsphomePanelDevice] = useState<DeviceRecord | null>(null);
   const [systems, setSystems] = useState<{ id: string; label: string }[]>([]);
 
@@ -151,9 +153,17 @@ export function DevicesPage() {
       }
       setCatalog(catRes.configs);
       setCatalogHint(catRes.esphomeDirHint);
-      if (catRes.pruned?.length) {
+      if (catRes.yamlStatus?.markedMissing?.length) {
         setInfo(
-          `Removed ${catRes.pruned.length} device(s) whose YAML was deleted from the server: ${catRes.pruned.map((p) => p.name).join(", ")}`
+          `YAML missing on server for ${catRes.yamlStatus.markedMissing.length} device(s): ${catRes.yamlStatus.markedMissing.map((p) => p.name).join(", ")}`
+        );
+      } else if (catRes.yamlStatus?.restored?.length) {
+        setInfo(
+          `YAML restored for ${catRes.yamlStatus.restored.length} device(s): ${catRes.yamlStatus.restored.map((p) => p.name).join(", ")}`
+        );
+      } else if (catRes.pruned?.length) {
+        setInfo(
+          `YAML missing on server for ${catRes.pruned.length} device(s): ${catRes.pruned.map((p) => p.name).join(", ")}`
         );
       }
       setError(null);
@@ -191,6 +201,13 @@ export function DevicesPage() {
   }
 
   async function adoptToBuilder(d: DeviceRecord) {
+    const mode = d.esphomeManagementMode ?? "imported";
+    const confirmMessage =
+      mode === "advanced"
+        ? `“${d.name}” uses Advanced YAML. Adopting will infer a builder configuration and switch to managed mode. Future Edit configuration may regenerate YAML from that config. Continue?`
+        : `Adopt “${d.name}” into the Device Builder? Nexternel will infer hardware from the server YAML.`;
+    if (!window.confirm(confirmMessage)) return;
+
     setBusy(true);
     setError(null);
     try {
@@ -321,11 +338,28 @@ export function DevicesPage() {
     }
   }
 
+  async function restoreYaml(d: DeviceRecord) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.esphomeRestoreYaml(d.id);
+      setInfo(`Regenerated ${res.yamlPath} for ${d.name}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Regenerate YAML failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onDelete() {
     if (!deleteTarget) return;
     setBusy(true);
     try {
-      await api.deleteDevice(deleteTarget.id);
+      const managed = deleteTarget.esphomeManagementMode === "managed";
+      await api.deleteDevice(deleteTarget.id, {
+        deleteYaml: managed ? true : deleteYamlToo,
+      });
       setDeleteTarget(null);
       setInfo(`Deleted ${deleteTarget.name}`);
       await load();
@@ -611,7 +645,7 @@ export function DevicesPage() {
                   }
                 />
                 {!d.isEnabled && <Chip size="small" label="Disabled" color="warning" />}
-                {esphomeLifecycleLabel(d.esphomeLifecycleState) && (
+                {esphomeProvisioningLifecycleLabel(d.esphomeLifecycleState) && (
                   <Chip
                     size="small"
                     variant="outlined"
@@ -619,24 +653,38 @@ export function DevicesPage() {
                       d.esphomeLifecycleState === "firmware_ready"
                         ? "success"
                         : d.esphomeLifecycleState === "error" ||
-                            d.esphomeLifecycleState === "validation_failed"
+                            d.esphomeLifecycleState === "validation_failed" ||
+                            d.esphomeLifecycleState === "configuration_missing"
                           ? "error"
                           : d.esphomeLifecycleState === "building"
                             ? "info"
-                            : "default"
+                            : d.esphomeLifecycleState === "connecting"
+                              ? "warning"
+                              : "default"
                     }
-                    label={esphomeLifecycleLabel(d.esphomeLifecycleState)}
+                    label={esphomeProvisioningLifecycleLabel(d.esphomeLifecycleState)}
                   />
                 )}
                 <Chip size="small" variant="outlined" label={d.roomName ?? `No ${AREA.singular}`} />
                 <Typography variant="caption" color="text.secondary">
                   {d.sensors.length} sensor(s) · {d.relays.length} relay(s) · last seen{" "}
                   {formatLastSeen(d.lastSeenAt)}
+                  {d.esphomeLifecycleState === "connecting" && !d.isOnline
+                    ? " · waiting for device on MQTT"
+                    : ""}
                 </Typography>
               </Stack>
             </AccordionSummary>
             <AccordionDetails>
               <Stack spacing={2}>
+                {d.esphomeLifecycleState === "configuration_missing" && (
+                  <Alert severity="warning">
+                    ESPHome YAML file is missing on the server. The device row is kept in Nexternel.
+                    {d.esphomeManagementMode === "managed"
+                      ? " Use Regenerate YAML to recreate it from the builder configuration, or restore the file on the server."
+                      : " Restore the YAML file on the server, or delete this registration."}
+                  </Alert>
+                )}
                 <Typography variant="body2" fontFamily="monospace" color="text.secondary">
                   {d.mqttTopicPrefix}
                   {d.ipAddress ? ` · ${d.ipAddress}` : ""}
@@ -659,6 +707,16 @@ export function DevicesPage() {
                     </Button>
                     {(d.firmwareType || "esphome") === "esphome" && (
                       <>
+                        {d.esphomeLifecycleState === "configuration_missing" &&
+                          d.esphomeManagementMode === "managed" && (
+                            <Button
+                              size="small"
+                              disabled={busy}
+                              onClick={() => void restoreYaml(d)}
+                            >
+                              Regenerate YAML
+                            </Button>
+                          )}
                         {d.esphomeManagementMode === "managed" && (
                           <Button
                             size="small"
@@ -717,7 +775,10 @@ export function DevicesPage() {
                       size="small"
                       color="error"
                       aria-label="Delete device"
-                      onClick={() => setDeleteTarget(d)}
+                      onClick={() => {
+                        setDeleteYamlToo(false);
+                        setDeleteTarget(d);
+                      }}
                     >
                       <DeleteRoundedIcon fontSize="small" />
                     </IconButton>
@@ -892,7 +953,21 @@ export function DevicesPage() {
           onBusy={setBusy}
           onError={setError}
           onSuccess={setInfo}
-          onCreated={() => void load()}
+          onCreated={() => load()}
+          onOpenEsphomePanel={(deviceId) => {
+            const device = devices.find((d) => d.id === deviceId);
+            if (device) {
+              setEsphomePanelDevice(device);
+            } else {
+              void api.devices().then((res) => {
+                const found = res.devices.find((d) => d.id === deviceId);
+                if (found) setEsphomePanelDevice(found);
+              });
+            }
+            setWizardOpen(false);
+            setWizardImportFile(null);
+            setWizardEditDeviceId(null);
+          }}
         />
       )}
 
@@ -1207,10 +1282,32 @@ export function DevicesPage() {
       >
         <DialogTitle>Delete device</DialogTitle>
         <DialogContent>
-          <Typography>
-            Delete <strong>{deleteTarget?.name}</strong> and all its sensors/relays? This cannot be
-            undone.
-          </Typography>
+          <Stack spacing={2}>
+            <Typography>
+              Delete <strong>{deleteTarget?.name}</strong> and all its sensors/relays? This cannot be
+              undone.
+            </Typography>
+            {deleteTarget &&
+              (deleteTarget.firmwareType || "esphome") === "esphome" &&
+              deleteTarget.esphomeManagementMode === "managed" && (
+                <Typography variant="body2" color="text.secondary">
+                  The managed ESPHome YAML file on the server will also be deleted.
+                </Typography>
+              )}
+            {deleteTarget &&
+              (deleteTarget.firmwareType || "esphome") === "esphome" &&
+              deleteTarget.esphomeManagementMode !== "managed" && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={deleteYamlToo}
+                      onChange={(e) => setDeleteYamlToo(e.target.checked)}
+                    />
+                  }
+                  label="Also delete ESPHome YAML file on server"
+                />
+              )}
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteTarget(null)} disabled={busy}>
