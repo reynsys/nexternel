@@ -1,4 +1,3 @@
-import { readFile } from "fs/promises";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { EsphomeLifecycleState } from "@nexternel/domain";

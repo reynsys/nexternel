@@ -38,6 +38,23 @@ From **Devices** → expand an ESPHome device → **Compile firmware**:
 
 Device list includes `esphomeLifecycleState`, `esphomeManagementMode`, `esphomeYamlPath`.
 
+## Phase 4 — Install OTA + Advanced YAML (V4.0.092+)
+
+**Devices** → expand ESPHome device → **ESPHome** button opens a panel:
+
+| Tab | Actions |
+|-----|---------|
+| **Firmware** | Compile firmware · Install OTA (runs `esphome upload` in container) |
+| **Advanced** | View/edit YAML · Validate · Save (sets `advanced` mode; syncs sensors/relays from YAML) |
+
+| Method | Path |
+|--------|------|
+| POST | `/api/v1/v4/devices/esphome/:deviceId/upload` |
+| PUT | `/api/v1/v4/devices/esphome/:deviceId/yaml` |
+| POST | `/api/v1/v4/devices/esphome/:deviceId/yaml/validate` |
+
+First-time USB flash may still require ESPHome dashboard if the device has never been on the network.
+
 ## Source of truth
 
 | Mode | Authority | Notes |
@@ -92,9 +109,8 @@ POST /api/v1/v4/devices/esphome/builder/create
 
 Result: device row + sensors/relays + capabilities + `esphome/devices/garden-controller.yaml` + lifecycle `awaiting_installation`.
 
-## Next phases (not in Phase 3)
+## Next phases (not in Phase 4)
 
-- Install / OTA from Nexternel UI (without opening ESPHome)
-- Advanced YAML editor tab
 - Additional component types (PMS air quality, pulse meter, etc.)
 - Delete device removes YAML; ESPHome delete sync
+- USB install from browser (web.esphome.io)

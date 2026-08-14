@@ -256,7 +256,7 @@ export function EsphomeAddDeviceWizard({
     try {
       await api.esphomeBuilderCreate(builderConfig, roomId || null);
       onSuccess(
-        `Created ${displayName.trim()}. On the Devices page, use Compile firmware, then open ESPHome to install.`
+        `Created ${displayName.trim()}. On the Devices page, open ESPHome → Compile firmware, then Install OTA.`
       );
       onCreated();
       onClose();
@@ -616,8 +616,8 @@ export function EsphomeAddDeviceWizard({
                     </Box>
                   ) : null}
                   <Alert severity="info">
-                    After creating, use <strong>Compile firmware</strong> on the Devices page,
-                    then open ESPHome to install (USB or OTA).
+                    After creating, open <strong>ESPHome</strong> on the Devices page to compile
+                    and install firmware.
                   </Alert>
                   <Button
                     href={esphomeUrl}

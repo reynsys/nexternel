@@ -49,6 +49,7 @@ import {
 import { useContentSurfaceSx } from "../../skins/useSurfaceStyles";
 import { OctopusSettingsCard } from "./OctopusSettingsCard";
 import { EsphomeAddDeviceWizard } from "./EsphomeAddDeviceWizard";
+import { EsphomeDevicePanelDialog } from "./EsphomeDevicePanelDialog";
 
 type AreaOption = { id: string; name: string };
 
@@ -115,8 +116,7 @@ export function DevicesPage() {
   );
   const [discoverBusy, setDiscoverBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeviceRecord | null>(null);
-  const [compileTarget, setCompileTarget] = useState<DeviceRecord | null>(null);
-  const [compileLog, setCompileLog] = useState("");
+  const [esphomePanelDevice, setEsphomePanelDevice] = useState<DeviceRecord | null>(null);
   const [systems, setSystems] = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -386,29 +386,6 @@ export function DevicesPage() {
     }
   }
 
-  async function compileFirmware(device: DeviceRecord) {
-    setCompileTarget(device);
-    setCompileLog("Compiling firmware… this may take a few minutes.");
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api.esphomeCompile(device.id);
-      setCompileLog(res.log || (res.ok ? "Compile finished." : "Compile failed."));
-      setInfo(
-        res.ok
-          ? `Firmware ready for ${device.name}. Open ESPHome to install (USB or OTA).`
-          : `Compile failed for ${device.name}.`
-      );
-      await load();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Compile failed";
-      setCompileLog(message);
-      setError(message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function updateCapabilitySystem(capabilityId: string, systemId: string | null) {
     try {
       await api.v4UpdateCapabilitySystem(capabilityId, systemId);
@@ -653,9 +630,9 @@ export function DevicesPage() {
                           size="small"
                           startIcon={<BuildRoundedIcon />}
                           disabled={busy}
-                          onClick={() => void compileFirmware(d)}
+                          onClick={() => setEsphomePanelDevice(d)}
                         >
-                          Compile firmware
+                          ESPHome
                         </Button>
                         <Button
                           size="small"
@@ -1155,31 +1132,18 @@ export function DevicesPage() {
         </form>
       </Dialog>
 
-      <Dialog
-        open={Boolean(compileTarget)}
-        onClose={() => !busy && setCompileTarget(null)}
-        fullWidth
-        maxWidth="md"
-      >
-        <DialogTitle>
-          Compile firmware{compileTarget ? ` — ${compileTarget.name}` : ""}
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            value={compileLog}
-            multiline
-            minRows={12}
-            fullWidth
-            InputProps={{ readOnly: true }}
-            sx={{ mt: 1, fontFamily: "monospace", fontSize: "0.8rem" }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCompileTarget(null)} disabled={busy}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {isAdmin && (
+        <EsphomeDevicePanelDialog
+          open={Boolean(esphomePanelDevice)}
+          device={esphomePanelDevice}
+          busy={busy}
+          onClose={() => setEsphomePanelDevice(null)}
+          onBusy={setBusy}
+          onError={setError}
+          onSuccess={setInfo}
+          onUpdated={() => void load()}
+        />
+      )}
 
       <Dialog
         open={Boolean(deleteTarget)}

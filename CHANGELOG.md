@@ -14,6 +14,10 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.092 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 4)** — Devices **ESPHome** panel: Install OTA from Nexternel; Advanced tab to view/edit/validate/save YAML (switches to advanced management mode); compile + upload run via ESPHome container
+
 ## V4.0.091 — 14/08/2026
 
 - **Build** — fix API compile route TypeScript error; stop running unit tests during Docker image build (shorter PuTTY logs)

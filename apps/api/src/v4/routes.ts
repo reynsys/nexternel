@@ -23,7 +23,10 @@ import { validateEsphomeBuilderConfig } from "../esphome/builder/validate.js";
 import {
   compileEsphomeDevice,
   readDeviceEsphomeYaml,
-} from "../esphome/builder/compile.js";
+  saveDeviceEsphomeYaml,
+  uploadEsphomeDevice,
+  validateDeviceEsphomeYaml,
+} from "../esphome/builder/firmware.js";
 import { resolvePanelCapabilities } from "./panel-resolver.js";
 import {
   catalogRowsForSystemIds,
@@ -326,6 +329,83 @@ export const v4Routes: FastifyPluginAsync = async (app) => {
           error: {
             code: "compile_failed",
             message: err instanceof Error ? err.message : "Compile failed",
+          },
+        });
+      }
+    }
+  );
+
+  app.put<{ Params: { deviceId: string }; Body: { yaml?: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/yaml",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      const yaml = typeof request.body?.yaml === "string" ? request.body.yaml : "";
+      if (!deviceId || !yaml.trim()) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId and yaml are required" },
+        });
+      }
+      try {
+        const result = await saveDeviceEsphomeYaml(deviceId, yaml);
+        if (!result.ok) {
+          return reply.code(400).send({
+            error: { code: "yaml_invalid", message: "YAML validation failed" },
+            ...result,
+          });
+        }
+        return result;
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "yaml_save_failed",
+            message: err instanceof Error ? err.message : "Save failed",
+          },
+        });
+      }
+    }
+  );
+
+  app.post<{ Params: { deviceId: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/yaml/validate",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      if (!deviceId) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId is required" },
+        });
+      }
+      try {
+        return await validateDeviceEsphomeYaml(deviceId);
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "validate_failed",
+            message: err instanceof Error ? err.message : "Validate failed",
+          },
+        });
+      }
+    }
+  );
+
+  app.post<{ Params: { deviceId: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/upload",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "editDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      if (!deviceId) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId is required" },
+        });
+      }
+      try {
+        return await uploadEsphomeDevice(deviceId);
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "upload_failed",
+            message: err instanceof Error ? err.message : "Upload failed",
           },
         });
       }

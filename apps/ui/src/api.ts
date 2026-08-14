@@ -881,7 +881,7 @@ export const api = {
     ),
 
   esphomeDeviceYaml: (deviceId: string) =>
-    apiFetch<{ yaml: string; path: string }>(
+    apiFetch<{ yaml: string; path: string; managementMode?: string | null }>(
       `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/yaml`
     ),
 
@@ -889,6 +889,24 @@ export const api = {
     apiFetch<EsphomeCompileResult>(
       `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/compile`,
       { method: "POST" }
+    ),
+
+  esphomeUpload: (deviceId: string) =>
+    apiFetch<EsphomeCompileResult>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/upload`,
+      { method: "POST" }
+    ),
+
+  esphomeValidateYaml: (deviceId: string) =>
+    apiFetch<{ ok: boolean; log: string }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/yaml/validate`,
+      { method: "POST" }
+    ),
+
+  esphomeSaveDeviceYaml: (deviceId: string, yaml: string) =>
+    apiFetch<{ ok: boolean; log: string; managementMode: string; yamlPath: string }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/yaml`,
+      { method: "PUT", body: JSON.stringify({ yaml }) }
     ),
 
   v4EsphomePreview: (yamlName: string, roomId?: string | null) => {
