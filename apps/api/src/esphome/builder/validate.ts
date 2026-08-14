@@ -195,6 +195,74 @@ export function validateEsphomeBuilderConfig(
         issues.push(issue(`${path}.name`, "Switch display name is required", "required"));
       }
     }
+
+    if (comp.kind === "pms") {
+      const tx = comp.uartTxPin;
+      const rx = comp.uartRxPin;
+      for (const [pin, label] of [
+        [tx, "UART TX"],
+        [rx, "UART RX"],
+      ] as const) {
+        if (!Number.isInteger(pin)) {
+          issues.push(issue(`${path}.uart`, `${label} pin is required`, "required"));
+        } else if (board && (pin < board.gpioMin || pin > board.gpioMax)) {
+          issues.push(
+            issue(
+              `${path}.uart`,
+              `GPIO ${pin} is not valid for ${board.label}`,
+              "invalid_pin"
+            )
+          );
+        } else {
+          const prev = usedPins.get(pin);
+          if (prev) {
+            issues.push(
+              issue(
+                `${path}.uart`,
+                `GPIO ${pin} is already used by ${prev}`,
+                "duplicate_pin"
+              )
+            );
+          } else {
+            usedPins.set(pin, `${catalog.label} ${label}`);
+          }
+        }
+      }
+      if (tx === rx) {
+        issues.push(
+          issue(`${path}.uart`, "UART TX and RX must use different GPIO pins", "duplicate_pin")
+        );
+      }
+      if (!["PMSX003", "PMS5003", "PMS7003"].includes(comp.variant)) {
+        issues.push(issue(`${path}.variant`, "Select a supported PMS model", "invalid_variant"));
+      }
+    }
+
+    if (comp.kind === "pulse_meter") {
+      const pin = comp.pin;
+      if (!Number.isInteger(pin)) {
+        issues.push(issue(`${path}.pin`, "Pulse input pin is required", "required"));
+      } else if (board && (pin < board.gpioMin || pin > board.gpioMax)) {
+        issues.push(
+          issue(`${path}.pin`, `GPIO ${pin} is not valid for ${board.label}`, "invalid_pin")
+        );
+      } else {
+        const prev = usedPins.get(pin);
+        if (prev) {
+          issues.push(
+            issue(`${path}.pin`, `GPIO ${pin} is already used by ${prev}`, "duplicate_pin")
+          );
+        } else {
+          usedPins.set(pin, catalog.label);
+        }
+      }
+      const rate = comp.pulseRate;
+      if (!Number.isInteger(rate) || rate < 1 || rate > 100_000) {
+        issues.push(
+          issue(`${path}.pulseRate`, "Enter impulses per kWh from your meter label", "invalid_rate")
+        );
+      }
+    }
   });
 
   return { valid: issues.length === 0, issues };
@@ -217,6 +285,20 @@ export function normalizeBuilderConfig(
           ...c,
           id: c.id.trim(),
           updateIntervalSeconds: c.updateIntervalSeconds ?? 60,
+        };
+      }
+      if (c.kind === "pms") {
+        return {
+          ...c,
+          id: c.id.trim(),
+          updateIntervalSeconds: c.updateIntervalSeconds ?? 60,
+        };
+      }
+      if (c.kind === "pulse_meter") {
+        return {
+          ...c,
+          id: c.id.trim(),
+          pulseRate: c.pulseRate ?? 1000,
         };
       }
       return {

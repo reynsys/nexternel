@@ -14,6 +14,18 @@ All notable changes to the Nexternel smart-home stack are documented here.
 
 Newest releases are listed first.
 
+## V4.0.095 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 7)** — ESPHome panel: Download flash YAML + link to web.esphome.io for first-time USB install; devices whose YAML was deleted from the server are auto-removed from Nexternel on Devices page refresh
+
+## V4.0.094 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 6)** — Energy pulse meter component (power, total kWh, daily kWh via meter LED); managed devices can be re-opened in the Add device wizard via **Edit configuration** (updates YAML and capabilities)
+
+## V4.0.093 — 14/08/2026
+
+- **ESPHome Device Builder (Phase 5)** — PMS air quality component in Add device wizard (PM1, PM2.5, PM10 via UART); deleting an ESPHome device from Nexternel also removes its YAML file from the server
+
 ## V4.0.092 — 14/08/2026
 
 - **ESPHome Device Builder (Phase 4)** — Devices **ESPHome** panel: Install OTA from Nexternel; Advanced tab to view/edit/validate/save YAML (switches to advanced management mode); compile + upload run via ESPHome container

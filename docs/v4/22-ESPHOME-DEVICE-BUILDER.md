@@ -55,6 +55,34 @@ Device list includes `esphomeLifecycleState`, `esphomeManagementMode`, `esphomeY
 
 First-time USB flash may still require ESPHome dashboard if the device has never been on the network.
 
+## Phase 7 — USB flash + YAML orphan cleanup (V4.0.095+)
+
+**ESPHome panel → Firmware tab**
+
+| Action | Purpose |
+|--------|---------|
+| **Download flash YAML** | Self-contained YAML (broker IP, Wi‑Fi, MQTT inlined) for USB install |
+| **web.esphome.io** | Browser-based USB flash when the device is not on the network yet |
+
+**Auto-remove orphaned devices** — when an admin loads the Devices page, Nexternel checks registered ESPHome devices against server YAML files. If the YAML was deleted (e.g. from the ESPHome dashboard), the device row is removed automatically. Skipped when the `esphome/` folder is not readable (avoids mass delete on mount failure).
+
+## Phase 6 — Pulse meter + edit managed device (V4.0.094+)
+
+**Add device wizard** — new **Add pulse meter** component (utility meter LED pulse). Generates power (W), total energy (kWh), and daily energy (kWh) sensors plus SNTP time block.
+
+**Edit configuration** — managed ESPHome devices show **Edit configuration** on the Devices page. Re-opens the wizard with saved `esphome_builder_config`, regenerates YAML, and re-syncs capabilities. Device slug / ESPHome name stays locked.
+
+| Method | Path |
+|--------|------|
+| GET | `/api/v1/v4/devices/esphome/:deviceId/builder-config` |
+| PUT | `/api/v1/v4/devices/esphome/:deviceId/builder` |
+
+## Phase 5 — PMS component + delete sync (V4.0.093+)
+
+**Add device wizard** — new **Add PMS** component type (Plantower PMS5003 / PMS7003 / PMSX003 on UART). Creates PM1, PM2.5, and PM10 capabilities.
+
+**Delete device** — removing an ESPHome device from **Devices** also deletes its `esphome/*.yaml` file on the server (best-effort). ESPHome dashboard may still need a manual refresh.
+
 ## Source of truth
 
 | Mode | Authority | Notes |
@@ -80,7 +108,7 @@ First-time USB flash may still require ESPHome dashboard if the device has never
 
 **Boards:** ESP32 DevKit, ESP32-C3 DevKitM-1, NodeMCU v2, ESP-01 (1 MB)
 
-**Components:** DHT11/DHT21/DHT22 (temperature + humidity), GPIO relay/switch
+**Components:** DHT11/DHT21/DHT22 (temperature + humidity), GPIO relay/switch, PMS air quality (PM1/PM2.5/PM10), energy pulse meter (power + total/daily kWh)
 
 ## Generated YAML location
 
@@ -109,8 +137,7 @@ POST /api/v1/v4/devices/esphome/builder/create
 
 Result: device row + sensors/relays + capabilities + `esphome/devices/garden-controller.yaml` + lifecycle `awaiting_installation`.
 
-## Next phases (not in Phase 4)
+## Next phases (not in Phase 7)
 
-- Additional component types (PMS air quality, pulse meter, etc.)
-- Delete device removes YAML; ESPHome delete sync
-- USB install from browser (web.esphome.io)
+- Periodic background orphan check (not only on Devices page load)
+- Re-edit non-managed / advanced devices in wizard round-trip

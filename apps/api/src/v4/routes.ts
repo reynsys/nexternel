@@ -17,7 +17,9 @@ import {
 import {
   builderCatalogPayload,
   createManagedEsphomeDevice,
+  getManagedBuilderConfig,
   previewManagedEsphomeDevice,
+  updateManagedEsphomeDevice,
 } from "../esphome/builder/registry.js";
 import { validateEsphomeBuilderConfig } from "../esphome/builder/validate.js";
 import {
@@ -286,6 +288,74 @@ export const v4Routes: FastifyPluginAsync = async (app) => {
         error: {
           code: "builder_create_failed",
           message: err instanceof Error ? err.message : "Create failed",
+        },
+      });
+    }
+  });
+
+  app.get<{ Params: { deviceId: string } }>(
+    "/api/v1/v4/devices/esphome/:deviceId/builder-config",
+    async (request, reply) => {
+      if (!requirePermission(request, reply, "viewDevices")) return;
+      const deviceId = request.params.deviceId?.trim();
+      if (!deviceId) {
+        return reply.code(400).send({
+          error: { code: "validation_error", message: "deviceId is required" },
+        });
+      }
+      try {
+        const config = await getManagedBuilderConfig(deviceId);
+        return { ok: true, config };
+      } catch (err) {
+        return reply.code(400).send({
+          error: {
+            code: "builder_config_failed",
+            message: err instanceof Error ? err.message : "Load failed",
+          },
+        });
+      }
+    }
+  );
+
+  app.put<{
+    Params: { deviceId: string };
+    Body: {
+      config?: unknown;
+      roomId?: string | null;
+      systemOverrides?: Record<string, string>;
+    };
+  }>("/api/v1/v4/devices/esphome/:deviceId/builder", async (request, reply) => {
+    if (!requirePermission(request, reply, "editDevices")) return;
+    const deviceId = request.params.deviceId?.trim();
+    if (!deviceId) {
+      return reply.code(400).send({
+        error: { code: "validation_error", message: "deviceId is required" },
+      });
+    }
+
+    const systemOverrides: Record<string, string> = {};
+    const rawOverrides = request.body?.systemOverrides;
+    if (rawOverrides && typeof rawOverrides === "object") {
+      for (const [key, value] of Object.entries(rawOverrides)) {
+        if (typeof value === "string" && isSystemId(value)) {
+          systemOverrides[key] = value;
+        }
+      }
+    }
+
+    try {
+      const result = await updateManagedEsphomeDevice({
+        deviceId,
+        config: request.body?.config,
+        roomId: request.body?.roomId,
+        systemOverrides: systemOverrides as Record<string, SystemId>,
+      });
+      return { ok: true, ...result };
+    } catch (err) {
+      return reply.code(400).send({
+        error: {
+          code: "builder_update_failed",
+          message: err instanceof Error ? err.message : "Update failed",
         },
       });
     }

@@ -9,6 +9,7 @@ import {
   suggestFromEsphome,
   type EsphomeImportSuggestion,
 } from "../esphome/yaml.js";
+import { pruneEsphomeDevicesMissingYaml } from "../esphome/orphan-prune.js";
 import {
   createDevice,
   deleteDevice,
@@ -49,6 +50,13 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/v1/devices/esphome-catalog", async (request, reply) => {
     if (!requirePermission(request, reply, "viewDevices")) return;
 
+    const pruned =
+      request.user?.isAdmin ||
+      request.user?.role === "admin" ||
+      request.user?.permissions?.editDevices
+        ? await pruneEsphomeDevicesMissingYaml()
+        : { removed: [] as { id: string; name: string }[] };
+
     const files = await listEsphomeYamlFiles();
     const registered = await getPool().query<{
       esphome_name: string | null;
@@ -87,6 +95,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         files.length === 0
           ? "No YAML files found in /esphome — create a device in ESPHome Builder first, then ensure the esphome/ folder is on the server."
           : null,
+      pruned: pruned.removed,
     };
   });
 

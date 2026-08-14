@@ -50,6 +50,46 @@ describe("esphome builder validate", () => {
 });
 
 describe("esphome builder generate", () => {
+  it("generates PMS UART and particulate sensors", () => {
+    const config = normalizeBuilderConfig({
+      ...baseConfig,
+      components: [
+        {
+          id: "pms",
+          kind: "pms" as const,
+          variant: "PMSX003" as const,
+          uartTxPin: 12,
+          uartRxPin: 13,
+        },
+      ],
+    });
+    const yaml = generateEsphomeYaml(config);
+    assert.match(yaml, /uart:/);
+    assert.match(yaml, /platform: pmsx003/);
+    const parsed = parseEsphomeYaml(yaml, "garden-controller", "garden-controller");
+    assert.equal(parsed.sensors.length, 3);
+  });
+
+  it("generates pulse meter energy sensors and SNTP time", () => {
+    const config = normalizeBuilderConfig({
+      ...baseConfig,
+      components: [
+        {
+          id: "energy",
+          kind: "pulse_meter" as const,
+          pin: 12,
+          pulseRate: 1000,
+        },
+      ],
+    });
+    const yaml = generateEsphomeYaml(config);
+    assert.match(yaml, /platform: pulse_meter/);
+    assert.match(yaml, /platform: total_daily_energy/);
+    assert.match(yaml, /platform: sntp/);
+    const parsed = parseEsphomeYaml(yaml, "garden-controller", "garden-controller");
+    assert.equal(parsed.sensors.length, 3);
+  });
+
   it("generates secrets-based MQTT and round-trips through the parser", () => {
     const config = normalizeBuilderConfig(baseConfig);
     const yaml = generateEsphomeYaml(config);

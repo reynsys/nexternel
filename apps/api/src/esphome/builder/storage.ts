@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import type { EsphomeDeviceBuilderConfig } from "@nexternel/domain";
 import { builderYamlFileName } from "./generate.js";
@@ -42,4 +42,17 @@ export async function writeDeviceYamlFile(
   const absolutePath = join(root, clean);
   await writeFile(absolutePath, yaml, "utf8");
   return { relativePath: clean, absolutePath };
+}
+
+/** Remove a device YAML file from the ESPHome config folder (best-effort). */
+export async function removeDeviceYamlFile(relativePath: string): Promise<boolean> {
+  const root = await resolveEsphomeDir();
+  const clean = relativePath.replace(/^\/+/, "");
+  const absolutePath = join(root, clean);
+  try {
+    await unlink(absolutePath);
+    return true;
+  } catch {
+    return false;
+  }
 }

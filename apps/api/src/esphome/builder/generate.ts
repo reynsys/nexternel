@@ -74,6 +74,80 @@ function renderGpioSwitch(
     restore_mode: RESTORE_DEFAULT_OFF`;
 }
 
+function renderUartBlock(component: Extract<BuilderComponent, { kind: "pms" }>): string {
+  return `  - id: uart_${component.id}
+    tx_pin: GPIO${component.uartTxPin}
+    rx_pin: GPIO${component.uartRxPin}
+    baud_rate: 9600`;
+}
+
+function renderPmsSensor(
+  slug: string,
+  displayName: string,
+  component: Extract<BuilderComponent, { kind: "pms" }>
+): string {
+  const base = entityBase(slug, component);
+  const interval = component.updateIntervalSeconds ?? 60;
+  return `  - platform: pmsx003
+    type: ${component.variant}
+    uart_id: uart_${component.id}
+    update_interval: ${interval}s
+    pm_1_0:
+      name: ${yamlQuote(`${displayName} PM1`)}
+      id: ${base}_pm1
+    pm_2_5:
+      name: ${yamlQuote(`${displayName} PM2.5`)}
+      id: ${base}_pm25
+    pm_10_0:
+      name: ${yamlQuote(`${displayName} PM10`)}
+      id: ${base}_pm10`;
+}
+
+function installationTimezone(): string {
+  const tz = process.env.TZ?.trim();
+  return tz && tz.includes("/") ? tz : "Europe/London";
+}
+
+function renderPulseMeter(
+  slug: string,
+  displayName: string,
+  component: Extract<BuilderComponent, { kind: "pulse_meter" }>
+): string[] {
+  const base = entityBase(slug, component);
+  const rate = component.pulseRate;
+  return [
+    `  - platform: pulse_meter
+    name: ${yamlQuote(`${displayName} Power`)}
+    id: ${base}_power
+    pin: GPIO${component.pin}
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - lambda: return x * ((60.0 / ${rate}) * 1000.0);
+    total:
+      name: ${yamlQuote(`${displayName} Total Energy`)}
+      id: ${base}_total
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - lambda: return x * (1.0 / ${rate});`,
+    `  - platform: total_daily_energy
+    name: ${yamlQuote(`${displayName} Daily Energy`)}
+    id: ${base}_daily
+    power_id: ${base}_power
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 3
+    filters:
+      - multiply: 0.001`,
+  ];
+}
+
 /**
  * Generate ESPHome YAML for a managed device.
  * Wi-Fi and MQTT credentials use server-side secrets — not embedded in the form.
@@ -89,12 +163,20 @@ export function generateEsphomeYaml(config: EsphomeDeviceBuilderConfig): string 
 
   const sensorBlocks: string[] = [];
   const switchBlocks: string[] = [];
+  const uartBlocks: string[] = [];
+  let needsTime = false;
 
   for (const component of config.components) {
     if (component.kind === "dht") {
       sensorBlocks.push(renderDhtSensor(slug, displayName, component));
     } else if (component.kind === "gpio_switch") {
       switchBlocks.push(renderGpioSwitch(component, slug));
+    } else if (component.kind === "pms") {
+      uartBlocks.push(renderUartBlock(component));
+      sensorBlocks.push(renderPmsSensor(slug, displayName, component));
+    } else if (component.kind === "pulse_meter") {
+      needsTime = true;
+      sensorBlocks.push(...renderPulseMeter(slug, displayName, component));
     }
   }
 
@@ -137,6 +219,18 @@ export function generateEsphomeYaml(config: EsphomeDeviceBuilderConfig): string 
     "",
   ];
 
+  if (uartBlocks.length > 0) {
+    lines.push("uart:", ...uartBlocks, "");
+  }
+  if (needsTime) {
+    lines.push(
+      "time:",
+      "  - platform: sntp",
+      "    id: sntp_time",
+      `    timezone: ${installationTimezone()}`,
+      ""
+    );
+  }
   if (sensorBlocks.length > 0) {
     lines.push("sensor:", ...sensorBlocks, "");
   }

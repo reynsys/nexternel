@@ -54,6 +54,8 @@ type Props = {
   catalog: EsphomeCatalogEntry[];
   /** Pre-select import for a catalog file stem (no .yaml). */
   initialImportFile?: string | null;
+  /** Re-open wizard for an existing managed device. */
+  editDeviceId?: string | null;
   onClose: () => void;
   onBusy: (busy: boolean) => void;
   onError: (message: string | null) => void;
@@ -85,6 +87,33 @@ function defaultRelay(): BuilderComponent {
   };
 }
 
+function defaultPms(): BuilderComponent {
+  return {
+    id: newComponentId(),
+    kind: "pms",
+    variant: "PMSX003",
+    uartTxPin: 12,
+    uartRxPin: 13,
+    updateIntervalSeconds: 60,
+  };
+}
+
+function defaultPulseMeter(): BuilderComponent {
+  return {
+    id: newComponentId(),
+    kind: "pulse_meter",
+    pin: 12,
+    pulseRate: 1000,
+  };
+}
+
+function componentLabel(comp: BuilderComponent): string {
+  if (comp.kind === "dht") return "DHT sensor";
+  if (comp.kind === "pms") return "PMS air quality";
+  if (comp.kind === "pulse_meter") return "Energy pulse meter";
+  return "Relay / switch";
+}
+
 function boardsForPlatform(platform: EsphomePlatform) {
   return ESPHOME_BOARD_CATALOG.filter((b) => b.platform === platform);
 }
@@ -96,6 +125,7 @@ export function EsphomeAddDeviceWizard({
   areas,
   catalog,
   initialImportFile,
+  editDeviceId,
   onClose,
   onBusy,
   onError,
@@ -115,6 +145,9 @@ export function EsphomeAddDeviceWizard({
   const [preview, setPreview] = useState<EsphomeBuilderPreview | null>(null);
   const [importFile, setImportFile] = useState("");
   const [importPreview, setImportPreview] = useState<EsphomeBuilderPreview | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+
+  const isEditMode = Boolean(editDeviceId);
 
   const esphomeUrl = esphomeDashboardUrl(hostname);
   const importable = useMemo(
@@ -152,13 +185,36 @@ export function EsphomeAddDeviceWizard({
 
   useEffect(() => {
     if (!open) return;
+    if (editDeviceId) {
+      setEditLoading(true);
+      onError(null);
+      void api
+        .esphomeBuilderGetConfig(editDeviceId)
+        .then((res) => {
+          const cfg = res.config as EsphomeDeviceBuilderConfig;
+          setPath("new");
+          setNewStep("hardware");
+          setPlatform(cfg.platform);
+          setBoardId(cfg.boardId);
+          setDisplayName(cfg.displayName);
+          setRoomId(cfg.roomId ?? "");
+          setComponents(cfg.components.length ? cfg.components : [defaultDht()]);
+          setValidationIssues([]);
+          setPreview(null);
+        })
+        .catch((err) => {
+          onError(err instanceof Error ? err.message : "Failed to load configuration");
+        })
+        .finally(() => setEditLoading(false));
+      return;
+    }
     if (initialImportFile) {
       setPath("import");
       setImportFile(initialImportFile);
     } else {
       reset();
     }
-  }, [open, initialImportFile]);
+  }, [open, initialImportFile, editDeviceId, onError]);
 
   useEffect(() => {
     const boards = boardsForPlatform(platform);
@@ -254,15 +310,22 @@ export function EsphomeAddDeviceWizard({
     onBusy(true);
     onError(null);
     try {
-      await api.esphomeBuilderCreate(builderConfig, roomId || null);
-      onSuccess(
-        `Created ${displayName.trim()}. On the Devices page, open ESPHome → Compile firmware, then Install OTA.`
-      );
+      if (isEditMode && editDeviceId) {
+        await api.esphomeBuilderUpdate(editDeviceId, builderConfig, roomId || null);
+        onSuccess(
+          `Saved ${displayName.trim()}. Open ESPHome → Compile firmware, then Install OTA if hardware changed.`
+        );
+      } else {
+        await api.esphomeBuilderCreate(builderConfig, roomId || null);
+        onSuccess(
+          `Created ${displayName.trim()}. On the Devices page, open ESPHome → Compile firmware, then Install OTA.`
+        );
+      }
       onCreated();
       onClose();
       reset();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Create failed");
+      onError(err instanceof Error ? err.message : isEditMode ? "Save failed" : "Create failed");
     } finally {
       onBusy(false);
     }
@@ -299,11 +362,13 @@ export function EsphomeAddDeviceWizard({
   }
 
   const dialogTitle =
-    path === "choose"
-      ? "Add device"
-      : path === "import"
-        ? "Import ESPHome device"
-        : "New ESPHome device";
+    isEditMode
+      ? "Edit ESPHome configuration"
+      : path === "choose"
+        ? "Add device"
+        : path === "import"
+          ? "Import ESPHome device"
+          : "New ESPHome device";
 
   return (
     <Dialog
@@ -321,7 +386,12 @@ export function EsphomeAddDeviceWizard({
       >
         <DialogTitle>{dialogTitle}</DialogTitle>
         <DialogContent>
-          {path === "choose" && (
+          {editLoading && (
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              Loading configuration…
+            </Typography>
+          )}
+          {!editLoading && path === "choose" && (
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Typography color="text.secondary">
                 Add a new ESP32 or ESP8266 by describing the hardware attached to it.
@@ -350,7 +420,7 @@ export function EsphomeAddDeviceWizard({
             </Stack>
           )}
 
-          {path === "new" && (
+          {!editLoading && path === "new" && (
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Stepper activeStep={newStepIndex} alternativeLabel>
                 <Step>
@@ -455,9 +525,7 @@ export function EsphomeAddDeviceWizard({
                         alignItems="center"
                         sx={{ mb: 1 }}
                       >
-                        <Typography fontWeight={600}>
-                          {comp.kind === "dht" ? "DHT sensor" : "Relay / switch"}
-                        </Typography>
+                        <Typography fontWeight={600}>{componentLabel(comp)}</Typography>
                         <IconButton
                           size="small"
                           aria-label="Remove component"
@@ -515,7 +583,102 @@ export function EsphomeAddDeviceWizard({
                             fullWidth
                           />
                         </Stack>
-                      ) : (
+                      ) : comp.kind === "pms" ? (
+                        <Stack spacing={1.5}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel id={`pms-var-${comp.id}`}>Model</InputLabel>
+                            <Select
+                              labelId={`pms-var-${comp.id}`}
+                              label="Model"
+                              value={comp.variant}
+                              onChange={(e) =>
+                                setComponents((list) =>
+                                  list.map((c, i) =>
+                                    i === index && c.kind === "pms"
+                                      ? {
+                                          ...c,
+                                          variant: e.target.value as typeof comp.variant,
+                                        }
+                                      : c
+                                  )
+                                )
+                              }
+                            >
+                              <MenuItem value="PMSX003">PMSX003 series</MenuItem>
+                              <MenuItem value="PMS5003">PMS5003</MenuItem>
+                              <MenuItem value="PMS7003">PMS7003</MenuItem>
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label="UART TX pin (GPIO)"
+                            type="number"
+                            size="small"
+                            value={comp.uartTxPin}
+                            onChange={(e) =>
+                              setComponents((list) =>
+                                list.map((c, i) =>
+                                  i === index && c.kind === "pms"
+                                    ? { ...c, uartTxPin: Number(e.target.value) }
+                                    : c
+                                )
+                              )
+                            }
+                            fullWidth
+                          />
+                          <TextField
+                            label="UART RX pin (GPIO)"
+                            type="number"
+                            size="small"
+                            value={comp.uartRxPin}
+                            onChange={(e) =>
+                              setComponents((list) =>
+                                list.map((c, i) =>
+                                  i === index && c.kind === "pms"
+                                    ? { ...c, uartRxPin: Number(e.target.value) }
+                                    : c
+                                )
+                              )
+                            }
+                            fullWidth
+                          />
+                        </Stack>
+                      ) : comp.kind === "pulse_meter" ? (
+                        <Stack spacing={1.5}>
+                          <TextField
+                            label="Pulse input pin (GPIO)"
+                            type="number"
+                            size="small"
+                            value={comp.pin}
+                            onChange={(e) =>
+                              setComponents((list) =>
+                                list.map((c, i) =>
+                                  i === index && c.kind === "pulse_meter"
+                                    ? { ...c, pin: Number(e.target.value) }
+                                    : c
+                                )
+                              )
+                            }
+                            fullWidth
+                          />
+                          <TextField
+                            label="Impulses per kWh"
+                            type="number"
+                            size="small"
+                            value={comp.pulseRate}
+                            onChange={(e) =>
+                              setComponents((list) =>
+                                list.map((c, i) =>
+                                  i === index && c.kind === "pulse_meter"
+                                    ? { ...c, pulseRate: Number(e.target.value) }
+                                    : c
+                                )
+                              )
+                            }
+                            fullWidth
+                            helperText="Printed on your meter (often 1000)"
+                          />
+                        </Stack>
+                      ) : comp.kind === "gpio_switch" ? (
                         <Stack spacing={1.5}>
                           <TextField
                             label="Name"
@@ -566,7 +729,7 @@ export function EsphomeAddDeviceWizard({
                             label="Active low (typical relay module)"
                           />
                         </Stack>
-                      )}
+                      ) : null}
                     </Box>
                   ))}
                   <Stack direction="row" spacing={1}>
@@ -583,6 +746,20 @@ export function EsphomeAddDeviceWizard({
                       }
                     >
                       Add relay
+                    </Button>
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={() => setComponents((list) => [...list, defaultPms()])}
+                    >
+                      Add PMS
+                    </Button>
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={() =>
+                        setComponents((list) => [...list, defaultPulseMeter()])
+                      }
+                    >
+                      Add pulse meter
                     </Button>
                   </Stack>
                 </Stack>
@@ -632,7 +809,7 @@ export function EsphomeAddDeviceWizard({
             </Stack>
           )}
 
-          {path === "import" && (
+          {!editLoading && path === "import" && (
             <Stack spacing={2} sx={{ mt: 1 }}>
               <FormControl fullWidth size="small">
                 <InputLabel id="import-yaml">Server configuration</InputLabel>
@@ -695,7 +872,13 @@ export function EsphomeAddDeviceWizard({
                 Back
               </Button>
               <Button type="submit" variant="contained" disabled={busy || !preview?.ok}>
-                {busy ? "Creating…" : "Create device"}
+                {busy
+                  ? isEditMode
+                    ? "Saving…"
+                    : "Creating…"
+                  : isEditMode
+                    ? "Save configuration"
+                    : "Create device"}
               </Button>
             </>
           ) : (

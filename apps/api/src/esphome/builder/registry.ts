@@ -7,8 +7,12 @@ import {
   type EsphomeManagementMode,
 } from "@nexternel/domain";
 import { getPool } from "../../db.js";
-import { createDevice } from "../../devices/service.js";
-import { parseEsphomeYaml } from "../yaml.js";
+import {
+  createDevice,
+  getDeviceDetailed,
+  syncDeviceFromEsphomeSuggestion,
+} from "../../devices/service.js";
+import { parseEsphomeYaml, suggestFromEsphome } from "../yaml.js";
 import { buildEsphomeDriverManifest } from "../../v4/drivers/esphome.js";
 import {
   mapCandidatesToCapabilities,
@@ -149,6 +153,104 @@ export async function createManagedEsphomeDevice(input: {
     deviceId: device.id,
     yamlPath: relativePath,
     lifecycleState: "awaiting_installation",
+    managementMode: "managed",
+    manifest: preview.manifest,
+    mapped,
+    sync,
+    classified,
+  };
+}
+
+export async function getManagedBuilderConfig(
+  deviceId: string
+): Promise<EsphomeDeviceBuilderConfig> {
+  const res = await getPool().query<{
+    esphome_management_mode: string | null;
+    esphome_builder_config: unknown;
+  }>(
+    `SELECT esphome_management_mode, esphome_builder_config FROM devices WHERE id = $1`,
+    [deviceId]
+  );
+  const row = res.rows[0];
+  if (!row) throw new Error("Device not found");
+  if (row.esphome_management_mode !== "managed") {
+    throw new Error("Only managed devices can be edited in the Device Builder");
+  }
+  if (!row.esphome_builder_config || typeof row.esphome_builder_config !== "object") {
+    throw new Error("Builder configuration not found for this device");
+  }
+  return row.esphome_builder_config as EsphomeDeviceBuilderConfig;
+}
+
+export async function updateManagedEsphomeDevice(input: {
+  deviceId: string;
+  config: unknown;
+  roomId?: string | null;
+  systemOverrides?: Record<string, SystemId>;
+}): Promise<CreateManagedEsphomeResult> {
+  const device = await getDeviceDetailed(input.deviceId);
+  if (!device) throw new Error("Device not found");
+  if (device.esphomeManagementMode !== "managed") {
+    throw new Error("Only managed devices can be edited in the Device Builder");
+  }
+
+  const lockedSlug = device.esphomeName || device.slug;
+  const raw = input.config as EsphomeDeviceBuilderConfig;
+  const merged = {
+    ...raw,
+    slug: lockedSlug,
+    version: 1 as const,
+  };
+
+  const preview = await previewManagedEsphomeDevice(merged, input.roomId ?? device.roomId);
+  if (!preview.validation.valid || !preview.config || !preview.parsed || !preview.manifest) {
+    const first = preview.validation.issues[0];
+    throw new Error(first?.message ?? "Invalid device configuration");
+  }
+
+  const config = { ...preview.config, slug: lockedSlug };
+  const { relativePath } = await writeManagedEsphomeYaml(config, preview.yaml!);
+
+  await getPool().query(
+    `UPDATE devices SET
+       name = $2,
+       room_id = $3,
+       esphome_builder_config = $4::jsonb,
+       esphome_yaml_path = $5,
+       esphome_lifecycle_state = 'configured',
+       updated_at = NOW()
+     WHERE id = $1`,
+    [
+      input.deviceId,
+      config.displayName,
+      input.roomId ?? config.roomId ?? device.roomId,
+      JSON.stringify(config),
+      relativePath,
+    ]
+  );
+
+  const suggestion = await suggestFromEsphome(lockedSlug);
+  if (suggestion) {
+    await syncDeviceFromEsphomeSuggestion(input.deviceId, suggestion);
+  }
+
+  const { sync, classified } = await syncAndClassifyCapabilities(
+    input.deviceId,
+    input.systemOverrides
+  );
+  await refreshTelemetrySubscriptions();
+
+  const updated = await getDeviceDetailed(input.deviceId);
+  const mapped = mapCandidatesToCapabilities(preview.manifest.candidates, {
+    deviceName: config.displayName,
+    areaName: updated?.roomName ?? null,
+    systemOverrides: input.systemOverrides,
+  });
+
+  return {
+    deviceId: input.deviceId,
+    yamlPath: relativePath,
+    lifecycleState: "configured",
     managementMode: "managed",
     manifest: preview.manifest,
     mapped,

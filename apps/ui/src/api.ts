@@ -855,6 +855,7 @@ export const api = {
     apiFetch<{
       configs: EsphomeCatalogEntry[];
       esphomeDirHint: string | null;
+      pruned?: { id: string; name: string }[];
     }>("/api/v1/devices/esphome-catalog"),
 
   esphomeSuggest: (name: string) =>
@@ -878,6 +879,17 @@ export const api = {
     apiFetch<EsphomeBuilderCreateResult>(
       "/api/v1/v4/devices/esphome/builder/create",
       { method: "POST", body: JSON.stringify({ config, roomId: roomId ?? null }) }
+    ),
+
+  esphomeBuilderGetConfig: (deviceId: string) =>
+    apiFetch<{ ok: boolean; config: unknown }>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/builder-config`
+    ),
+
+  esphomeBuilderUpdate: (deviceId: string, config: unknown, roomId?: string | null) =>
+    apiFetch<EsphomeBuilderCreateResult>(
+      `/api/v1/v4/devices/esphome/${encodeURIComponent(deviceId)}/builder`,
+      { method: "PUT", body: JSON.stringify({ config, roomId: roomId ?? null }) }
     ),
 
   esphomeDeviceYaml: (deviceId: string) =>

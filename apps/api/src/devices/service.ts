@@ -3,6 +3,7 @@ import { getPool } from "../db.js";
 import { preferCatalogDisplayName } from "./display-name.js";
 import type { EsphomeImportSuggestion } from "../esphome/yaml.js";
 import { suggestFromEsphomeCandidates } from "../esphome/yaml.js";
+import { removeDeviceYamlFile } from "../esphome/builder/storage.js";
 import {
   buildShellyGen1RelayTopics,
   buildShellyGen1TopicPrefix,
@@ -687,10 +688,30 @@ export async function updateDevice(
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
+  const meta = await getPool().query<{
+    firmware_type: string;
+    esphome_yaml_path: string | null;
+    esphome_name: string | null;
+    slug: string;
+  }>(
+    `SELECT firmware_type, esphome_yaml_path, esphome_name, slug FROM devices WHERE id = $1`,
+    [id]
+  );
+  const row = meta.rows[0];
+
   const result = await getPool().query(`DELETE FROM devices WHERE id = $1 RETURNING id`, [
     id,
   ]);
-  return (result.rowCount ?? 0) > 0;
+  const deleted = (result.rowCount ?? 0) > 0;
+
+  if (deleted && row?.firmware_type === "esphome") {
+    const yamlPath =
+      row.esphome_yaml_path?.trim() ||
+      (row.esphome_name ? `${row.esphome_name}.yaml` : `${row.slug}.yaml`);
+    await removeDeviceYamlFile(yamlPath);
+  }
+
+  return deleted;
 }
 
 /** Re-import YAML for every ESPHome device — prunes ghost relays (e.g. removed Fan Relay). */

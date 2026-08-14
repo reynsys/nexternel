@@ -106,6 +106,7 @@ export function DevicesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardImportFile, setWizardImportFile] = useState<string | null>(null);
+  const [wizardEditDeviceId, setWizardEditDeviceId] = useState<string | null>(null);
   const [shellyDialogOpen, setShellyDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DeviceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -129,7 +130,11 @@ export function DevicesPage() {
         api.devices(),
         api.rooms(),
         api.me(),
-        api.esphomeCatalog().catch(() => ({ configs: [], esphomeDirHint: null })),
+        api.esphomeCatalog().catch(() => ({
+          configs: [],
+          esphomeDirHint: null,
+          pruned: [],
+        })),
       ]);
       setDevices(devRes.devices);
       setAreas(roomRes.rooms.map((r) => ({ id: r.id, name: r.name })));
@@ -146,6 +151,11 @@ export function DevicesPage() {
       }
       setCatalog(catRes.configs);
       setCatalogHint(catRes.esphomeDirHint);
+      if (catRes.pruned?.length) {
+        setInfo(
+          `Removed ${catRes.pruned.length} device(s) whose YAML was deleted from the server: ${catRes.pruned.map((p) => p.name).join(", ")}`
+        );
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load devices");
@@ -169,7 +179,14 @@ export function DevicesPage() {
   );
 
   function openAddDeviceWizard(fileName?: string) {
+    setWizardEditDeviceId(null);
     setWizardImportFile(fileName ?? null);
+    setWizardOpen(true);
+  }
+
+  function openEditBuilder(d: DeviceRecord) {
+    setWizardEditDeviceId(d.id);
+    setWizardImportFile(null);
     setWizardOpen(true);
   }
 
@@ -626,6 +643,16 @@ export function DevicesPage() {
                     </Button>
                     {(d.firmwareType || "esphome") === "esphome" && (
                       <>
+                        {d.esphomeManagementMode === "managed" && (
+                          <Button
+                            size="small"
+                            startIcon={<EditRoundedIcon />}
+                            disabled={busy}
+                            onClick={() => openEditBuilder(d)}
+                          >
+                            Edit configuration
+                          </Button>
+                        )}
                         <Button
                           size="small"
                           startIcon={<BuildRoundedIcon />}
@@ -831,9 +858,11 @@ export function DevicesPage() {
           areas={areas}
           catalog={catalog}
           initialImportFile={wizardImportFile}
+          editDeviceId={wizardEditDeviceId}
           onClose={() => {
             setWizardOpen(false);
             setWizardImportFile(null);
+            setWizardEditDeviceId(null);
           }}
           onBusy={setBusy}
           onError={setError}

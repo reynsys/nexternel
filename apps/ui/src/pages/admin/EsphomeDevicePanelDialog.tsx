@@ -13,6 +13,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
+import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import { api, type DeviceRecord } from "../../api";
 
 type Props = {
@@ -123,6 +125,33 @@ export function EsphomeDevicePanelDialog({
     }
   }
 
+  async function runDownloadFlashYaml() {
+    if (!device) return;
+    const stem = (device.esphomeName || device.slug || "").trim();
+    if (!stem) {
+      onError("Device has no ESPHome name / slug — cannot build flash YAML");
+      return;
+    }
+    onBusy(true);
+    onError(null);
+    try {
+      const { blob, filename } = await api.downloadFlashReadyYaml(stem);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      onSuccess(
+        `Downloaded ${filename}. Flash via USB using web.esphome.io or ESPHome Install → Plug into this computer.`
+      );
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Flash YAML download failed");
+    } finally {
+      onBusy(false);
+    }
+  }
+
   async function runSaveYaml() {
     if (!device) return;
     onBusy(true);
@@ -157,7 +186,8 @@ export function EsphomeDevicePanelDialog({
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               Compile builds firmware on the server. Install OTA sends it to a device that is
-              already on the network (first-time install may still need USB via ESPHome).
+              already on the network. First-time install uses USB — download flash-ready YAML
+              below, then open web.esphome.io with the device plugged in.
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button variant="contained" disabled={busy} onClick={() => void runCompile()}>
@@ -165,6 +195,23 @@ export function EsphomeDevicePanelDialog({
               </Button>
               <Button variant="outlined" disabled={busy} onClick={() => void runUpload()}>
                 Install OTA
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={busy}
+                startIcon={<DownloadRoundedIcon />}
+                onClick={() => void runDownloadFlashYaml()}
+              >
+                Download flash YAML
+              </Button>
+              <Button
+                variant="outlined"
+                href="https://web.esphome.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                endIcon={<OpenInNewRoundedIcon />}
+              >
+                web.esphome.io
               </Button>
             </Stack>
             {log ? (

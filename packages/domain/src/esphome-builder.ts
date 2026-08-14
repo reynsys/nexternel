@@ -30,9 +30,11 @@ export type EsphomeLifecycleState =
   | "offline"
   | "error";
 
-export type BuilderComponentKind = "dht" | "gpio_switch";
+export type BuilderComponentKind = "dht" | "gpio_switch" | "pms" | "pulse_meter";
 
 export type DhtVariant = "DHT11" | "DHT22" | "DHT21";
+
+export type PmsVariant = "PMSX003" | "PMS5003" | "PMS7003";
 
 export type DhtBuilderComponent = {
   id: string;
@@ -51,7 +53,28 @@ export type GpioSwitchBuilderComponent = {
   inverted?: boolean;
 };
 
-export type BuilderComponent = DhtBuilderComponent | GpioSwitchBuilderComponent;
+export type PmsBuilderComponent = {
+  id: string;
+  kind: "pms";
+  variant: PmsVariant;
+  uartTxPin: number;
+  uartRxPin: number;
+  updateIntervalSeconds?: number;
+};
+
+export type PulseMeterBuilderComponent = {
+  id: string;
+  kind: "pulse_meter";
+  pin: number;
+  /** Meter label: impulses per kWh (e.g. 1000). */
+  pulseRate: number;
+};
+
+export type BuilderComponent =
+  | DhtBuilderComponent
+  | GpioSwitchBuilderComponent
+  | PmsBuilderComponent
+  | PulseMeterBuilderComponent;
 
 /** Structured device definition — authoritative for managed devices. */
 export type EsphomeDeviceBuilderConfig = {
@@ -183,6 +206,90 @@ export const ESPHOME_COMPONENT_CATALOG: BuilderComponentCatalogEntry[] = [
         min: 10,
         max: 600,
         defaultValue: 60,
+      },
+    ],
+  },
+  {
+    id: "pms",
+    category: "sensor",
+    label: "PMS air quality sensor",
+    description: "Plantower PMS5003 / PMS7003 / PMSX003 on UART (PM1, PM2.5, PM10)",
+    platforms: ["esp32", "esp8266"],
+    createsCapabilities: [
+      { kind: "pm1", label: "PM1" },
+      { kind: "pm25", label: "PM2.5" },
+      { kind: "pm10", label: "PM10" },
+    ],
+    fields: [
+      {
+        key: "variant",
+        label: "Sensor model",
+        type: "select",
+        required: true,
+        options: [
+          { value: "PMSX003", label: "PMSX003 series" },
+          { value: "PMS5003", label: "PMS5003" },
+          { value: "PMS7003", label: "PMS7003" },
+        ],
+        defaultValue: "PMSX003",
+      },
+      {
+        key: "uartTxPin",
+        label: "UART TX pin (GPIO)",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 39,
+      },
+      {
+        key: "uartRxPin",
+        label: "UART RX pin (GPIO)",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 39,
+      },
+      {
+        key: "updateIntervalSeconds",
+        label: "Update interval (seconds)",
+        type: "number",
+        required: false,
+        min: 10,
+        max: 600,
+        defaultValue: 60,
+      },
+    ],
+  },
+  {
+    id: "pulse_meter",
+    category: "sensor",
+    label: "Energy pulse meter",
+    description: "LED pulse from utility meter (power, total kWh, daily kWh)",
+    platforms: ["esp32", "esp8266"],
+    createsCapabilities: [
+      { kind: "power", label: "Power" },
+      { kind: "energy", label: "Total energy" },
+      { kind: "energy", label: "Daily energy" },
+    ],
+    fields: [
+      {
+        key: "pin",
+        label: "Pulse input pin (GPIO)",
+        type: "number",
+        required: true,
+        min: 0,
+        max: 39,
+        help: "GPIO connected to the meter pulse LED or S0 output",
+      },
+      {
+        key: "pulseRate",
+        label: "Impulses per kWh",
+        type: "number",
+        required: true,
+        min: 1,
+        max: 100000,
+        defaultValue: 1000,
+        help: "Printed on your meter (often 1000 imp/kWh)",
       },
     ],
   },
